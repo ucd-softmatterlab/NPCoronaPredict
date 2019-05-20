@@ -1,0 +1,130 @@
+#! /usr/bin/python3
+
+from sys import argv
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as mfm
+import cartopy.crs as ccrs
+import numpy as np
+from matplotlib.ticker import MaxNLocator
+import scipy as sp
+import scipy.ndimage
+
+sigma = 1
+
+#if len(argv) != 3:
+#    print('Usage: ./CompareMaps <map.csv> <map.csv>')
+#    exit(0)
+
+first  = argv[1]
+second = argv[2]
+
+if not (first[-4:] == '.map' or second[-4:] == '.map'):
+    print('{} or {} is not a .map file'.format(first, second))
+    exit(0)
+
+def GetImage(filename):
+    data      = np.genfromtxt(filename)
+    phi       = data[:,0]
+    theta     = data[:,1]
+    energy    = data[:,2]
+    sinTheta  = np.sin(theta * np.pi / 180.0)
+    average   = np.mean(energy * sinTheta)
+    boltzmann = np.sum(energy * sinTheta * np.exp(-1.0 * energy)) / np.sum(sinTheta * np.exp(-1.0 * energy))
+    delta     = phi[1] - phi[0]
+    rows      = int(180.0 / delta)
+    cols      = int(360.0 / delta)
+    image     = np.zeros((rows, cols))
+    index     = np.argmin(energy)
+    
+    print("Simple Average   = {}".format(average))
+    print("Boltzman Average = {}".format(boltzmann))
+    print("Minimum Value    = {} @ Theta = {} and Phi = {}".format(energy[index], phi[index], theta[index]))
+    
+    for phi, theta, energy, err in data:
+        col             = int(phi / delta)
+        row             = int(theta / delta)
+
+        image[row][col] = energy
+    
+    return image
+
+image0 = GetImage(first)
+image1 = GetImage(second)
+
+rows0, cols0 = image0.shape
+rows1, cols1 = image1.shape
+
+# Smooth the data
+lon1 = np.linspace(0.0, 2.0 * np.pi, cols0)
+lat1 = np.linspace(0.0, np.pi, rows0)
+Lon1, Lat1 = np.meshgrid(lon1, lat1)
+
+lon2 = np.linspace(0.0, 2.0 * np.pi, cols1)
+lat2 = np.linspace(0.0, np.pi, rows1)
+Lon2, Lat2 = np.meshgrid(lon2, lat2)
+
+
+image0 = sp.ndimage.filters.gaussian_filter(image0, sigma = [sigma, sigma], mode = ['constant', 'wrap'])
+image1 = sp.ndimage.filters.gaussian_filter(image1, sigma = [sigma, sigma], mode = ['constant', 'wrap'])
+
+def Bolts(image):
+    rows, cols = image.shape
+    Z = 0.0
+    T = 0.0
+    for row in range(rows):
+        sinTheta = (row / float(rows)) * np.pi
+        for col in range(cols):
+            U = image[row][col]
+            F = sinTheta * np.exp(-U)
+            T += U * F
+            Z += F
+    print("New Boltzmann: ", T / Z)
+
+#Bolts(image0)
+#Bolts(image1)
+
+# Plot the data
+font_path = "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMono.ttf"
+fontsize  = 12
+clabelpad = 26
+   
+font      = mfm.FontProperties(fname = font_path, size = fontsize)
+xlabel    = r"$\phi$" + u"\u00B0"
+ylabel    = r"$\theta$" + u"\u00B0"
+clabel    = r"E($\phi$,$\theta$)/k${_B}$T";
+
+fig, (ax0, ax1) = plt.subplots(nrows = 1, ncols = 2, figsize = (12, 4))
+
+nbins = 50
+
+#minimum = min(np.min(image0), np.min(image1))
+#maximum = max(np.max(image0), np.max(image1))
+#levels0 = MaxNLocator(nbins = nbins).tick_values(minimum, maximum)
+# 5nm levels1 = MaxNLocator(nbins = nbins).tick_values(minimum + 9.5, maximum)
+#levels1 = MaxNLocator(nbins = nbins).tick_values(minimum, maximum)
+#levels0 = MaxNLocator(nbins = nbins).tick_values(-175, -8)
+#levels1 = MaxNLocator(nbins = nbins).tick_values(-100, -25)
+
+levels0 = MaxNLocator(nbins = nbins).tick_values(np.min(image0), np.max(image0))
+levels1 = MaxNLocator(nbins = nbins).tick_values(np.min(image1), np.max(image1))
+
+dx      = 0.0
+dy      = 0.0
+rad2deg = 180.0 / np.pi
+
+im0 = ax0.contourf((Lon1 + dx / 2.0) * rad2deg, (Lat1 + dy / 2.0) * rad2deg, image0, levels = levels0, cmap = 'ocean')
+cb0 = fig.colorbar(im0, ax = ax0, shrink = 1.0, ticks = MaxNLocator(integer = True))
+cb0.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = font)
+ax0.set_xlabel(xlabel, fontproperties = font)
+ax0.set_ylabel(ylabel, fontproperties = font)
+
+im1 = ax1.contourf((Lon2 + dx / 2.0) * rad2deg, (Lat2 + dy / 2.0) * rad2deg, image1, levels = levels1, cmap = 'ocean')
+cb1 = fig.colorbar(im1, ax = ax1, shrink = 1.0, ticks = MaxNLocator(integer = True))
+cb1.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = font)
+ax1.set_xlabel(xlabel, fontproperties = font)
+
+plt.tight_layout()
+
+plt.show()
+
+#plt.savefig(argv[3])

@@ -1,0 +1,48 @@
+#! /usr/bin/python3
+
+from sys import argv
+import numpy as np
+import scipy as sp
+import scipy.ndimage
+
+sigma = 0.5
+
+if len(argv) != 2:
+    print('Usage: ./smoothbolts <map.csv>')
+    exit(0)
+
+filename = argv[1]
+
+if not filename[-4:] == '.map':
+    print('{} is not a .map file'.format(filename))
+    exit(0)
+
+def GetImage(filename):
+    data      = np.genfromtxt(filename)
+    delta     = data[1][0] - data[0][0]
+    rows      = int(180.0 / delta)
+    cols      = int(360.0 / delta)
+    image     = np.zeros((rows, cols))
+    for phi, theta, energy in data:
+        col             = int(phi / delta)
+        row             = int(theta / delta)
+        image[row][col] = energy
+    return image
+
+image = GetImage(filename)
+image = sp.ndimage.filters.gaussian_filter(image, sigma = [sigma, sigma], mode = ['constant', 'wrap'])
+
+def Bolts(image):
+    rows, cols = image.shape
+    Z = 0.0
+    T = 0.0
+    for row in range(rows):
+        sinTheta = (row / float(rows)) * np.pi
+        for col in range(cols):
+            U = image[row][col]
+            F = sinTheta * np.exp(-U)
+            T += U * F
+            Z += F
+    print(T / Z)
+
+Bolts(image)

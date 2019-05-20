@@ -1,0 +1,58 @@
+#! /usr/bin/python
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+
+
+#acids =  [ 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HID', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL' ]
+acids =  [ 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'HID', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'SER', 'THR', 'TRP', 'TYR', 'VAL' ]
+
+rows            = 5
+cols            = 4
+sub_label_size  = 18
+label_size      = 26
+title_size      = 30
+energy_thresh   = 40
+line_width      = 3
+
+#fig = plt.figure(figsize=(16, 16), constrained_layout = True)
+fig = plt.figure(figsize=(16, 16))
+#fig.suptitle("PMF for 22 amino acids on a Ti02 surface", fontsize = title_size)
+
+for n, acid in enumerate(acids):        
+        
+    ax = fig.add_subplot(rows, cols, n + 1)
+    ax.set_title(acid, fontsize = sub_label_size)
+    
+    ax.yaxis.set_major_locator(MaxNLocator(integer = True, nbins = 4))
+
+    #plt.xlabel("distance (nm)", fontsize = sub_label_size)
+    #plt.ylabel("energy (kT)", fontsize = sub_label_size)
+
+    print(acid)
+
+    data = np.genfromtxt('aa-dat/' + acid + '.dat')
+
+    r = data[:,0] * 10
+    E = data[:,1]
+    
+    mask = E < 5.1 if acid != "SER" else E < 10.1
+    zero = np.asarray([0] * len(r))
+   
+    plt.xlim(0, 16)
+
+    plt.tick_params(axis = 'both', labelsize = 14)
+    
+    plt.plot(r[mask], E[mask], "r", linewidth = line_width)
+    plt.plot(np.linspace(0, 16, 100), [0] * 100, "--b")
+        
+ylabel = r"E$_{PMF}$ / k$_{B}$T"    
+
+
+fig.text(0.5, 0.01, 'h [$\AA$]', ha='center', fontsize = label_size)
+fig.text(0.02, 0.5, ylabel, va='center', rotation='vertical', fontsize = label_size)
+
+fig.tight_layout(rect=[0.04, 0.04, 1.0, 1.0])
+
+plt.show()

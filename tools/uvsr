@@ -1,0 +1,63 @@
+#! /usr/bin/python
+
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+from scipy.optimize import curve_fit
+
+def gaus(R, E0, R0, n):
+    return E0 * (1.0 - np.exp( -0.691 * R / R0)) 
+
+fontsize = 14
+
+data  = np.genfromtxt(sys.argv[1])
+
+r   = data[:,1]
+U   = data[:,3]
+sd  = data[:,4]
+
+r_limit = r[-1]
+U_limit = U[-1]
+
+mask = r < r_limit
+U = U[mask]
+r = r[mask]
+sd = sd[mask] * 2
+l = [U_limit] * len(r)
+
+pop, cov = curve_fit(gaus, r, U, p0 = (U[-1], 100.0, 1.0))
+E0, R0,  n = pop
+gr = np.linspace(r[0], r[-1], 1000)
+s  = gaus(gr, E0, R0, n)
+s2  = gaus(gr, E0, R0, n)
+print E0, R0, n
+#print cov
+
+residuals = U - gaus(r, E0, R0, n)
+ss_res = np.sum(residuals**2)
+ss_tot = np.sum((U - np.mean(U))**2)
+r_squared = 1 - (ss_res / ss_tot)
+
+print r_squared
+
+plt.errorbar(r, U, fmt = 'ob', yerr = sd, ecolor="k")
+flat,  = plt.semilogx(r, l, '--r')
+plt.semilogx(gr, s, '-r')
+
+#ax = plt.axes()
+
+#first,  = ax.semilogx(r, U, "or", yerr = sd)
+#second, = ax.semilogx(r, U, "-b")
+#third,  = ax.semilogx(r, l, '--r')
+
+#ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+plt.legend([flat], ['flat'], fontsize = fontsize)
+
+plt.xlabel('R [nm]', fontsize = fontsize)
+plt.ylabel('E$_{ad}$ / k$_B$T', fontsize = fontsize)
+
+plt.show()
+
+

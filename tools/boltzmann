@@ -1,0 +1,19 @@
+#! /usr/bin/python
+
+from sys import argv
+import numpy as np
+
+filename    = argv[1]
+root        = filename.split('/')[-1]
+name        = root.split('.')[0]
+
+protein, radius, zeta = name.split('_')
+
+data        = np.genfromtxt(filename)
+theta       = data[:,1] * np.pi / 180.0
+energy      = data[:,2]
+average     = str(np.mean(np.sin(theta) * energy))
+boltzmann   = str(np.sum(energy * np.sin(theta) * np.exp(-1.0 * energy)) / np.sum(np.sin(theta) * np.exp(-1.0 * energy)))
+
+print(",".join([protein, radius, zeta, average, boltzmann]))
+
