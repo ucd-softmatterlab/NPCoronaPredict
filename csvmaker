@@ -1,0 +1,90 @@
+#! /usr/bin/python
+
+import os
+import numpy as np
+
+materials = {}
+
+proteins = [ 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', '1b1i', '1c1z', '1ezq', '1gpz', '1htn', '1ioj', '1jmj', '1kw2', '1lfg', '1lil', '1mim', '1n5u', '1o1k', '1pk6', '1soh', '1ubq', '1ux6', '1v04', '1w0r', '1w7x', '1z8u', '1zm0', '2a01', '2anw', '2b4x', '2f83', '2h7t', '2hav', '2jq3', '2nsm', '2oay', '2ok5', '2ol2', '2ou1', '2w08', '2wew', '2wxw', '2xe6', '3dlj', '3dlw', '3gau', '3ghg', '3h5c',
+        '3i3t', '3kq0', '3ne4', '3pow', '3s84', '3v03', '3zd2', '4a5t', '4bdv', '4bex', '4d2n', '4enz', '4es7', '4f5s', '4haf', '4igd', '4j1y', '4n85', '4nh9', '4r9j', '4xde', '4xwg', '5d4k', '5dvo', '5dyh', '5edk', 'B1ANY3', 'B1N7B8', 'B1NKR3', 'B2RXH2', 'O00148', 'O00167', 'O00187', 'O00391', 'O00512', 'O00602', 'O14523', 'O14734', 'O14786', 'O14791', 'O14983', 'O15117', 'O15213', 'O15355', 'O15446', 'O15503', 'O40626', 'O43155', 'O43194', 'O43681', 'O43866', 'O43889', 'O60462', 'O60518',
+        'O75052', 'O75309', 'O75356', 'O75367', 'O75427', 'O75636', 'O75915', 'O75943', 'O75976', 'O76036', 'O91087', 'O94812', 'O94900', 'O94985', 'O95221', 'O95342', 'O95445', 'O95466', 'O95486', 'O95810', 'O95847', 'P00450', 'P00488', 'P00558', 'P00734', 'P00736', 'P00738', 'P00739', 'P00740', 'P00742', 'P00746', 'P00747', 'P00748', 'P00751', 'P01008', 'P01009', 'P01011', 'P01019', 'P01023', 'P01034', 'P01042', 'P01344', 'P01591', 'P01593', 'P01594', 'P01596', 'P01597', 'P01599', 'P01605',
+        'P01610', 'P01611', 'P01613', 'P01614', 'P01617', 'P01619', 'P01620', 'P01621', 'P01625', 'P01700', 'P01714', 'P01717', 'P01743', 'P01763', 'P01764', 'P01765', 'P01766', 'P01771', 'P01780', 'P01781', 'P01825', 'P01833', 'P01834', 'P01857', 'P01859', 'P01860', 'P01861', 'P01871', 'P01876', 'P01877', 'P01880', 'P02042', 'P02647', 'P02649', 'P02652', 'P02654', 'P02655', 'P02656', 'P02671', 'P02708', 'P02735', 'P02741', 'P02743', 'P02745', 'P02746', 'P02747', 'P02748', 'P02749', 'P02750',
+        'P02760', 'P02763', 'P02765', 'P02766', 'P02768', 'P02774', 'P02775', 'P02776', 'P02786', 'P02787', 'P02788', 'P02790', 'P03362', 'P03950', 'P03951', 'P03952', 'P04003', 'P04004', 'P04070', 'P04075', 'P04083', 'P04180', 'P04196', 'P04206', 'P04217', 'P04220', 'P04279', 'P04406', 'P04433', 'P04632', 'P04792', 'P04899', 'P04908', 'P05019', 'P05062', 'P05067', 'P05090', 'P05106', 'P05109', 'P05154', 'P05155', 'P05156', 'P05452', 'P05546', 'P05667', 'P06239', 'P06276', 'P06280', 'P06311',
+        'P06396', 'P06421', 'P06435', 'P06681', 'P06702', 'P06727', 'P06732', 'P06733', 'P06744', 'P07195', 'P07225', 'P07332', 'P07355', 'P07358', 'P07360', 'P07384', 'P07437', 'P07737', 'P07900', 'P07996', 'P08123', 'P08185', 'P08238', 'P08294', 'P08393', 'P08514', 'P08567', 'P08571', 'P08575', 'P08603', 'P08697', 'P08709', 'P09211', 'P09493', 'P09603', 'P09871', 'P0C7N1', 'P0C7U3', 'P0C881', 'P0CG04', 'P0CG05', 'P0DJI8', 'P0DJI9', 'P10211', 'P10242', 'P10451', 'P10599', 'P10643', 'P10646',
+        'P10720', 'P10745', 'P10909', 'P11142', 'P11226', 'P11274', 'P11597', 'P12273', 'P12314', 'P12814', 'P12830', 'P13224', 'P13591', 'P13667', 'P13671', 'P13929', 'P14136', 'P14314', 'P14543', 'P14618', 'P14625', 'P14923', 'P15169', 'P15311', 'P15884', 'P16070', 'P16827', 'P17275', 'P17931', 'P17936', 'P18065', 'P18206', 'P18428', 'P18827', 'P19652', 'P19823', 'P19827', 'P20062', 'P20160', 'P20591', 'P20851', 'P21810', 'P22102', 'P22303', 'P22607', 'P22692', 'P22891', 'P23528', 'P24437',
+        'P24592', 'P24593', 'P24855', 'P25311', 'P25685', 'P25705', 'P25786', 'P26038', 'P26927', 'P27105', 'P27169', 'P27482', 'P27797', 'P27816', 'P27918', 'P28325', 'P28566', 'P29083', 'P29317', 'P29401', 'P29508', 'P29622', 'P30101', 'P30304', 'P30519', 'P30530', 'P31025', 'P31151', 'P31942', 'P33764', 'P33778', 'P33811', 'P33818', 'P34096', 'P35247', 'P35443', 'P35475', 'P35542', 'P35858', 'P35959', 'P36896', 'P36955', 'P36980', 'P40763', 'P41002', 'P41968', 'P43652', 'P47929', 'P48059',
+        'P48200', 'P48380', 'P48426', 'P48594', 'P48740', 'P49146', 'P49746', 'P49747', 'P49789', 'P49913', 'P51795', 'P51884', 'P52452', 'P52468', 'P53609', 'P53677', 'P55056', 'P55058', 'P55081', 'P55103', 'P55209', 'P55774', 'P56597', 'P56856', 'P59533', 'P59665', 'P61221', 'P61224', 'P61570', 'P61586', 'P61626', 'P61769', 'P62158', 'P62805', 'P62834', 'P62937', 'P62987', 'P63104', 'P63241', 'P67809', 'P67936', 'P68104', 'P68363', 'P68366', 'P68871', 'P69905', 'P78344', 'P80748', 'P81605',
+        'P84077', 'Q00169', 'Q02413', 'Q02846', 'Q03591', 'Q04724', 'Q06033', 'Q07507', 'Q08380', 'Q0IIM8', 'Q0P6H9', 'Q12778', 'Q12794', 'Q12816', 'Q12852', 'Q12864', 'Q13093', 'Q13103', 'Q13201', 'Q13217', 'Q13277', 'Q13310', 'Q13418', 'Q13426', 'Q13546', 'Q13642', 'Q13790', 'Q13797', 'Q13868', 'Q13885', 'Q13952', 'Q13972', 'Q14003', 'Q14050', 'Q14151', 'Q14157', 'Q14168', 'Q14247', 'Q14393', 'Q14515', 'Q14520', 'Q14624', 'Q14656', 'Q14973', 'Q14CM0', 'Q14D04', 'Q14EA6', 'Q15113', 'Q15166',
+        'Q15303', 'Q15468', 'Q15485', 'Q15555', 'Q15617', 'Q15758', 'Q15777', 'Q15836', 'Q16348', 'Q16520', 'Q16619', 'Q16665', 'Q16696', 'Q16849', 'Q1HVB8', 'Q1HVF2', 'Q29RF7', 'Q2KHT3', 'Q2TAK8', 'Q2VWP7', 'Q2WGJ6', 'Q2Y0W8', 'Q30201', 'Q32P41', 'Q3LXA3', 'Q49A17', 'Q49A26', 'Q4G0Z9', 'Q4JDL3', 'Q4W5G0', 'Q58FF7', 'Q58FG0', 'Q58FG1', 'Q5BVD1', 'Q5JY77', 'Q5JZY3', 'Q5SY16', 'Q5TB80', 'Q5VTR2', 'Q5VWG9', 'Q5XUX0', 'Q676U5', 'Q68CQ1', 'Q6F5E8', 'Q6FI13', 'Q6IEV9', 'Q6IQ26', 'Q6P1K1',
+        'Q6P656', 'Q6PJT7', 'Q6Q788', 'Q6ZMV8', 'Q6ZN28', 'Q6ZWH5', 'Q709F0', 'Q71SY5', 'Q71U36', 'Q76632', 'Q76633', 'Q7KYR7', 'Q7Z2D5', 'Q7Z3B3', 'Q7Z478', 'Q7Z601', 'Q7Z7G0', 'Q86T90', 'Q86TB9', 'Q86UC2', 'Q86UX6', 'Q86UX7', 'Q86VI4', 'Q86WS5', 'Q86YC2', 'Q86YT5', 'Q8IU80', 'Q8IV31', 'Q8IV77', 'Q8IWV2', 'Q8IZF2', 'Q8IZP9', 'Q8IZS8', 'Q8N130', 'Q8N1N0', 'Q92954', 'Q96KN2', 'Q99467', 'Q9BQL6', 'Q9BXR6', 'Q9HBI1', 'Q9HCC1', 'Q9UK55', 'Q9UL77', 'Q9UL85' ]
+
+
+class Material:
+    def __init__(self, material, allotrope, miller_index, size, zeta):
+        self._material      = material
+        self._allotrope     = allotrope
+        self._miller_index  = miller_index
+        self._size          = size
+        self._zeta          = zeta
+
+    def __hash__(self):
+        return hash(self._material + "_" + self._allotrope + "_" + self._miller_index + "_" + self._size + "_" + self._zeta)
+
+    def __eq__(self, other):
+        if not isinstance(other, Material):
+            return False
+        return self._material == other._material and self._allotrope == other._allotrope and self._miller_index == other._miller_index and self._size == other._size and self._zeta == other._zeta
+        
+    def ToCSV(self):
+        return self._material + "," + self._allotrope + "," + self._miller_index + "," + self._size + "," + self._zeta
+        
+
+def AdsorptionEnergy(filename):
+    data        = np.genfromtxt(filename)
+    sin_theta   = np.sin(data[:,1])
+    energy      = data[:,2]
+    return np.sum(sin_theta * energy * np.exp(-1.0 * energy)) / np.sum(sin_theta * np.exp(-1.0 * energy))
+    
+
+def AddMaterial(filename):
+    global materials
+    dirs            = filename.split('/')
+    material        = dirs[-5]
+    allotrope       = dirs[-4]
+    miller_index    = dirs[-3]
+    elements        = dirs[-1].split('_')
+    protein         = elements[0]
+    size            = elements[1]
+    zeta            = elements[2][:-4]
+    material        = Material(material, allotrope, miller_index, size, zeta)
+    if material not in materials:
+        materials[material] = {}
+    materials[material][protein] = AdsorptionEnergy(filename)
+
+
+def SearchDirectory(path):
+    for root in os.listdir(path):
+        filename = os.path.abspath(path) + "/" + root
+        if os.path.isdir(filename):
+            SearchDirectory(filename)
+        elif filename[-4:] == '.map':
+            AddMaterial(filename)  
+       
+
+print("Building list...")
+
+SearchDirectory('results')
+
+print("Done")
+print("Writing file...")
+
+handle = open('file.csv', 'w');
+
+for key, value in iterate(materials):
+    handle.write(key.ToCSV())
+    for protein in proteins:
+        handle.write(',' + value[protein])
+    handle.write('\n')
+handle.close()
+
+print("Done")

@@ -10,7 +10,7 @@
 #include <fstream>
 #include <iomanip>
 
-constexpr int potential_size = 1000;
+constexpr int potential_size = 1024;
 
 inline double mfmod(double x,double y) {
     return x - static_cast<int>(x / y) * y;

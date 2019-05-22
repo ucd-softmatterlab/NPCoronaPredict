@@ -54,15 +54,15 @@ void PrintStatistics(const double *adsorption_energy, const double *adsorption_e
     long double     Z               = 0.0;
    
     for (int i = 0; i < iterations; ++i) {
-        sin_theta = std::sin((i / ncols) * angle_delta);
-        T += adsorption_energy[i] * sin_theta * std::exp(-1.0 * adsorption_energy[i]);
-        Z += sin_theta * std::exp(-1.0 * adsorption_energy[i]);
-        simpleAverage += adsorption_energy[i];
-        error += adsorption_error[i];
+        sin_theta       = std::sin((i / ncols) * angle_delta);
+        T               += adsorption_energy[i] * sin_theta * std::exp(-1.0 * adsorption_energy[i]);
+        Z               += sin_theta * std::exp(-1.0 * adsorption_energy[i]);
+        simpleAverage   += sin_theta * adsorption_energy[i];
+        error           += sin_theta * adsorption_error[i];
     }
 
-    simpleAverage /= iterations;
-    error /= iterations;
+    simpleAverage   /= iterations;
+    error           /= iterations;
 
     std::cout << std::setw(10) << std::left << TargetList::Filename(filename);
     std::cout << std::setw(10) << std::fixed << std::setprecision(1) << radius;
@@ -114,15 +114,13 @@ void Sum (const int size, double* result, double *arr) {
     }
 }
 
-double Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd) {
+void Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
     long double area = 0.0;
     for (int i = 0; i < size; ++i) {
         area += static_cast<long double>(ssd[i] * ssd[i] * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
     }
     const double factor = 3.0 / std::fabs(std::pow(ssd[0], 3.0) - std::pow(ssd[size - 1], 3.0));
-    const double ads = -1.0 * std::log(factor * area);
-
-    return ads;
+    *adsorption = -1.0 * std::log(factor * area);
 }
 
 void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
@@ -182,6 +180,9 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             // Convert to SSD
             ShiftZ(size, z);
 
+            // Pre-square x and y
+            SquareXY (size, x, y);
+            
             // Get bulk energy
             for (i = 0; i < size; ++i) {
                 distance  = std::sqrt(x[i] + y[i] + (z[i] - stop) * (z[i] - stop)) - radius; // Center To Surface Distance
@@ -200,8 +201,8 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 Sum(size, &(total_energy[i]), energy);
             }
             
-            // Sum up the energies
-            sample_energy[sample] = Integrate(steps, dz, init_energy, total_energy, SSD);
+            // Integrate the results
+            Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
         }
   
         // Mean of all the samples
@@ -212,14 +213,12 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
 void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config) {
     std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
 
-    double adsorption_energy[iterations];
-    double adsorption_error[iterations];
+    double adsorption_energy[iterations] = {};
+    double adsorption_error[iterations]  = {};
     
-    const int n_threads = omp_get_max_threads();
-    const int n_angles  = iterations / static_cast<double>(n_threads);
-
-    std::cout << "n_threads: " << n_threads << "\n";
-    std::cout << "n_angles: " << n_angles << "\n";
+    const int n_threads         = omp_get_max_threads();
+    const int n_angles          = 1 + iterations / static_cast<double>(n_threads);
+    const int n_angles_final    = n_threads * n_angles - iterations;
 
     int thread;
     #ifdef PARALLEL  
@@ -230,20 +229,20 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
         #pragma omp for schedule(dynamic, 1)
         #endif
         for (thread = 0; thread < n_threads; ++thread) {
-            AdsorptionEnergies(pdb, potentials, radius, thread * n_angles, n_angles, adsorption_error, adsorption_error); 
+            AdsorptionEnergies(
+                    pdb, 
+                    potentials, 
+                    radius, 
+                    thread * n_angles, 
+                    (thread == n_threads - 1 ? n_angles_final : n_angles), 
+                    adsorption_energy, 
+                    adsorption_error
+            ); 
         }
     }
     
-    const int last      = n_threads * n_angles;
-    const int remaining = iterations - last;
 
-    std::cout << "last: " << last << "\n";
-    std::cout << "remaining: " << remaining << "\n";
-
-    AdsorptionEnergies(pdb, potentials, radius, last, remaining, adsorption_energy, adsorption_error); 
-    
     WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory); 
-
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
 }
 
