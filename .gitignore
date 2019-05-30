@@ -1,3 +1,6 @@
 UnitedAtom
+energies
+*.csv
 *.pdb
 *.map
+pot-dat/*

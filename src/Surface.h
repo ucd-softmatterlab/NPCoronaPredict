@@ -6,25 +6,6 @@
 #include <fstream>
 #include <iostream>
 
-std::vector<double> Average(const std::vector<double>& vec) {
-    std::vector<double> result(vec.size());
-    for(int i = 0; i < (int) vec.size(); ++i) {
-        int size = 0;
-        double avg = 0.0;
-        for(int j = 0; j < 21; ++j) {
-            int k = i + j - 10;
-            if (k < 0 || k >= (int) vec.size()) {
-                continue;
-            }
-            ++size;
-            avg += vec[k];
-        }
-        result[i] = avg / size;
-    }
-    return result;
-}
-
-
 class SurfaceData {
 public:
     std::string         m_aminoAcid;
@@ -35,17 +16,39 @@ public:
     SurfaceData(const std::string& aminoAcid, const std::vector<double> distance, const std::vector<double>& energy)
         : m_aminoAcid(aminoAcid), m_distance(distance), m_energy(energy)
     {}
+};
 
-    std::vector<double> ShapeCorrectedEnergy(const double r, const double c) const {
-        std::vector<double> correctedEnergy(m_energy.size());
-        for (std::size_t i = 0; i < m_energy.size(); ++i) {
-            const double d          = m_distance[i];
-            const double top        = c * c * (d - 2.0 * r) + 2.0 * c * d * (d - 2.0 * r) - 3.0 * d * d * (d + 2.0 * r);
-            const double bottom     = 2.0 * (c * c + 2.0 * c * d + 3.0 * d * d) * (d + r);
-            const double correction = -1.0 * top / bottom;
-            correctedEnergy[i]      = m_energy[i] * correction;
+class SurfacePotential : public std::vector<double> {
+private:
+    double m_start, m_stop, m_dr;
+
+public:
+    SurfacePotential(const std::vector<double>& energy, const std::vector<double>& distance)
+        : std::vector<double>(energy), m_start(distance[0]), m_stop(distance[distance.size() - 1]), m_dr((m_stop - m_start) / (energy.size() - 1.0))
+    {}
+
+
+    double Value(const double distance, const double radius, const double cutoff) {
+  		if (distance > m_stop) {
+       		return 0.0;
         }
-        return correctedEnergy;
+       	else if (distance < m_start) {
+       		return (*this)[0];
+        }
+        
+        // Linear interpolation of the energy
+        const int      index  = static_cast<int>((distance - m_start) * (this->size() - 1.0) / (m_stop - m_start));
+        const double   factor = (distance - m_start) / m_dr - index;
+        const double 	energy = (*this)[index + 1] * factor - (*this)[index] * (factor - 1.0);
+
+        // Sphere correction factor
+        const double top        = cutoff * cutoff * (distance - 2.0 * radius) + 2.0 * cutoff * distance * (distance - 2.0 * radius)
+            - 3.0 * distance * distance * (distance + 2.0 * radius);
+        const double bottom     = 2.0 * (cutoff * cutoff + 2.0 * cutoff * distance + 3.0 * distance * distance) * (distance + radius);
+        const double correction = -1.0 * top / bottom;
+
+        // Multiply and return
+        return energy * correction;
     }
 };
 
@@ -80,17 +83,8 @@ public:
                     if (line.empty() || line[0] == '#') {
                         continue;
                     }
-                    std::size_t pos = line.find(',');
-                    if (pos == std::string::npos) // .dat file
-                    {
                         distance.emplace_back(std::stod(line.substr(0, 8)));
                         energy.emplace_back(std::stod(line.substr(8, 11)) * 0.40092); // kJ/mol -> kBT
-                    }
-                    else    // .csv file
-                    {
-                        distance.emplace_back(std::stod(line.substr(0, pos++)));
-                        energy.emplace_back(std::stod(line.substr(pos, line.size() - pos)) * 0.40092); // kJ/mol -> kBT
-                    }
                 }
             }
             catch (const std::invalid_argument& ia) {

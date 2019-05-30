@@ -22,7 +22,7 @@ constexpr int           nrows           = 36;
 constexpr int           iterations      = nrows * ncols;
 constexpr int           samples         = 16;
 constexpr int           steps           = 512;
-constexpr double        dz              = delta / steps;
+constexpr double        dz              = delta / (steps - 1);
 
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
@@ -140,13 +140,15 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
 }
 
 void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error) { 
+
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
-    const double            start           = radius + gds;
-    const double            stop            = start + delta;
+    const double            stop            = radius + gds;
+    const double            start           = stop + delta;
 
     int                     i;
     int                     j;
+    double                  energy;
     double                  theta;
     double                  phi;
     double                  theta_adjusted;
@@ -158,7 +160,6 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double x[size];
     double y[size];
     double z[size];
-    double energy[size];
     double total_energy[steps];
     double SSD[steps];
     double sample_energy[samples];
@@ -166,8 +167,8 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     // Iterate over angles
     for (int angle = 0; angle < n_angles; ++angle) {
         
-        phi   = ((angle_offset + angle) % ncols) * angle_delta * M_PI / 180.0;
-        theta = ((angle_offset + angle) / ncols) * angle_delta * M_PI / 180.0;
+        phi   = ((angle_offset + angle) % ncols) * angle_delta;
+        theta = ((angle_offset + angle) / ncols) * angle_delta;
 
 	    // Sample a angle multiple times 
         for (int sample = 0; sample < samples; ++sample) {
@@ -184,23 +185,32 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             SquareXY (size, x, y);
             
             // Get bulk energy
+            init_energy = 0.0;
+
             for (i = 0; i < size; ++i) {
-                distance  = std::sqrt(x[i] + y[i] + (z[i] - stop) * (z[i] - stop)) - radius; // Center To Surface Distance
-                energy[i] = static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
+                distance    = std::sqrt(x[i] + y[i] + (z[i] - stop) * (z[i] - stop)) - radius; // Center To Surface Distance
+                init_energy += static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
             }
-            Sum(size, &init_energy, energy);
 
             // Integration step
             for (i = 0; i < steps; ++i) {
-                ssd     = start + i * dz;
-                SSD[i]  = ssd;
+                ssd     = start - i * dz;
+                energy  = 0;
+
                 for (j = 0; j < size; ++j) {
                     distance  = std::sqrt(x[j] + y[j] + (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
-                    energy[j] = static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
+                    energy += static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                 }
-                Sum(size, &(total_energy[i]), energy);
+                
+                SSD[i]          = ssd;
+                total_energy[i] = energy;
             }
-            
+           
+            /*for (i = 0; i < steps; ++i) {
+                std::cout << SSD[i] << " " << total_energy[i] << "\n"; 
+            }
+            exit(0);*/
+
             // Integrate the results
             Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
         }
@@ -216,9 +226,14 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
     double adsorption_energy[iterations] = {};
     double adsorption_error[iterations]  = {};
     
+    #ifdef PARALLEL  
     const int n_threads         = omp_get_max_threads();
-    const int n_angles          = 1 + iterations / static_cast<double>(n_threads);
-    const int n_angles_final    = n_threads * n_angles - iterations;
+    #else
+    const int n_threads         = 1;
+    #endif
+  
+    const int n_per_thread      = iterations / n_threads;
+    const int n_remaining       = iterations % n_threads; 
 
     int thread;
     #ifdef PARALLEL  
@@ -233,8 +248,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     pdb, 
                     potentials, 
                     radius, 
-                    thread * n_angles, 
-                    (thread == n_threads - 1 ? n_angles_final : n_angles), 
+                    thread * n_per_thread  + (thread < n_remaining ? thread : n_remaining), 
+                    n_per_thread + (thread < n_remaining), 
                     adsorption_energy, 
                     adsorption_error
             ); 

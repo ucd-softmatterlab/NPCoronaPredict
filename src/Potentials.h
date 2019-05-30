@@ -12,10 +12,6 @@
 
 constexpr int potential_size = 1024;
 
-inline double mfmod(double x,double y) {
-    return x - static_cast<int>(x / y) * y;
-}
-
 class Potential {
 public:
     double m_energy[potential_size];
@@ -36,8 +32,11 @@ public:
         if (r > m_cutoff) {
             return 0.0;
         }
+        else if (r < m_start) {
+            return m_energy[0];
+        }
         const int       index  = static_cast<int>((r - m_start) * (potential_size - 1.0) / (m_cutoff - m_start)); 
-        const double    factor = mfmod(r - m_start, m_dr) / m_dr;
+        const double    factor = (r - m_start) / m_dr - index;
         return m_energy[index + 1] * factor - m_energy[index] * (factor - 1.0);
     }
 
@@ -46,7 +45,7 @@ public:
             return 0.0;
         }
         const int       index  = static_cast<int>((r - m_start) * (size - 1.0) / (m_cutoff - m_start)); 
-        const double    factor = mfmod(r - m_start, m_dr) / m_dr;
+        const double    factor = r / m_dr - static_cast<int>((r - m_start)  / m_dr);
         return m_energy[index + 1] * factor - m_energy[index] * (factor - 1.0);
     }
 
@@ -80,13 +79,11 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     
     std::vector<double> energy(potential_size);
 
-    const auto surfaceEnergy = surfaceData.ShapeCorrectedEnergy(nanoparticleRadius, pmfCutoff);
-    Potential surfacePotential(surfaceEnergy, pmfStart, pmfCutoff);
+    SurfacePotential surface_potential(surfaceData.m_energy, surfaceData.m_distance);
     
     double  surface = 0.0, core = 0.0, electrostatic = 0.0;
 
-    //const std::string destination = "/home/dpower/OneDrive/Desktop/PhDTheses/First Coarse Graining/data/AminoAcidSurfaceCoreProfiles";
-    const std::string destination = "aa-dat";
+    const std::string destination = "/home/dpower/Git/unitedatom/pot-dat";
     const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
     std::ofstream handle(filename.c_str());
 
@@ -97,7 +94,7 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
         double U       = 0.0;
 
         if (config.m_enableSurface) {
-            surface = surfacePotential.VariableSizeValue(r, surfaceEnergy.size());
+            surface = surface_potential.Value(r, nanoparticleRadius, pmfCutoff);
             U += surface;
         }
 
