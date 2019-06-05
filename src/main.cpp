@@ -123,6 +123,16 @@ void Integrate(const int size, const double dz, const double init_energy, const 
     *adsorption = -1.0 * std::log(factor * area);
 }
 
+
+void IntegrateCylinder(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
+    long double area = 0.0;
+    for (int i = 0; i < size; ++i) {
+        area += static_cast<long double>(ssd[i]  * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
+    }
+    const double factor = 2.0 / std::fabs(std::pow(ssd[0], 2.0) - std::pow(ssd[size - 1], 2.0));
+    *adsorption = -1.0 * std::log(factor * area);
+}
+
 void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     double lmean = 0;
     double lsd   = 0;
@@ -139,7 +149,7 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     *sd     = std::sqrt(lsd);
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, int npType = 1) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -184,21 +194,38 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             // Pre-square x and y
             SquareXY (size, x, y);
             
-            // Get bulk energy
+            // Get bulk energy at the STARTING point
             init_energy = 0.0;
 
             for (i = 0; i < size; ++i) {
-                distance    = std::sqrt(x[i] + y[i] + (z[i] - stop) * (z[i] - stop)) - radius; // Center To Surface Distance
+                if(npType == 2 || npType == 4){
+                //for cylinder NPs we only take into consideration the radial distance with the cylinder aligned along the x-axis.
+                distance    = std::sqrt(y[i] +  (z[i] - start) * (z[i] - start)) - radius; // AA Center To NP Surface Distance (originally stop, changed to start)
+                }
+                else{
+                distance    = std::sqrt(x[i] + y[i] + (z[i] - start) * (z[i] - start)) - radius; // Center To Surface Distance
+                }
+                double energyAtDist =  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
+                if(energyAtDist > 1){
+                std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
+                }
                 init_energy += static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
             }
-
+ 
+//std::cout << "total shift/num. amino acid: " <<  init_energy/size << "\n";
             // Integration step
             for (i = 0; i < steps; ++i) {
                 ssd     = start - i * dz;
                 energy  = 0;
 
                 for (j = 0; j < size; ++j) {
+                if(npType == 2 || npType == 4){
+                //for cylinder NPs we only take into consideration the radial distance z as the NP is assumed to be sufficiently long that the edge effects can be neglected.
+                distance    = std::sqrt(y[j] +  (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
+                }
+                else{
                     distance  = std::sqrt(x[j] + y[j] + (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
+}
                     energy += static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                 }
                 
@@ -212,7 +239,12 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             exit(0);*/
 
             // Integrate the results
+                if(npType == 2 || npType == 4){
+            IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+}
+else{
             Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+}
         }
   
         // Mean of all the samples
@@ -251,7 +283,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     thread * n_per_thread  + (thread < n_remaining ? thread : n_remaining), 
                     n_per_thread + (thread < n_remaining), 
                     adsorption_energy, 
-                    adsorption_error
+                    adsorption_error,
+                    config.m_npType
             ); 
         }
     }

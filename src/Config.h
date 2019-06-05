@@ -33,6 +33,7 @@ public: // Key - vaules
     double      m_angleDelta            = 5.0;
     double      m_bejerumLength         = 1.0;
     double      m_debyeLength           = 0.7;
+    int		m_npType		= 1; //this defines the type of the nanoparticle. 1 = sphere, 2 = solid cylinder, 3 = cube, 4 = tube (hollow cylinder)
 
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
@@ -111,6 +112,18 @@ public:
                 if (m_testAngle.size() != 2) {
                     std::cerr << "Error: Must provide two test angles [ phi, theta ]: " << values[i] << "\n";
                     std::exit(1);
+                }
+            }
+            else if (keys[i] == "np-type") {
+                std::cout << "npType " << values[i] << "\n";
+                int trialVal =  AsInt(values[i]);
+                if(trialVal == 1 || trialVal == 2 || trialVal == 3 || trialVal==4){
+                m_npType = trialVal;
+                                std::cout << "found NP type " << trialVal << "\n";
+                }
+                else{
+                std::cout << "Unknown nanoparticle type, defaulting to sphere \n";
+                m_npType = 1;
                 }
             }
             else {

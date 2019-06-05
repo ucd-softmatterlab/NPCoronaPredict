@@ -5,6 +5,9 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include "CylinderPotential.h"
+#include "CubePotential.h"
+#include "TubePotential.h"
 
 class SurfaceData {
 public:
@@ -28,7 +31,7 @@ public:
     {}
 
 
-    double Value(const double distance, const double radius, const double cutoff) {
+    double Value(const double distance, const double radius, const double cutoff, int correctionType=1) {
   		if (distance > m_stop) {
        		return 0.0;
         }
@@ -41,12 +44,46 @@ public:
         const double   factor = (distance - m_start) / m_dr - index;
         const double 	energy = (*this)[index + 1] * factor - (*this)[index] * (factor - 1.0);
 
-        // Sphere correction factor
-        const double top        = cutoff * cutoff * (distance - 2.0 * radius) + 2.0 * cutoff * distance * (distance - 2.0 * radius)
-            - 3.0 * distance * distance * (distance + 2.0 * radius);
-        const double bottom     = 2.0 * (cutoff * cutoff + 2.0 * cutoff * distance + 3.0 * distance * distance) * (distance + radius);
-        const double correction = -1.0 * top / bottom;
 
+
+
+
+
+        // Sphere correction factor
+ 
+
+
+ double correction  = 1;
+            if(correctionType == 1){
+            double top        = cutoff * cutoff * (distance - 2.0 * radius) + 2.0 * cutoff * distance * (distance - 2.0 * radius) - 3.0 * distance * distance * (distance + 2.0 * radius);
+            double bottom     = 2.0 * (cutoff * cutoff + 2.0 * cutoff * distance + 3.0 * distance * distance) * (distance + radius);
+            correction = -1.0 * top / bottom;
+            }
+            //The remaining potentials we use typically have at least one numerical integration involved and therefore we don't have simple analytical expressions. We also usually don't have limits for R->Infty and the expressions are not always numerically stable.
+//The general method we use is as follows. An inclusive segment at the target radius is found by calculating the potential with no exclusion and subtracting the potential with the known exclusion. This is then divided by the inclusive segment obtained for a flat plane (for titania PMFs) or for a CNT at a radius of 0.75nm. At large distances this fails and so a ceiling is set on d to prevent the expressions diverging. 
+            else if(correctionType == 2){ //cylinder.  
+double distCeilVal = 1.4;
+if(distance > distCeilVal){
+correction =  (  HamakerAtomCylinderUnit(radius,distCeilVal,0.00000001) - HamakerAtomCylinderUnit(radius,distCeilVal,cutoff)  )/ ( HamakerAtomCylinderUnit(1000,distCeilVal,0.00000001) - HamakerAtomCylinderUnit(1000,distCeilVal,cutoff) );
+}
+else{
+correction = (  HamakerAtomCylinderUnit(radius,distance,0.00000001) - HamakerAtomCylinderUnit(radius,distance,cutoff)  )/ (  HamakerAtomCylinderUnit(1000,distance,0.00000001) - HamakerAtomCylinderUnit(1000,distance,cutoff) );
+}
+ 
+            }
+            else if(correctionType == 3){ //cube. we assume that the exclusion distance is less than the half-length of the cube and because it's a flat surface there's no correction needed.
+correction = 1;
+            }
+            else if(correctionType == 4){//tube. here the PMFs are calculated for a radius of 0.75 and so we adapt the potentials based on this. As with cylinder, this is ratio of the inclusive segment for the actual radius divided by inclusive segment for the calculated tube.
+      if(distance > cutoff - 0.1){
+correction = ( HamakerAtomTubeUnit(radius,cutoff-0.1,0.00001) -      HamakerAtomTubeUnit(radius,cutoff-0.1,cutoff)  )/( HamakerAtomTubeUnit(0.75,cutoff-0.1,0.00001) -      HamakerAtomTubeUnit(0.75,cutoff-0.1,cutoff)  );
+}
+else{
+correction = ( HamakerAtomTubeUnit(radius,distance,0.00001) -      HamakerAtomTubeUnit(radius,distance,cutoff)  )/( HamakerAtomTubeUnit(0.75,distance,0.00001) -      HamakerAtomTubeUnit(0.75,distance,cutoff)  );
+}
+            }
+
+ 
         // Multiply and return
         return energy * correction;
     }
