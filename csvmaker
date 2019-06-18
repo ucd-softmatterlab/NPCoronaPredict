@@ -3,8 +3,6 @@
 import os
 import numpy as np
 
-materials = {}
-
 proteins = [ 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', '1b1i', '1c1z', '1ezq', '1gpz', '1htn', '1ioj', '1jmj', '1kw2', '1lfg', '1lil', '1mim', '1n5u', '1o1k', '1pk6', '1soh', '1ubq', '1ux6', '1v04', '1w0r', '1w7x', '1z8u', '1zm0', '2a01', '2anw', '2b4x', '2f83', '2h7t', '2hav', '2jq3', '2nsm', '2oay', '2ok5', '2ol2', '2ou1', '2w08', '2wew', '2wxw', '2xe6', '3dlj', '3dlw', '3gau', '3ghg', '3h5c',
         '3i3t', '3kq0', '3ne4', '3pow', '3s84', '3v03', '3zd2', '4a5t', '4bdv', '4bex', '4d2n', '4enz', '4es7', '4f5s', '4haf', '4igd', '4j1y', '4n85', '4nh9', '4r9j', '4xde', '4xwg', '5d4k', '5dvo', '5dyh', '5edk', 'B1ANY3', 'B1N7B8', 'B1NKR3', 'B2RXH2', 'O00148', 'O00167', 'O00187', 'O00391', 'O00512', 'O00602', 'O14523', 'O14734', 'O14786', 'O14791', 'O14983', 'O15117', 'O15213', 'O15355', 'O15446', 'O15503', 'O40626', 'O43155', 'O43194', 'O43681', 'O43866', 'O43889', 'O60462', 'O60518',
         'O75052', 'O75309', 'O75356', 'O75367', 'O75427', 'O75636', 'O75915', 'O75943', 'O75976', 'O76036', 'O91087', 'O94812', 'O94900', 'O94985', 'O95221', 'O95342', 'O95445', 'O95466', 'O95486', 'O95810', 'O95847', 'P00450', 'P00488', 'P00558', 'P00734', 'P00736', 'P00738', 'P00739', 'P00740', 'P00742', 'P00746', 'P00747', 'P00748', 'P00751', 'P01008', 'P01009', 'P01011', 'P01019', 'P01023', 'P01034', 'P01042', 'P01344', 'P01591', 'P01593', 'P01594', 'P01596', 'P01597', 'P01599', 'P01605',
@@ -19,26 +17,6 @@ proteins = [ 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE
         'Q6P656', 'Q6PJT7', 'Q6Q788', 'Q6ZMV8', 'Q6ZN28', 'Q6ZWH5', 'Q709F0', 'Q71SY5', 'Q71U36', 'Q76632', 'Q76633', 'Q7KYR7', 'Q7Z2D5', 'Q7Z3B3', 'Q7Z478', 'Q7Z601', 'Q7Z7G0', 'Q86T90', 'Q86TB9', 'Q86UC2', 'Q86UX6', 'Q86UX7', 'Q86VI4', 'Q86WS5', 'Q86YC2', 'Q86YT5', 'Q8IU80', 'Q8IV31', 'Q8IV77', 'Q8IWV2', 'Q8IZF2', 'Q8IZP9', 'Q8IZS8', 'Q8N130', 'Q8N1N0', 'Q92954', 'Q96KN2', 'Q99467', 'Q9BQL6', 'Q9BXR6', 'Q9HBI1', 'Q9HCC1', 'Q9UK55', 'Q9UL77', 'Q9UL85' ]
 
 
-class Material:
-    def __init__(self, material, allotrope, miller_index, size, zeta):
-        self._material      = material
-        self._allotrope     = allotrope
-        self._miller_index  = miller_index
-        self._size          = size
-        self._zeta          = zeta
-
-    def __hash__(self):
-        return hash(self._material + "_" + self._allotrope + "_" + self._miller_index + "_" + self._size + "_" + self._zeta)
-
-    def __eq__(self, other):
-        if not isinstance(other, Material):
-            return False
-        return self._material == other._material and self._allotrope == other._allotrope and self._miller_index == other._miller_index and self._size == other._size and self._zeta == other._zeta
-        
-    def ToCSV(self):
-        return self._material + "," + self._allotrope + "," + self._miller_index + "," + self._size + "," + self._zeta
-        
-
 def AdsorptionEnergy(filename):
     data        = np.genfromtxt(filename)
     sin_theta   = np.sin(data[:,1])
@@ -46,8 +24,7 @@ def AdsorptionEnergy(filename):
     return np.sum(sin_theta * energy * np.exp(-1.0 * energy)) / np.sum(sin_theta * np.exp(-1.0 * energy))
     
 
-def AddMaterial(filename):
-    global materials
+def Material(filename):
     dirs            = filename.split('/')
     material        = dirs[-5]
     allotrope       = dirs[-4]
@@ -56,35 +33,52 @@ def AddMaterial(filename):
     protein         = elements[0]
     size            = elements[1]
     zeta            = elements[2][:-4]
-    material        = Material(material, allotrope, miller_index, size, zeta)
-    if material not in materials:
-        materials[material] = {}
-    materials[material][protein] = AdsorptionEnergy(filename)
+    return material, allotrope, miller_index, size, zeta, protein    
+    
 
-
+mapfiles = []
 def SearchDirectory(path):
+    global mapfiles
     for root in os.listdir(path):
         filename = os.path.abspath(path) + "/" + root
         if os.path.isdir(filename):
             SearchDirectory(filename)
         elif filename[-4:] == '.map':
-            AddMaterial(filename)  
+            mapfiles.append(filename)  
        
 
+
 print("Building list...")
-
 SearchDirectory('results')
-
 print("Done")
-print("Writing file...")
 
+
+print("Calculating energies...")
+materials = {}
+for filename in mapfiles:
+    material, allotrope, miller_index, size, zeta, protein = Material(filename)  
+    energy = AdsorptionEnergy(filename)
+    tag = ",".join([material, allotrope, miller_index, size, zeta])  
+    if tag not in materials:
+        materials[tag] = {}
+    materials[tag][protein] = energy
+print("Done")
+
+
+print("Writing file")
 handle = open('file.csv', 'w');
-
-for key, value in iterate(materials):
-    handle.write(key.ToCSV())
+# Header
+handle.write("Material, Allotrope, Miller Index, Size, Zeta")
+for protein in proteins:
+    handle.write("," + protein)
+handle.write("\n")
+for key, value in materials.iteritems():
+    handle.write(key)
     for protein in proteins:
-        handle.write(',' + value[protein])
+        try:
+            handle.write(',' + str(value[protein]))
+        except:
+            print("Missing: {}".format(key))
     handle.write('\n')
 handle.close()
-
 print("Done")
