@@ -19,21 +19,35 @@ proteins = [ 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE
 
 def AdsorptionEnergy(filename):
     data        = np.genfromtxt(filename)
-    sin_theta   = np.sin(data[:,1])
+    sin_theta   = np.sin(data[:,1] * np.pi / 180.0)
     energy      = data[:,2]
     return np.sum(sin_theta * energy * np.exp(-1.0 * energy)) / np.sum(sin_theta * np.exp(-1.0 * energy))
     
 
+# CNT
 def Material(filename):
     dirs            = filename.split('/')
-    material        = dirs[-5]
-    allotrope       = dirs[-4]
-    miller_index    = dirs[-3]
+    material        = 'C'
+    allotrope       = dirs[-2]
+    miller_index    = 'NA'
     elements        = dirs[-1].split('_')
     protein         = elements[0]
     size            = elements[1]
     zeta            = elements[2][:-4]
     return material, allotrope, miller_index, size, zeta, protein    
+
+
+# Flat surface
+#def Material(filename):
+#    dirs            = filename.split('/')
+#    material        = dirs[-5]
+#    allotrope       = dirs[-4]
+#    miller_index    = dirs[-3]
+#    elements        = dirs[-1].split('_')
+#    protein         = elements[0]
+#    size            = elements[1]
+#    zeta            = elements[2][:-4]
+#    return material, allotrope, miller_index, size, zeta, protein    
     
 
 mapfiles = []
@@ -49,7 +63,8 @@ def SearchDirectory(path):
 
 
 print("Building list...")
-SearchDirectory('results')
+#SearchDirectory('results') # Flat surface
+SearchDirectory('results/C') # CNT
 print("Done")
 
 

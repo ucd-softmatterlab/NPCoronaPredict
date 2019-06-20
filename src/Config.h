@@ -33,6 +33,7 @@ public: // Key - vaules
     double      m_angleDelta            = 5.0;
     double      m_bejerumLength         = 1.0;
     double      m_debyeLength           = 0.7;
+    double      m_imaginary_radius      = -1.0;
     int		m_npType		= 1; //this defines the type of the nanoparticle. 1 = sphere, 2 = solid cylinder, 3 = cube, 4 = tube (hollow cylinder)
 
 public:
@@ -106,6 +107,9 @@ public:
             }
             else if (keys[i] == "amino-acid-charges") {
                 m_aminoAcidCharges = AsDoubleList(values[i]);
+            }
+            else if (keys[i] == "imaginary-radius") {
+                m_imaginary_radius = AsDouble(values[i]);
             }
             else if (keys[i] == "test-angle") {
                 m_testAngle = AsDoubleList(values[i]);

@@ -149,11 +149,11 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     *sd     = std::sqrt(lsd);
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, int npType = 1) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, int npType = 1, double imaginary_radius = -1) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
-    const double            stop            = radius + gds;
+    const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds;
     const double            start           = stop + delta;
 
     int                     i;
@@ -207,7 +207,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 }
                 double energyAtDist =  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
                 if(energyAtDist > 1){
-                std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
+                //std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
                 }
                 init_energy += static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
             }
@@ -255,6 +255,8 @@ else{
 void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config) {
     std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
 
+    const double imaginary_radius = config.m_imaginary_radius;
+
     double adsorption_energy[iterations] = {};
     double adsorption_error[iterations]  = {};
     
@@ -284,7 +286,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     n_per_thread + (thread < n_remaining), 
                     adsorption_energy, 
                     adsorption_error,
-                    config.m_npType
+                    config.m_npType,
+                    imaginary_radius
             ); 
         }
     }

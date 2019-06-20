@@ -47,8 +47,6 @@ public:
 
 
 
-
-
         // Sphere correction factor
  
 
@@ -116,12 +114,22 @@ public:
             std::vector<double> energy, distance;
 
             try {
+
                 while (std::getline(handle, line)) {
                     if (line.empty() || line[0] == '#') {
                         continue;
                     }
+                    
+                    std::size_t pos = line.find(',');
+
+                    if (pos == std::string::npos) {
                         distance.emplace_back(std::stod(line.substr(0, 8)));
                         energy.emplace_back(std::stod(line.substr(8, 11)) * 0.40092); // kJ/mol -> kBT
+                    }
+                    else {
+                        distance.emplace_back(std::stod(line.substr(0, pos)));
+                        energy.emplace_back(std::stod(line.substr(pos + 1, line.size() - pos - 1)) * 0.40092); // kJ/mol -> kBT
+                    }
                 }
             }
             catch (const std::invalid_argument& ia) {
