@@ -1,0 +1,131 @@
+#! /usr/bin/python
+
+
+#This script is designed to calculate the average binding energy per unit surface area given a heatmap and a PDB file.
+#The output given is the name of the PDB, the radius of the nanoparticle, the Boltzmann-averaged energy "<E>" and three estimates for the binding energy per unit surface area.
+#These estimates are <E>/<A> , <E/A>, and EMax/A_{np} .
+#Here, A = A(phi,theta) is the area occupied for a given orientation, calculated using the convex-hull method assuming a planar projection of the biomolecule.  <A> is the average area occupied calculated using the Boltzmann energy weighting. e.g. the area of a strongly-binding particle is weighted more strongly in this sum than a weakly-binding particle.
+#<E/A> is calculate doing the averaging of E/A together, wheras <E>/<A> averages these two quantities separately and then divides one by the other. These are typically very close but not identical.
+#EMax/A_{np} is calculated slightly differently and represents the maximum possible energy per unit surface area if the adsorbed biomolecules are allowed to reorient or collectively approach (e.g. for DPPC). 
+#In this case, the problem is treated as a knapsack problem, where the pairs of E(phi,theta),A(phi,theta) are used as the values and weights for a knapsack of capacity equal to the surface area of the nanoparticle, A_{np}.
+#The greedy algorithm is used to estimate the maximum binding energy achieved by covering the surface of the nanoparticle in the most energentically favourable manner, EMax, and dividing this by A_{np} produces the energy per unit surface area.
+#This estimate is typically more negative than the estimate assuming a Boltzmann distribution on the surface.
+
+
+import os
+import numpy as np
+from sys import argv
+import matplotlib.pyplot as plt
+import scipy.spatial as scispat
+from ortools.algorithms import pywrapknapsack_solver
+import math
+import scipy.optimize as scopt
+import random
+
+def SearchDirectory(path):
+    files = os.listdir(path)
+    pdbs  = []
+    for handle in files:
+        abspath = os.path.join(path, handle)
+        if os.path.isdir(abspath):
+            pdbs += SearchDirectory(abspath)
+        elif abspath[-4:] == ".map":
+            pdbs.append(abspath)
+    return pdbs
+
+
+def getAtomCoords(filename):
+    fileIn = open(filename,"r")
+    coordList = []
+    for line in fileIn:
+        lineData = line.split()
+        if lineData[0] == "ATOM":
+            coordList.append([ float(lineData[6]) ,  float(lineData[7]) , float(lineData[8])])
+    fileIn.close()
+ 
+    return np.array(coordList)
+ 
+def rotatePDB(coords,phiVal,thetaVal):
+    phiRotated = -1.0 * phiVal
+    thetaRotated = np.pi - thetaVal
+    rotCoords = np.copy(coords)
+    rotCoords[:,0] = coords[:,0] * np.cos(phiRotated) - coords[:,1] * np.sin(phiRotated)
+    rotCoords[:,1] = coords[:,0] * np.sin(phiRotated) + coords[:,1] * np.cos(phiRotated)
+    finalCoords = np.copy(rotCoords)
+    finalCoords[:,0] = rotCoords[:,0] * np.cos(thetaRotated) + rotCoords[:,2] * np.sin(thetaRotated) 
+    finalCoords[:,2] = -1.0 * rotCoords[:,0] * np.sin(thetaRotated) + rotCoords[:,2] * np.cos(thetaRotated)
+    return finalCoords
+
+def getPDBAreaXY(coords):
+    projectedConvexHull = scispat.ConvexHull( coords[:,(0,1) ] )
+    return projectedConvexHull.volume
+
+#This function takes in a heat map and a PDB file and calculates the cross-sectional area for each given orientation. It then uses that to calculate and return:
+# 1) A list of the energy and area pairs, used for the knapsack routine. 2) The Boltzmann-averaged energy <E>. 3) The average occupied area <A> 4) The average energy to area ratio <E/A> .  
+def CalculateEnergyAreaList(filename, pdbFile):
+    data     = np.genfromtxt(filename)
+    rawCoords =  getAtomCoords(pdbFile)*0.1 # convert to nm
+    theta    = data[:,1]
+    energy   = data[:,2]
+    sinTheta = np.sin(theta * np.pi / 180.0)
+    boltz    = np.sum(energy * sinTheta * np.exp(-1.0 * energy)) / np.sum(sinTheta * np.exp(-1.0 * energy))
+    weightedArea = 0
+    energyByArea = 0
+    AreaResList = []
+    for dataLine in data:
+        crossSectionalArea =  getPDBAreaXY(rotatePDB(rawCoords, dataLine[0]*np.pi/180, dataLine[1]*np.pi/180))
+        weightedArea =  weightedArea + crossSectionalArea * np.sin( dataLine[1]*np.pi/180) * np.exp(-1.0 * dataLine[2] )
+        energyByArea = energyByArea + ( dataLine[2]/crossSectionalArea * np.sin( dataLine[1]*np.pi/180) * np.exp(-1.0 * dataLine[2] )) #if we want <E/A> we need to do the averaging all in one go to avoid getting <E>/<A>
+        AreaResList.append([crossSectionalArea,dataLine[2]])
+    return (np.array(AreaResList)  , boltz, weightedArea / np.sum(sinTheta * np.exp(-1.0 * energy))   , energyByArea/np.sum(sinTheta * np.exp(-1.0 * energy)) )
+
+ 
+
+def knapsackGreedy(capacity, weights, values):
+    valuePerWeight = values/weights
+    dataArray = (np.vstack( (weights, values, valuePerWeight))).T
+    sortedData = np.flip(dataArray[ dataArray[:,2].argsort()],0)
+    usedCapacity = 0
+    totalValue = 0
+    for dataLine in sortedData:
+        weight = dataLine[0]
+        value = dataLine[1]
+        remainingCapacity = capacity - usedCapacity 
+        numObjects = int(math.floor( remainingCapacity/weight ))
+        usedCapacity = usedCapacity + numObjects*weight
+        totalValue = totalValue + numObjects*value
+    return totalValue
+
+# Main
+
+
+
+
+resList = []
+
+
+#all the pdbs used should be in the same folder
+pdbFolder = "pdbs/LungSurfactants/"
+folderNames = ["results_spa12d_anatase_001_sphere_targets"]
+
+print "PDB, R/nm, <E>, <E>/<A>, <E/A>, EMax/A"
+for folderName in folderNames:
+#from the folder name we extract the details about what type of NP we're looking at
+    folderNameTerms = folderName.split("_")
+#    print folderNameTerms[3]
+    pdbs = (SearchDirectory(folderName)) 
+    pdbs.sort()
+    for pdb in pdbs:
+        name = pdb.split('/')[-1].split('.')[0]
+        if len(pdb) > 9 and pdb[-9:] == ".dist.map":
+            continue
+        npSizeString =  (pdb.split("/")[1]).split("_")[1]
+        (areaEnergySet,boltzEnergy,contactArea,eByA) =CalculateEnergyAreaList(pdb , pdbFolder+name.split("_")[0]+".pdb")
+        npSurfaceArea = 4.0* np.pi**2 * ( float(npSizeString) )**2
+        npksCapacity = npSurfaceArea
+        weightsVals = np.copy(areaEnergySet[areaEnergySet[:,1]<0])
+        resList.append([name.split("_")[0], npSizeString, boltzEnergy ,boltzEnergy/contactArea,  eByA, -knapsackGreedy(npksCapacity, weightsVals[:,0], -1*weightsVals[:,1] )/npSurfaceArea])
+        print name.split("_")[0],npSizeString, boltzEnergy , boltzEnergy/contactArea, eByA, -knapsackGreedy(npksCapacity, weightsVals[:,0], -1*weightsVals[:,1] )/npSurfaceArea
+
+        
+
