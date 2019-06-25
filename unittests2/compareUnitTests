@@ -1,0 +1,65 @@
+#! /usr/bin/python
+
+'''
+This file compares the calculated binding energies to a set of reference (benchmark) values using a fixed set of potentials and Hamaker constants. Thus, any error introduced is (hopefully) due to changes in the integration routine. 
+Comparisons are made for both the surface and core potential and the surface alone. If the surface-only values are ok but the surface+core are not this implies a problem with the core potential.
+The first set of values are the differences between the calculated and benchmark energies for a range of radii. These are reported as root-mean-square averages of either the absolute ( EBench - ECalc) or relative (EBench-ECalc)/EBench errors for the range of orientations. The maximum values of these sets are then reported. 
+'''
+
+import os
+import numpy as np
+from sys import argv
+
+maxRelErrSurface = 0
+maxRelErrSurfaceCore = 0
+maxAbsErrSurface = 0
+maxAbsErrSurfaceCore = 0
+for size in [10,20,40,50,80,100]:
+    benchmark_data_surface = np.genfromtxt("unittest_benchmark_surface/3dbz_"+str(size)+"_0.map")
+    benchmark_data_surface_core = np.genfromtxt("unittest_benchmark_surface_core/3dbz_"+str(size)+"_0.map")
+    results_data_surface = np.genfromtxt("unittest_results_surface/3dbz_"+str(size)+"_0.map")
+    results_data_surface_core = np.genfromtxt("unittest_results_surface_core/3dbz_"+str(size)+"_0.map")
+    rmsErrorSurface = np.sqrt(np.mean(((benchmark_data_surface[:,2] - results_data_surface[:,2])/benchmark_data_surface[:,2])**2))
+    rmsErrorSurfaceCore =np.sqrt(np.mean(((benchmark_data_surface_core[:,2] - results_data_surface_core[:,2])/benchmark_data_surface_core[:,2])**2))
+    absErrorSurface = np.sqrt(np.mean((benchmark_data_surface[:,2] - results_data_surface[:,2] )**2))
+    absErrorSurfaceCore = np.sqrt(np.mean((benchmark_data_surface_core[:,2] - results_data_surface_core[:,2] )**2))
+    if rmsErrorSurface > maxRelErrSurface:
+        maxRelErrSurface = rmsErrorSurface
+    if rmsErrorSurfaceCore > maxRelErrSurfaceCore:
+        maxRelErrSurfaceCore = rmsErrorSurfaceCore
+    if np.abs(absErrorSurface) > np.abs(maxAbsErrSurface):
+        maxAbsErrSurface = absErrorSurface
+    if np.abs(absErrorSurfaceCore) > np.abs(maxAbsErrSurfaceCore):
+        maxAbsErrSurfaceCore = absErrorSurfaceCore
+    print size, "RMS relative error, surface only", rmsErrorSurface
+    print size, "RMS relative error, surface+core", rmsErrorSurfaceCore
+    print size, "RMS Absolute error, surface only", absErrorSurface
+    print size, "RMS Absolute error, surface+core", absErrorSurfaceCore
+
+print "######" 
+print "Maximum RMS relative error, surface only: ", maxRelErrSurface
+print "Maximum RMS relative error, surface+core: ", maxRelErrSurfaceCore
+print "Maximum RMS absolute error, surface only: ", maxAbsErrSurface
+print "Maximum RMS absolute error, surface+core: ", maxAbsErrSurfaceCore
+if maxAbsErrSurface < 0.1:
+    print "Surface potential error < 0.1 OK"
+else:
+    print "Surface potential error > 0.1 CHECK"
+if maxAbsErrSurfaceCore < 0.1:
+    print "Surface+core potential error < 0.1 OK"
+else:
+    print "Surface+core potential error > 0.1 CHECK"
+
+        
+print "######" 
+errorEstimateData = np.genfromtxt("unittest_error_out.txt")
+boltzEnergySet =  errorEstimateData[:,3].astype(np.float)
+print "Statistics from repeated trial"
+print "<E>, <E^2> - <E>^2"
+boltzEnergySD = np.std(boltzEnergySet) 
+print np.mean(boltzEnergySet), boltzEnergySD
+if boltzEnergySD < 0.5:
+    print "Standard deviation of energies < 1/2 kbT: OK"
+else:
+    print "Standard deviation of energies > 1/2 kbT: CHECK"
+

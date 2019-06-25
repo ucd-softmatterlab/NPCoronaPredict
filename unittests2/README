@@ -1,0 +1,11 @@
+The purpose of this set of files is to provide a quick validation of a compiled version of UnitedAtom by comparing the calculated energies to a set of benchmark values. If there's a significant difference between these it implies that either a) there's a bug in the compiled version or b) there was a bug in a previous version which has since been corrected. If the latter is the case then the benchmark data should be updated.
+
+
+1) HOW TO USE
+Copy the most recently compiled version of UnitedAtom into this folder and run the "runUnitTests.sh" script. This calls the program multiple times for a set of nanoparticles with radii ranging from 10 - 100 nm (saving all output), and then repeatedly calls the program for a radius of 5nm. Next, a python script to analyse the results is called. The first set of results is referenced against the benchmark values to see if there's a large difference (in terms of the root-mean-square error, calculated by naive averaging over all orientations). This gives some indication of whether the results are stable with respect to the previous version of the code.
+
+The second set of results reports the standard deviation of the set of energies (Boltzmann-averaged over orientations) calculated from calling the program multiple times with the same input parameters. If this value is large (i.e. greater than 1/2 kbT or so) this implies that there's a significant random error involved and more samples should be used when performing the sampling over orientations. This checks that the current version of the program is self-consistent.
+
+
+2) WHAT ARE GOOD VALUES?
+This is a bit more arbitrary. For now I've set it to give a positive response if the maximum absolute error is less than 0.1 kbT, and if the random error is less than 0.5 kbT. 
