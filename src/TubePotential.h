@@ -46,8 +46,8 @@ double HamakerAtomTubeUnit(const double RT, const double r, const double re, int
 double r1 = r +RT; //this defines the offset between the centre of the cylinder and the centre of the amino acid
  
 
-if(r < 0.05){
-return HamakerAtomTubeUnit(RT, 0.051,re); //if we're too close to the edge then some of the expressions become unstable, so there's a floor on the value of r to prevent this.
+if(r < 0.1){
+return HamakerAtomTubeUnit(RT, 0.11,re); //if we're too close to the edge then some of the expressions become unstable, so there's a floor on the value of r to prevent this.
 
 }
 
@@ -64,8 +64,15 @@ double zc = 0;
 double zbound = sqrt(re*re -(r1 - RT)*(r1-RT) );
 double deltaz = 0.05;
 //std::cout << RT << " " << r1 << " " << re << " zbound: " << zbound <<  "\n";
-while(zc < zbound){
+while(zc < zbound-0.01){
 integratedValue += deltaz*HamakerAtomCircleUnit(RT, r1, re, zc);
+
+
+ if(std::isnan(integratedValue)){
+std::cout << " unit: found nan during numerical integration " << r1 << " " << RT << " zc: " << zc << " zbound: " << zbound << "\n";
+}
+
+
 //std::cout << zc << "  " << integratedValue << "\n";
 zc+=deltaz;
 }

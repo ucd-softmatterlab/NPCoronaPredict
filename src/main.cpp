@@ -130,6 +130,9 @@ void IntegrateCylinder(const int size, const double dz, const double init_energy
         area += static_cast<long double>(ssd[i]  * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
     }
     const double factor = 2.0 / std::fabs(std::pow(ssd[0], 2.0) - std::pow(ssd[size - 1], 2.0));
+    if(factor*area < 0){ 
+ std::cout << "warning: factor*area < 0, unphysical result " << factor << " " << area << "\n";    
+}
     *adsorption = -1.0 * std::log(factor * area);
 }
 
