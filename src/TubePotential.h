@@ -46,6 +46,11 @@ double HamakerAtomTubeUnit(const double RT, const double r, const double re, int
 double r1 = r +RT; //this defines the offset between the centre of the cylinder and the centre of the amino acid
  
 
+if(r < 0.05){
+return HamakerAtomTubeUnit(RT, 0.051,re); //if we're too close to the edge then some of the expressions become unstable, so there's a floor on the value of r to prevent this.
+
+}
+
 double integratedValue = 0;
 double tubeHalfLength  = 1000;
 //we first check to see if the point is sufficiently far away that no interactions are excluded. if this is the case we have a straightforward expression in terms of elliptic integrals.

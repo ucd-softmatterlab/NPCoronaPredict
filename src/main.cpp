@@ -133,6 +133,18 @@ void IntegrateCylinder(const int size, const double dz, const double init_energy
     *adsorption = -1.0 * std::log(factor * area);
 }
 
+
+void IntegrateCube(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
+    long double area = 0.0;
+    for (int i = 0; i < size; ++i) {
+        area += static_cast<long double>(dz  ) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
+    }
+    const double factor = 1.0 / std::fabs(std::pow(ssd[0], 1.0) - std::pow(ssd[size - 1], 1.0));
+    *adsorption = -1.0 * std::log(factor * area);
+}
+
+
+
 void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     double lmean = 0;
     double lsd   = 0;
@@ -223,6 +235,10 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 //for cylinder NPs we only take into consideration the radial distance z as the NP is assumed to be sufficiently long that the edge effects can be neglected.
                 distance    = std::sqrt(y[j] +  (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
                 }
+                else if(npType == 3){
+                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
+                distance = std::sqrt(  (z[j] - ssd) * (z[j] - ssd)) - radius;
+                }
                 else{
                     distance  = std::sqrt(x[j] + y[j] + (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
 }
@@ -241,6 +257,9 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             // Integrate the results
                 if(npType == 2 || npType == 4){
             IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+}
+else if(npType == 3){
+     IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
 }
 else{
             Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
