@@ -24,17 +24,30 @@ def AdsorptionEnergy(filename):
     return np.sum(sin_theta * energy * np.exp(-1.0 * energy)) / np.sum(sin_theta * np.exp(-1.0 * energy))
     
 
-# CNT
+# Tube-Cylinder
 def Material(filename):
     dirs            = filename.split('/')
-    material        = 'C'
-    allotrope       = dirs[-2]
-    miller_index    = 'NA'
+    material        = 'TiO2'
+    allotrope       = 'Anatase'
+    miller_index    = dirs[-3]
     elements        = dirs[-1].split('_')
     protein         = elements[0]
     size            = elements[1]
     zeta            = elements[2][:-4]
     return material, allotrope, miller_index, size, zeta, protein    
+
+
+# CNT
+#def Material(filename):
+#    dirs            = filename.split('/')
+#    material        = 'C'
+#    allotrope       = dirs[-2]
+#    miller_index    = 'NA'
+#    elements        = dirs[-1].split('_')
+#    protein         = elements[0]
+#    size            = elements[1]
+#    zeta            = elements[2][:-4]
+#    return material, allotrope, miller_index, size, zeta, protein    
 
 
 # Flat surface
@@ -64,7 +77,8 @@ def SearchDirectory(path):
 
 print("Building list...")
 #SearchDirectory('results') # Flat surface
-SearchDirectory('results/C') # CNT
+#SearchDirectory('results/C') # CNT
+SearchDirectory('results/TiO2/Anatase-Cylinder') # CNT
 print("Done")
 
 

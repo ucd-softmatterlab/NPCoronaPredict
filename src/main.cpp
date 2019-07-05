@@ -14,8 +14,9 @@
 #include <random>
 #include <iomanip>
 
-constexpr double        gds             = 0.22;
-constexpr double        delta           = 0.8;
+//constexpr double        gds             = 0.22;
+constexpr double        gds             = 0.0;
+constexpr double        delta           = 3.0;
 constexpr double        angle_delta     = 5.0 * (M_PI / 180.0);
 constexpr int           ncols           = 72;
 constexpr int           nrows           = 36;

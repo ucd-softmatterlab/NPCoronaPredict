@@ -54,8 +54,8 @@ public:
 };
 
 Potential GeneratePotential(const SurfaceData&, const HamakerConstants&, const double, const double, const Config&);
-double HamakerPotential(const double, const double, const double, const double, const double);
-double ElectrostaticPotential(const double, const double, const double, const double, const double, const double);
+double HamakerPotential(const double, const double, const double, const double);
+double ElectrostaticPotential(const double, const double, const double, const double, const double);
 double HamakerPotentialV2(const double, const double, const double, const double, const double);
 
 class Potentials : public std::vector<Potential> {
@@ -74,11 +74,12 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     const double        pmfCutoff           = surfaceData.m_distance.back();
     const double        cutoff              = config.m_potentialCutoff;
     const double        hamaker             = hamakerConstants[surfaceData.m_aminoAcid];
-    const double        bjerumLength        = config.m_bejerumLength;
+    //const double        bjerumLength        = config.m_bejerumLength;
     const double        debyeLength         = config.m_debyeLength;
     const auto          aminoAcidRadius     = config.AminoAcidRadius(surfaceData.m_aminoAcid);
     const double        Z1                  = config.AminoAcidCharge(surfaceData.m_aminoAcid);
-    const double        Z2                  = 38.681 * zetaPotential * nanoparticleRadius * (1.0 + 4.0 * M_PI * bjerumLength) / bjerumLength;
+    //const double        Z2                  = 38.681 * zetaPotential * nanoparticleRadius * (1.0 + 4.0 * M_PI * bjerumLength) / bjerumLength;
+    const double        Z2                  = zetaPotential * nanoparticleRadius;
     
     std::vector<double> energy(potential_size);
 
@@ -121,7 +122,7 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
         }
 
         if (config.m_enableElectrostatic) {
-            electrostatic = ElectrostaticPotential(r, Z1, Z2, nanoparticleRadius, bjerumLength, debyeLength);
+            electrostatic = ElectrostaticPotential(r, Z1, Z2, nanoparticleRadius, debyeLength);
             U += electrostatic;
         }
 
@@ -160,8 +161,8 @@ double HamakerPotential(const double A, const double R1, const double R2, const 
   }
 }
 
-double ElectrostaticPotential(const double r, const double Z1, const double Z2, const double nanoparticleRadius, const double bjerumLength, const double debyeLength) {
-    return (Z1 * Z2 * bjerumLength * std::exp((-1.0 * r) / debyeLength)) / (r + nanoparticleRadius);
+double ElectrostaticPotential(const double r, const double Z1, const double Z2, const double nanoparticleRadius, const double debyeLength) {
+    return (Z1 * Z2 *std::exp((-1.0 * r) / debyeLength)) / (nanoparticleRadius + r);
 }
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {
