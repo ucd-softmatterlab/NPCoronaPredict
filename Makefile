@@ -6,8 +6,16 @@ CXXFLAGS=-std=c++17 -O3 -lboost_system -lboost_filesystem -fopenmp -lpthread -ft
 
 HEADERS := $(shell find $(SRC) -name "*.h")
 
+
+all : $(EXEC) pdb2cg1
+
 $(EXEC) : $(SRC)/main.cpp $(HEADERS)
 	$(CXX) -o $(EXEC) $(SRC)/main.cpp $(CXXFLAGS)
+
+
+pdb2cg1 : $(SRC)/pdb2cg1.cpp
+	$(CXX) -o pdb2cg1 $(SRC)/pdb2cg1.cpp $(CXXFLAGS)
+
 
 clean :
 	rm -f $(EXEC) core

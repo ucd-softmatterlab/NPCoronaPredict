@@ -6,7 +6,7 @@
 ./UnitedAtom --hamaker-file=hamaker/TiO2_Anatase.dat --pmf-directory=surface/TiO2/Anatase/101/sca --output-directory=results/TiO2/Anatase/101/sca && push "Completed 3/14" "TiO2 Anatase 101"
 
 # TiO2 Rutile
-./UnitedAtom --hamaker-file=hamaker/TiO2_Rutile.dat --pmf-directory=surface/TiO2/Rutile/001/sca --output-directory=results/TiO2/Rutile/001/sca #&& push "Completed 4/14" "TiO2 Rutile 001"
+./UnitedAtom --hamaker-file=hamaker/TiO2_Rutile.dat --pmf-directory=surface/TiO2/Rutile/001/sca --output-directory=results/TiO2/Rutile/001/sca && push "Completed 4/14" "TiO2 Rutile 001"
 ./UnitedAtom --hamaker-file=hamaker/TiO2_Rutile.dat --pmf-directory=surface/TiO2/Rutile/100/sca --output-directory=results/TiO2/Rutile/100/sca && push "Completed 5/14" "TiO2 Rutile 100"
 ./UnitedAtom --hamaker-file=hamaker/TiO2_Rutile.dat --pmf-directory=surface/TiO2/Rutile/110/sca --output-directory=results/TiO2/Rutile/110/sca && push "Completed 6/14" "TiO2 Rutile 110"
 
