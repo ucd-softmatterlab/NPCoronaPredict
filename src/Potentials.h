@@ -11,6 +11,7 @@
 #include <vector>
 #include <fstream>
 #include <iomanip>
+#include <boost/math/special_functions/bessel.hpp> 
 
 constexpr int potential_size = 1024;
 
@@ -56,6 +57,7 @@ public:
 Potential GeneratePotential(const SurfaceData&, const HamakerConstants&, const double, const double, const Config&);
 double HamakerPotential(const double, const double, const double, const double);
 double ElectrostaticPotential(const double, const double, const double, const double, const double);
+double ElectrostaticCylinderPotential(const double, const double, const double, const double, const double);
 double HamakerPotentialV2(const double, const double, const double, const double, const double);
 
 class Potentials : public std::vector<Potential> {
@@ -88,7 +90,7 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     const std::string destination = "pot-dat"; 
     const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
     std::ofstream handle(filename.c_str());
-
+ 
     for (int i = 0; i < potential_size; ++i) {
         const double r = pmfStart + (i / (potential_size - 1.0)) * (cutoff - pmfStart);
         double U       = 0.0;
@@ -118,7 +120,12 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
         }
 
         if (config.m_enableElectrostatic) {
+            if(config.m_npType == 2 || config.m_npType == 4){
+            electrostatic = ElectrostaticCylinderPotential(r, zetaPotential, Z, nanoparticleRadius, debyeLength);
+}
+else{
             electrostatic = ElectrostaticPotential(r, zetaPotential, Z, nanoparticleRadius, debyeLength);
+}
             U += electrostatic;
         }
 
@@ -160,6 +167,15 @@ double HamakerPotential(const double A, const double R1, const double R2, const 
 double ElectrostaticPotential(const double h, const double sigma, const double Z, const double R, const double ld) {
     return 38.681727 * (sigma * Z) * (R/ (R + h)) * exp(-1.0 * h / ld); // The constant is e/kT
 }
+ 
+
+//Defines the approximate debye-huckel potential for an infinitely long cylinder in a solution with a fixed boundary condition at the surface and psi->0 for large distances
+//The normalisation convention here is chosen such that at h = 0 (i.e. at the surface of the NP) this should return the same value as the spherical case.
+double ElectrostaticCylinderPotential(const double h, const double sigma, const double Z, const double R, const double ld) {
+    double cylinderES = 38.681727 * (sigma * Z) * (R/ (R))   * cyl_bessel_k(0, ld*(h+R) ) / cyl_bessel_k(0, ld*R);
+    return cylinderES;
+}
+
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {
 
