@@ -77,9 +77,7 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     //const double        bjerumLength        = config.m_bejerumLength;
     const double        debyeLength         = config.m_debyeLength;
     const auto          aminoAcidRadius     = config.AminoAcidRadius(surfaceData.m_aminoAcid);
-    const double        Z1                  = config.AminoAcidCharge(surfaceData.m_aminoAcid);
-    //const double        Z2                  = 38.681 * zetaPotential * nanoparticleRadius * (1.0 + 4.0 * M_PI * bjerumLength) / bjerumLength;
-    const double        Z2                  = zetaPotential * nanoparticleRadius;
+    const double        Z                   = config.AminoAcidCharge(surfaceData.m_aminoAcid);
     
     std::vector<double> energy(potential_size);
 
@@ -90,8 +88,6 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     const std::string destination = "pot-dat"; 
     const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
     std::ofstream handle(filename.c_str());
-
-    handle << "# Distance    Total         Surface       Core          Electrostatic\n";
 
     for (int i = 0; i < potential_size; ++i) {
         const double r = pmfStart + (i / (potential_size - 1.0)) * (cutoff - pmfStart);
@@ -104,29 +100,29 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
 
         if (config.m_enableCore) {
             if(config.m_npType == 1){ //sphere
-            core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
+                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
             }
             else if(config.m_npType == 2){ //cylinder, defined in CylinderPotential.h
-            core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+                core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
             }
             else if(config.m_npType == 3){//cube, defined in CubePotential.h
-            core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+                core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
             }
             else if(config.m_npType == 4){ //tube, defined in TubePotential.h
-            core =  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+                core =  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
             }
             else{
-            core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
-             }
+                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
+            }
             U += core;
         }
 
         if (config.m_enableElectrostatic) {
-            electrostatic = ElectrostaticPotential(r, Z1, Z2, nanoparticleRadius, debyeLength);
+            electrostatic = ElectrostaticPotential(r, zetaPotential, Z, nanoparticleRadius, debyeLength);
             U += electrostatic;
         }
 
-        energy[i] = (double) U;
+        energy[i] = U;
     
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << r;
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << U;
@@ -161,8 +157,8 @@ double HamakerPotential(const double A, const double R1, const double R2, const 
   }
 }
 
-double ElectrostaticPotential(const double r, const double Z1, const double Z2, const double nanoparticleRadius, const double debyeLength) {
-    return (Z1 * Z2 *std::exp((-1.0 * r) / debyeLength)) / (nanoparticleRadius + r);
+double ElectrostaticPotential(const double h, const double sigma, const double Z, const double R, const double ld) {
+    return 38.681727 * (sigma * Z) * (R/ (R + h)) * exp(-1.0 * h / ld); // The constant is e/kT
 }
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {

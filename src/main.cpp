@@ -16,12 +16,12 @@
 
 //constexpr double        gds             = 0.22;
 constexpr double        gds             = 0.0;
-constexpr double        delta           = 3.0;
+constexpr double        delta           = 2.0;
 constexpr double        angle_delta     = 5.0 * (M_PI / 180.0);
 constexpr int           ncols           = 72;
 constexpr int           nrows           = 36;
 constexpr int           iterations      = nrows * ncols;
-constexpr int           samples         = 16;
+constexpr int           samples         = 256;
 constexpr int           steps           = 512;
 constexpr double        dz              = delta / (steps - 1);
 
@@ -254,7 +254,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             }
            
             /*for (i = 0; i < steps; ++i) {
-                std::cout << SSD[i] << " " << total_energy[i] << "\n"; 
+                std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
             }
             exit(0);*/
 

@@ -9,7 +9,8 @@ from matplotlib.ticker import MaxNLocator
 import scipy as sp
 import scipy.ndimage
 
-sigma = 1
+sigma    = 1
+fontsize = 15
 
 #if len(argv) != 3:
 #    print('Usage: ./CompareMaps <map.csv> <map.csv>')
@@ -43,9 +44,7 @@ def GetImage(filename):
     for phi, theta, energy, err in data:
         col             = int(phi / delta)
         row             = int(theta / delta)
-
         image[row][col] = energy
-    
     return image
 
 image0 = GetImage(first)
@@ -64,8 +63,8 @@ lat2 = np.linspace(0.0, np.pi, rows1)
 Lon2, Lat2 = np.meshgrid(lon2, lat2)
 
 
-image0 = sp.ndimage.filters.gaussian_filter(image0, sigma = [sigma, sigma], mode = ['constant', 'wrap'])
-image1 = sp.ndimage.filters.gaussian_filter(image1, sigma = [sigma, sigma], mode = ['constant', 'wrap'])
+image0 = sp.ndimage.filters.gaussian_filter(image0, sigma = [sigma, sigma], mode = ['reflect', 'wrap'])
+image1 = sp.ndimage.filters.gaussian_filter(image1, sigma = [sigma, sigma], mode = ['reflect', 'wrap'])
 
 def Bolts(image):
     rows, cols = image.shape
@@ -85,15 +84,16 @@ def Bolts(image):
 
 # Plot the data
 font_path = "/usr/share/fonts/truetype/ttf-bitstream-vera/VeraMono.ttf"
-fontsize  = 12
 clabelpad = 26
    
 font      = mfm.FontProperties(fname = font_path, size = fontsize)
+tick_font = mfm.FontProperties(fname = font_path, size = fontsize - 1)
 xlabel    = r"$\phi$" + u"\u00B0"
 ylabel    = r"$\theta$" + u"\u00B0"
-clabel    = r"E($\phi$,$\theta$)/k${_B}$T";
+clabel    = r"E$_{ad}$($\phi$,$\theta$)/k${_B}$T";
 
-fig, (ax0, ax1) = plt.subplots(nrows = 1, ncols = 2, figsize = (12, 4))
+
+fig, (ax0, ax1) = plt.subplots(nrows = 2, ncols = 1, dpi = 300)
 
 nbins = 50
 
@@ -114,17 +114,18 @@ rad2deg = 180.0 / np.pi
 
 im0 = ax0.contourf((Lon1 + dx / 2.0) * rad2deg, (Lat1 + dy / 2.0) * rad2deg, image0, levels = levels0, cmap = 'ocean')
 cb0 = fig.colorbar(im0, ax = ax0, shrink = 1.0, ticks = MaxNLocator(integer = True))
-cb0.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = font)
-ax0.set_xlabel(xlabel, fontproperties = font)
-ax0.set_ylabel(ylabel, fontproperties = font)
+cb0.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = tick_font)
+#ax0.set_xlabel(xlabel, fontproperties = tick_font)
+ax0.set_ylabel(ylabel, fontproperties = tick_font)
 
 im1 = ax1.contourf((Lon2 + dx / 2.0) * rad2deg, (Lat2 + dy / 2.0) * rad2deg, image1, levels = levels1, cmap = 'ocean')
 cb1 = fig.colorbar(im1, ax = ax1, shrink = 1.0, ticks = MaxNLocator(integer = True))
-cb1.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = font)
-ax1.set_xlabel(xlabel, fontproperties = font)
+cb1.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = tick_font)
+ax1.set_xlabel(xlabel, fontproperties = tick_font)
+ax1.set_ylabel(ylabel, fontproperties = tick_font)
 
 plt.tight_layout()
 
+plt.savefig("comp.png")
 plt.show()
 
-#plt.savefig(argv[3])

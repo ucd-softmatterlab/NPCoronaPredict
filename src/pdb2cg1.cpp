@@ -19,12 +19,12 @@ int main(const int argc, const char * argv[]) {
     std::string line;
 
     while (std::getline(handle, line)) {
-        if(line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
+        if(line.size() > 3 && line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
             std::cout << line << "\n";
         }
-        /*else if (line.substr(0, 3) == "TER") {
+        else if (line.size() > 5 && line.substr(0, 6) == "ENDMDL") {
             break;
-        }*/
+        }
     }
 
     handle.close();

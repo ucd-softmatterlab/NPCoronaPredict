@@ -7,4 +7,7 @@ energies
 *.png
 *.xcf
 *.tga
+*.out*
+*.dat
+*.gz
 pot-dat/*
