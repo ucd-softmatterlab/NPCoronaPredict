@@ -58,6 +58,7 @@ Potential GeneratePotential(const SurfaceData&, const HamakerConstants&, const d
 double HamakerPotential(const double, const double, const double, const double);
 double ElectrostaticPotential(const double, const double, const double, const double, const double);
 double ElectrostaticCylinderPotential(const double, const double, const double, const double, const double);
+double ElectrostaticCubePotential(const double, const double, const double, const double, const double);
 double HamakerPotentialV2(const double, const double, const double, const double, const double);
 
 class Potentials : public std::vector<Potential> {
@@ -123,6 +124,9 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
             if(config.m_npType == 2 || config.m_npType == 4){
             electrostatic = ElectrostaticCylinderPotential(r, zetaPotential, Z, nanoparticleRadius, debyeLength);
 }
+else if(config.m_npType == 3){
+electrostatic = ElectrostaticCubePotential(r, zetaPotential, Z, nanoparticleRadius, debyeLength);
+}
 else{
             electrostatic = ElectrostaticPotential(r, zetaPotential, Z, nanoparticleRadius, debyeLength);
 }
@@ -172,9 +176,19 @@ double ElectrostaticPotential(const double h, const double sigma, const double Z
 //Defines the approximate debye-huckel potential for an infinitely long cylinder in a solution with a fixed boundary condition at the surface and psi->0 for large distances
 //The normalisation convention here is chosen such that at h = 0 (i.e. at the surface of the NP) this should return the same value as the spherical case.
 double ElectrostaticCylinderPotential(const double h, const double sigma, const double Z, const double R, const double ld) {
-    double cylinderES = 38.681727 * (sigma * Z) * (R/ (R))   * cyl_bessel_k(0, ld*(h+R) ) / cyl_bessel_k(0, ld*R);
+    double cylinderES = 38.681727 * (sigma * Z)   * cyl_bessel_k(0,  (h+R)/ld ) / cyl_bessel_k(0,  R/ld);
     return cylinderES;
 }
+
+
+//calculates the debye-huckel potential for a planar surface in a weakly ionic solution.
+//this is a reasonably accurate model for a cubic nanoparticle as long as the side of a cube is a few times larger than the Debye length.
+//if it's smaller than this then the other approximations made in this program are likely no longer valid anyway.
+double ElectrostaticCubePotential(const double h, const double sigma, const double Z, const double R, const double ld) {
+    double cubeES = 38.681727 * (sigma * Z)   * exp(-h/ld);
+    return cubeES;
+}
+
 
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {
