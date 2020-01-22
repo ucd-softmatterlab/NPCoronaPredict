@@ -14,8 +14,8 @@
 #include <random>
 #include <iomanip>
 
-//constexpr double        gds             = 0.22;
-constexpr double        gds             = 0.0;
+constexpr double        gds             = 0.22;
+//constexpr double        gds             = 0.0;
 constexpr double        delta           = 2.0;
 constexpr double        angle_delta     = 5.0 * (M_PI / 180.0);
 constexpr int           ncols           = 72;
@@ -28,48 +28,55 @@ constexpr double        dz              = delta / (steps - 1);
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
-void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double radius,
+void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, double const * const distances, const double radius,
         const double zeta, const std::string& name, const std::string& directory) {
     std::string filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
         + "_" + std::to_string(static_cast<int>(1000 * zeta)) + ".map";
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
-    for (int i = 0; i < iterations; ++i) { 
+    for (int i = 0; i < iterations; ++i) {
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << phi;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << theta;
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i];
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_error[i];
+        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << (distances[i] - radius);
         handle << "\n";
     }
     handle.close();
 }
 
-void PrintStatistics(const double *adsorption_energy, const double *adsorption_error, const double radius, const std::string& filename) {
+void PrintStatistics(const double *adsorption_energy, const double *adsorption_error, double const * const distances, const double radius, const std::string& filename) {
     double          sin_theta;
     double          error           = 0.0;
     double          simpleAverage   = 0.0;
     long double     T               = 0.0;
     long double     Z               = 0.0;
-   
+    double          averageDistance = 0.0;
+
     for (int i = 0; i < iterations; ++i) {
         sin_theta       = std::sin((i / ncols) * angle_delta);
         T               += adsorption_energy[i] * sin_theta * std::exp(-1.0 * adsorption_energy[i]);
         Z               += sin_theta * std::exp(-1.0 * adsorption_energy[i]);
         simpleAverage   += sin_theta * adsorption_energy[i];
         error           += sin_theta * adsorption_error[i];
+        averageDistance += distances[i];
     }
 
     simpleAverage   /= iterations;
     error           /= iterations;
+    averageDistance /= iterations;
+
+    std::cout << "PDB Radius SimpleAverage(kT) BoltzmannAverage(kT) BoltzmannError(kT) Distance\n";
 
     std::cout << std::setw(10) << std::left << TargetList::Filename(filename);
     std::cout << std::setw(10) << std::fixed << std::setprecision(1) << radius;
     std::cout << std::setw(14) << std::fixed << std::setprecision(5) << simpleAverage;
     std::cout << std::setw(14) << std::fixed << std::setprecision(5) << (T/Z);
     std::cout << std::setw(14) << std::fixed << std::setprecision(5) << error;
+    std::cout << std::setw(14) << std::fixed << std::setprecision(5) << (averageDistance - radius);
     std::cout << std::endl;
 }
 
@@ -165,7 +172,7 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     *sd     = std::sqrt(lsd);
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, int npType = 1, double imaginary_radius = -1) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double* averageDistance, int npType = 1, double imaginary_radius = -1) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -189,6 +196,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double total_energy[steps];
     double SSD[steps];
     double sample_energy[samples];
+    double sample_distances[samples];
 
     // Iterate over angles
     for (int angle = 0; angle < n_angles; ++angle) {
@@ -245,31 +253,60 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 }
                 else{
                     distance  = std::sqrt(x[j] + y[j] + (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
-}
-                    energy += static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
+                }
+                
+                energy += static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                 }
                 
                 SSD[i]          = ssd;
                 total_energy[i] = energy;
             }
-           
+          
+
+            /*
+             *  Get the distance from the bead to the surface of the nanoparticle where the energy
+             *  is a minimum
+             */
+            double minimumDistance = gds + delta;
+            double mimimumEnergy = std::numeric_limits<double>::max();
+            for (int i = 0; i < steps; ++i) {
+                if (total_energy[i] < mimimumEnergy) {
+                    mimimumEnergy   = total_energy[i];
+                    minimumDistance = SSD[i];
+                }
+            }
+
+            sample_distances[sample] = minimumDistance;
+
             /*for (i = 0; i < steps; ++i) {
                 std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
             }
             exit(0);*/
 
             // Integrate the results
-                if(npType == 2 || npType == 4){
+        if(npType == 2 || npType == 4){
             IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-}
-else if(npType == 3){
-     IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-}
-else{
-            Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-}
         }
-  
+        else if(npType == 3){
+            IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+        }
+        else{
+            Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+        }
+    }
+ 
+    
+    /*
+     *  Get the mean and stddev of the distances
+     */
+
+    double distanceSum = 0.0;
+
+    for (int sample = 0; sample < samples; ++sample) 
+        distanceSum += sample_distances[sample];
+
+    averageDistance[angle_offset + angle] =  distanceSum / (double) samples;
+
         // Mean of all the samples
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
     }
@@ -282,7 +319,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
 
     double adsorption_energy[iterations] = {};
     double adsorption_error[iterations]  = {};
-    
+    double distances[iterations] = {};
+
     #ifdef PARALLEL  
     const int n_threads         = omp_get_max_threads();
     #else
@@ -309,6 +347,7 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     n_per_thread + (thread < n_remaining), 
                     adsorption_energy, 
                     adsorption_error,
+                    distances,
                     config.m_npType,
                     imaginary_radius
             ); 
@@ -316,8 +355,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
     }
     
 
-    WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory); 
-    PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
+    WriteMapFile(adsorption_energy, adsorption_error, distances, radius, zeta, pdb.m_name, config.m_outputDirectory); 
+    PrintStatistics(adsorption_energy, adsorption_error, distances, radius, pdb.m_name);
 }
 
 int main(const int argc, const char* argv[]) {
