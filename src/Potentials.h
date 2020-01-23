@@ -177,7 +177,7 @@ double ElectrostaticPotential(const double h, const double zetaS, const double Z
 //Defines the approximate debye-huckel potential for an infinitely long cylinder in a solution with a fixed boundary condition at the surface and psi->0 for large distances
 //The normalisation convention here is chosen such that at h = 0 (i.e. at the surface of the NP) this should return the same value as the spherical case.
 double ElectrostaticCylinderPotential(const double h, const double zetaS, const double Z, const double R, const double ld) {
-    double cylinderES = 38.681727 * (zetaS * Z)   * cyl_bessel_k(0,  (h+R)/ld ) / cyl_bessel_k(0,  R/ld);
+    double cylinderES = 38.681727 * (zetaS * Z)   * boost::math::cyl_bessel_k(0,  (h+R)/ld ) / boost::math::cyl_bessel_k(0,  R/ld);
     return cylinderES;
 }
 
