@@ -128,9 +128,9 @@ def outputState():
 
 
 #define the amount of time to simulate.
-endTime = 1
+endTime = 3600
 #how often the routine should print out information to the screen and store the number of adsorbed proteins for final output. 
-updateInterval =3600
+updateInterval =5
 
 
 
