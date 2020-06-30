@@ -128,9 +128,10 @@ def outputState():
 
 
 #define the amount of time to simulate.
-endTime = 3600
+endTime = 1
 #how often the routine should print out information to the screen and store the number of adsorbed proteins for final output. 
-updateInterval =1
+updateInterval =3600
+
 
 
 #these parameters control the surface diffusion - as long as the binding is reversible this can usually be disabled by not setting the -d option, as surface restructing occurs through deadsorption and readsorption.
@@ -326,7 +327,7 @@ if coarseGrainAtEnd != 0:
 if proteinInput == "":
     outputTag = "hsahdlfib"
 else:
-    outputTag = proteinInput
+    outputTag = proteinInput.split("/")[-1]
 
 
 np.savetxt("kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_long_"+args.fileid+".txt",np.array(resList))
