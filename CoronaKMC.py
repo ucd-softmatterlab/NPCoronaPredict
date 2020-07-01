@@ -52,7 +52,7 @@ def shuffleCollisionDetect(state, shiftedNum ,newPhi, newTheta):
     otherStateMask = np.ones((state[:,0]).shape,bool)
     otherStateMask[shiftedNum] = False
     otherState = state[otherStateMask]
-    radiusArray = proteinData[ otherState[:,0].astype(int), 1] 
+    radiusArray = proteinData[ otherState[:,0].astype(int), 1]
     heightArray = np.where(radiusArray  > newr, radiusArray , newr   ) + npRadius
     dists = heightArray * np.sqrt((  np.cos(otherState[:,1]) * np.sin(otherState[:,2]) -np.cos(newPhi) * np.sin(newTheta)   )**2 + (  np.sin(otherState[:,1]) * np.sin(otherState[:,2]) -np.sin(newPhi) * np.sin(newTheta))**2  + ( np.cos(otherState[:,2]) - np.cos(newTheta)  )**2 )
     allowedDists = proteinData[  otherState[:,0].astype(int) ,1] + newr
@@ -60,7 +60,7 @@ def shuffleCollisionDetect(state, shiftedNum ,newPhi, newTheta):
         return 1
     return 0
 
-
+'''
 def CylinderCollisionDetect(state, newType,newPhi, newZ):
     if(len(state))<1:
         return 0
@@ -75,7 +75,7 @@ def CylinderCollisionDetect(state, newType,newPhi, newZ):
     if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < a$
         return 1
     return 0
-
+'''
 
 
 def bindingArea(rnp,ri):
