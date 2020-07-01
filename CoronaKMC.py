@@ -37,7 +37,7 @@ def adsorbCollisionDetect(state,newType,newC1,newC2):
     if npShape == 1:
         return SphereCollisionDetect(state,newType,newC1,newC2)
     elif npShape == 2:
-        return CylinderCollisionDetect(state,newType,newC1,newC2)
+        return CylinderCollisionDetect(state,newType,newC1,newC2) + CylinderCollisionDetect(state,newType,newC1,newC2,2*cylinderHalfLength) + CylinderCollisionDetect(state,newType,newC1,newC2,-2*cylinderHalfLength)
     else:
         return SphereCollisionDetect(state,newType,newC1,newC2)
 
@@ -86,18 +86,18 @@ def CylinderCollisionDetect(state, newType,newPhi, newZ):
     return 0
 '''
 
-def CylinderCollisionDetect(state, newType,newPhi, newZ):
+def CylinderCollisionDetect(state, newType,newPhi, newZ,zoffset=0):
     if(len(state))<1:
         return 0
     newr = proteinData[ newType,1 ]
     radiusArray = proteinData[ state[:,0].astype(int), 1]
     #first pass: detect physical overlap
     allowedDists = radiusArray + newr
-    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < allowedDists):
+    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
         return 1
     #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
     minRD = np.where( radiusArray > newr, radiusArray, newr)
-    if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < allowedDists):
+    if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
         return 1
     return 0
 
@@ -365,7 +365,7 @@ while t < endTime:
         if npShape == 1:
             newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
         else:
-            newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength - proteinData[ newProteinID,1 ])
+            newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength )
         isOvercrowded =  adsorbCollisionDetect(np.array(state), newProteinID, newPhi, newC2)
         if isOvercrowded == 0:
             state.append([newProteinID,newPhi,newC2  ])
