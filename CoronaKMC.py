@@ -60,8 +60,39 @@ def shuffleCollisionDetect(state, shiftedNum ,newPhi, newTheta):
         return 1
     return 0
 
-def bindingArea(rnp, ri):
+
+def CylinderCollisionDetect(state, newType,newPhi, newZ):
+    if(len(state))<1:
+        return 0
+    newr = proteinData[ newType,5 ]
+    radiusArray = proteinData[ state[:,0].astype(int), 5]
+    #first pass: detect physical overlap
+    allowedDists = radiusArray + newr
+    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2     $
+        return 1
+    #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
+    minRD = np.where( radiusArray > newr, radiusArray, newr)
+    if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < a$
+        return 1
+    return 0
+
+
+
+def bindingArea(rnp,ri):
+    if npShape == 1:
+        area = bindingAreaSphere(rnp,ri)
+    elif npShape == 2:
+        area = bindingAreaCylinder(rnp,ri)
+    else:
+        area = bindingAreaSphere(rnp,ri)
+    return area
+
+def bindingAreaSphere(rnp, ri):
     return 2*np.pi * (rnp**2) * (  1 - np.sqrt(rnp*(2*ri+rnp))/(ri+rnp) ) 
+
+def bindingAreaCylinder(rnp,ri):
+    return ri*rnp* 4 * np.sqrt(  rnp*(2 + rnp/ri)/ri    ) * (  scspec.ellipe(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri) )) - scspec.ellipk(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri))  )  )
+
 
 
 def outputStateAll():
@@ -153,8 +184,21 @@ parser.add_argument('-r','--radius',type=float,help="Radius of the NP",default=3
 parser.add_argument('-p','--proteins',help="Protein file set",default="")
 parser.add_argument('-d','--diffuse',help="Enable surface diffusion",default=0)
 parser.add_argument('-c', '--coarse',help="Treat input as orientations of single protein, report only total numbers",default=0)
+parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder",default=1)
 args = parser.parse_args()
 
+npShape = args.shape
+
+if npShape == 1:
+    print "Spherical NP"
+elif npShape == 2:
+    print "Cylindrical NP"
+else:
+    print "Shape not recognised, defaulting to spherical"
+    npShape = 1
+
+
+cylinderHalfLength = 50 #end-to-centre length of the cylinder
 
 #if this flag is set to 1 then all proteins in the input are assumed to be different orientations of the same protein. the script runs as normal, then at the end prints out an average equilibrium constant and radius
 #note that this radius and equilibrium constant are dependent on the size of the NP
@@ -249,7 +293,7 @@ while t < endTime:
         #print state
         lastUpdate += updateInterval
     #next, diffuse proteins around the surface if enabled
-    if doShuffle != 0:
+    if doShuffle != 0 and npShape==1:
         #diffuse proteins around the surface
         shuffleOrder = range(len(state))
         random.shuffle(shuffleOrder)

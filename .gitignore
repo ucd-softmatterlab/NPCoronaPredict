@@ -1,13 +1,11 @@
 UnitedAtom
 pdb2cg1
 energies
-*.csv
 *.pdb
 *.map
 *.png
 *.xcf
 *.tga
 *.out*
-*.dat
 *.gz
 pot-dat/*
