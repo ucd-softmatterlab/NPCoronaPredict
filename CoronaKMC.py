@@ -32,7 +32,16 @@ def collisionDetect(state, entryID):
 
 #check to see if the proposed protein would overlap with any existing ones
 
-def adsorbCollisionDetect(state, newType,newPhi, newTheta):
+
+def adsorbCollisionDetect(state,newType,newC1,newC2):
+    if npShape == 1:
+        return SphereCollisionDetect(state,newType,newC1,newC2)
+    elif npShape == 2:
+        return CylinderCollisionDetect(state,newType,newC1,newC2)
+    else:
+        return SphereCollisionDetect(state,newType,newC1,newC2)
+
+def SphereCollisionDetect(state, newType,newPhi, newTheta):
     if(len(state))<1:
         return 0
     newr = proteinData[ newType,1 ]
@@ -68,7 +77,7 @@ def CylinderCollisionDetect(state, newType,newPhi, newZ):
     radiusArray = proteinData[ state[:,0].astype(int), 5]
     #first pass: detect physical overlap
     allowedDists = radiusArray + newr
-    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2     $
+    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2     
         return 1
     #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
     minRD = np.where( radiusArray > newr, radiusArray, newr)
@@ -76,6 +85,21 @@ def CylinderCollisionDetect(state, newType,newPhi, newZ):
         return 1
     return 0
 '''
+
+def CylinderCollisionDetect(state, newType,newPhi, newZ):
+    if(len(state))<1:
+        return 0
+    newr = proteinData[ newType,1 ]
+    radiusArray = proteinData[ state[:,0].astype(int), 1]
+    #first pass: detect physical overlap
+    allowedDists = radiusArray + newr
+    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < allowedDists):
+        return 1
+    #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
+    minRD = np.where( radiusArray > newr, radiusArray, newr)
+    if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < allowedDists):
+        return 1
+    return 0
 
 
 def bindingArea(rnp,ri):
@@ -187,18 +211,23 @@ parser.add_argument('-c', '--coarse',help="Treat input as orientations of single
 parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder",default=1)
 args = parser.parse_args()
 
-npShape = args.shape
+npShape = int(args.shape)
+
+cylinderHalfLength = 50 #end-to-centre length of the cylinder
+print npShape
+
 
 if npShape == 1:
     print "Spherical NP"
+    npSurfaceArea = 4*np.pi * args.radius**2
 elif npShape == 2:
     print "Cylindrical NP"
+    npSurfaceArea = (2*cylinderHalfLength)*2*np.pi * args.radius
 else:
     print "Shape not recognised, defaulting to spherical"
     npShape = 1
+    npSurfaceArea = 4*np.pi * args.radius**2
 
-
-cylinderHalfLength = 50 #end-to-centre length of the cylinder
 
 #if this flag is set to 1 then all proteins in the input are assumed to be different orientations of the same protein. the script runs as normal, then at the end prints out an average equilibrium constant and radius
 #note that this radius and equilibrium constant are dependent on the size of the NP
@@ -233,11 +262,12 @@ else:
     print proteinDataInput
 proteinData = proteinDataInput[:,1:].astype(float)
 proteinNames = proteinDataInput[:,0]
-uniqueProteins = np.unique(proteinNames)
+uniqueProteinList,uniqueProteinIDs = np.unique(proteinNames,return_index=True)
+uniqueProteins = proteinNames[np.sort(uniqueProteinIDs)]
+#print uniqueProteinIDs
+proteinBindingSites = npSurfaceArea /( bindingArea(npRadius, proteinData[:,1]) )
 
-proteinBindingSites = 4*np.pi*(npRadius)**2  /( bindingArea(npRadius, proteinData[:,1]) )
-
-
+print proteinBindingSites
 if doAnalytic!=0:
     aCoeffMatrix = np.zeros( (len(proteinData), len(proteinData)))
     bVector = proteinData[:,2] * proteinData[:,0] * proteinBindingSites
@@ -332,11 +362,13 @@ while t < endTime:
         #attempt to add a protein but reject if this would cause an overlap (i.e. the incoming protein sticks with prob 1 to bare NP, reflected otherwise)
         newProteinID = chosenProcess
         newPhi = 2*np.pi * np.random.random()
-        newTheta = np.arccos( 2*np.random.random() - 1)
-        radialDist = npRadius + proteinData[newProteinID,1]
-        isOvercrowded =  adsorbCollisionDetect(np.array(state), newProteinID, newPhi, newTheta)
+        if npShape == 1:
+            newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
+        else:
+            newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength - proteinData[ newProteinID,1 ])
+        isOvercrowded =  adsorbCollisionDetect(np.array(state), newProteinID, newPhi, newC2)
         if isOvercrowded == 0:
-            state.append([newProteinID,newPhi,newTheta  ])
+            state.append([newProteinID,newPhi,newC2  ])
             #print "accepted protein ", newProteinID
     else:
         #remove the protein at the correct position
@@ -346,8 +378,17 @@ while t < endTime:
 
 stateArray = np.array(state)
 radiusArray = np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ])
-heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius)
-outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
+
+
+if npShape == 1:
+    heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
+    outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
+elif npShape == 2:
+    heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius)
+    outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1])   , heightAboveSurface * np.sin(stateArray[:,1])  ,stateArray[:,2] ,radiusArray ))
+else:
+    heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
+    outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
 
 
 if coarseGrainAtEnd != 0:
