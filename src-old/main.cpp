@@ -14,14 +14,13 @@
 #include <random>
 #include <iomanip>
 
-//constexpr double        gds             = 0.22;
-constexpr double        gds             = 0.0;
-constexpr double        delta           = 2.0;
+constexpr double        gds             = 0.22;
+constexpr double        delta           = 0.8;
 constexpr double        angle_delta     = 5.0 * (M_PI / 180.0);
 constexpr int           ncols           = 72;
 constexpr int           nrows           = 36;
 constexpr int           iterations      = nrows * ncols;
-constexpr int           samples         = 128;
+constexpr int           samples         = 16;
 constexpr int           steps           = 512;
 constexpr double        dz              = delta / (steps - 1);
 
@@ -29,19 +28,9 @@ std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double radius,
-        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0) {
-std::string filename;
-
- 
-
-    if(isMFPT==1){
-     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + "_mfpt.map";
-    }
-else{
-    filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + ".map";
-}
+        const double zeta, const std::string& name, const std::string& directory) {
+    std::string filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+        + "_" + std::to_string(static_cast<int>(1000 * zeta)) + ".map";
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
@@ -50,13 +39,7 @@ else{
         theta = (i / ncols) * 5.0;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << phi;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << theta;
-
-        if(isMFPT==1){
-        handle << std::left << std::setw(14) << std::fixed << std::scientific << std::setprecision(5) << adsorption_energy[i];
-        }
-        else{
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i];
-        }
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_error[i];
         handle << "\n";
     }
@@ -107,46 +90,8 @@ double *x, double *y, double *z) {
         x[i] = cx[i] * R[0][0] + cy[i] * R[0][1] + cz[i] * R[0][2];
         y[i] = cx[i] * R[1][0] + cy[i] * R[1][1];
         z[i] = cx[i] * R[2][0] + cy[i] * R[2][1] + cz[i] * R[2][2];
-
-
-
-
-
     }
-
-
 }
-
-
-
-inline void RotateZ (const int size, const double omega,
-const std::vector<double>& cx, const std::vector<double>& cy, const std::vector<double>& cz,
-double *x, double *y, double *z) {
-    double R[3][3];
-
-    R[0][0] =  std::cos(omega);
-    R[0][1] = - std::sin(omega);
-    R[0][2] = 0;
-    R[1][0] = std::sin(omega);
-    R[1][1] = std::cos(omega);
-    R[2][0] = 0;
-    R[2][1] = 0;
-    R[2][2] = 1;
-
-    for(int i = 0; i < size; ++i) {
-        x[i] = cx[i] * R[0][0] + cy[i] * R[0][1] + cz[i] * R[0][2];
-        y[i] = cx[i] * R[1][0] + cy[i] * R[1][1];
-        z[i] = cx[i] * R[2][0] + cy[i] * R[2][1] + cz[i] * R[2][2];
-
-
-
-
-
-    }
-
-
-}
-
 
 void SquareXY (const int size, double *x, double *y) {
     for (int i = 0; i < size; ++i) {
@@ -179,198 +124,14 @@ void Integrate(const int size, const double dz, const double init_energy, const 
 }
 
 
-/*
-void IntegrateMFPT(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *mfpt, int npType) {
-    long double res = 0.0;
-    long double innerRes = 0.0;
-
-//the ssd list contains the positions, note that the ssd[0] corresponds to the furthest distance and ssd[size] is the closest. 
-
-
-//first pass: find the value of i corresponding to the global minimum
-int minI = 0;
-double minEnergy = energy[0];
-for(int i =0;i<size;++i){
-if(energy[i] < minEnergy){
-minEnergy  = energy[i];
-minI = i;
-}
-}
-
-//second pass: find the value of i > minI corresponding to the barrier
-int maxI = minI;
-double maxEnergy = minEnergy;
-for(int i =minI;i>0;--i){
-if(energy[i] > maxEnergy){
-//std::cout << "new max at: " << ssd[i] << " from " << maxEnergy << " to " << energy[i] << "\n";
-maxEnergy  = energy[i];
-maxI = i;
-
-}
-}
-
-
-//integrate from the end point at ssd[0] to the minimum
-    for (int i = 0; i < minI; ++i) {
-        //here ssd[i] = y and ssd[j] = rprime
-innerRes = 0;
-//std::cout << ssd[i] << "\n";
-//integrate from the end point at ssd[size] to y
-for(int j =size; j > i; --j){
-double correctionFactor = 1;
-if(npType == 1){
-correctionFactor = ssd[j]*ssd[j]/(ssd[i]*ssd[i]); //weight the integrals by r'^2/y^2 for spheres
-}
-else if(npType == 2 || npType == 4){
-correctionFactor = ssd[j]/(ssd[i]); //weight by r'/y for cylindrical types
-}
-
-
-innerRes +=  dz*std::exp(static_cast<long double>(energy[i]  -1.0*(  energy[j] )))  *correctionFactor; 
-}
-res+= dz    * innerRes;
-    
-
-
-}
-//std::cout << "minimum: U(" << ssd[minI] << ") = " << minEnergy <<   "maximum: U(" << ssd[maxI] << ") = " << maxEnergy  << "\n" ;
- //std::cout << ssd[minI] << " " << ssd[maxI] << " " <<  maxEnergy-minEnergy  << " "  << res << " " << 0.5*( ssd[0]*ssd[0] - ssd[minI]*ssd[minI] ) <<  "\n";
-
-
-//the linear-well estimate for debugging purposes
-
-double delta = ssd[maxI] - ssd[minI];
-double wellDepth = maxEnergy-minEnergy;
-double mfptEstimate = delta*delta*(-wellDepth + std::exp(wellDepth) - 1) / (wellDepth*wellDepth);
-if( res > 1e11){
-
-
-
-    std::cout << "integral: " << res << " estimate: " << mfptEstimate << " mfpt for dcoeff=1e-10 " << res*1e-8   <<  " minimum: " << minEnergy << " at " << ssd[minI] <<  " maximum " << maxEnergy << " at " << ssd[maxI] << "\n";
-
-for(int i =0;i<size;++i){
- 
-//std::cout << ssd[i] << " " << energy[i] << "\n";
- 
-}
-
-
-}
-
-
-
-     *mfpt = res;
-}
-
-*/
-
-void IntegrateMFPT(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *mfpt, int npType, int calculateMFPT) {
-    long double res = 0.0;
-    long double innerRes = 0.0;
-    long double outerRes = 0.0;
-
-if(calculateMFPT!=0){
-
-//the ssd list contains the positions, note that the ssd[0] corresponds to the furthest distance and ssd[size] is the closest. 
-
-int minimumRange = 0; //number of steps to go away from the minimum when averaging over the initial position
-int stepSize = 5;
-int correctionFactorPower = 0;
-if(npType == 1){
-correctionFactorPower = 2;
-}
-else if(npType == 2 || npType == 4 || npType==5){
-correctionFactorPower = 1;
-}
-
-//find the location of the deepest minima. the integral defining the MFPT is most strongly peaked around here.
-int minI = 0;
-double minEnergy = energy[0];
-for(int i =0;i<size;++i){
-if(energy[i] < minEnergy){
-minEnergy  = energy[i];
-minI = i;
-}
-}
-
-
-
-for(int k = std::max(minI-minimumRange*stepSize,0); k < std::min(size,minI+minimumRange*stepSize+1); k+=stepSize){
-//integrate from the end point at ssd[0] to r0 at ssd[k]
-res = 0.0;
-    for (int i = 0; i < k; ++i) {
-        //here ssd[i] = y and ssd[j] = rprime
-innerRes = 0;
-for(int j =size; j > i; --j){
-
-
-
-
-innerRes +=  dz*std::exp(static_cast<long double>(energy[i]  -1.0*(  energy[j] )))  * pow(ssd[j]/ ssd[i], correctionFactorPower ); 
-}
-res+= dz    * innerRes;
-    
-
-
-}
-
-outerRes += dz*res* pow(ssd[k], correctionFactorPower )*std::exp(static_cast<long double>(  -1.0*(  energy[k] )));
-}
-double z = 0;
-for(int i=std::max(minI-minimumRange*stepSize,0);i<std::min(size,minI+minimumRange*stepSize+1);i+=stepSize){
- z+= dz* pow(ssd[i], correctionFactorPower )*std::exp(static_cast<long double>(  -1.0*(  energy[i] )));
- //calculate the partition function
-}
-     *mfpt = outerRes/z;
-
-}
-else{
-*mfpt = -1;
-}
-
-
-
-
-
-}
-
-
-
 void IntegrateCylinder(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
     long double area = 0.0;
     for (int i = 0; i < size; ++i) {
-
-if(std::isnan(energy[i])){
-std::cout << "found nan at " << i << " " <<   "\n";
-}
-if(std::isinf(energy[i])){
-std::cout << "found inf at " << i << " " <<   "\n";
-}
-
         area += static_cast<long double>(ssd[i]  * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
     }
     const double factor = 2.0 / std::fabs(std::pow(ssd[0], 2.0) - std::pow(ssd[size - 1], 2.0));
-
-    if(factor*area < 0){ 
- std::cout << "warning: factor*area < 0, unphysical result " << factor << " " << area << "\n";    
-}
-
-
-
     *adsorption = -1.0 * std::log(factor * area);
 }
-
-
-void IntegrateCube(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
-    long double area = 0.0;
-    for (int i = 0; i < size; ++i) {
-        area += static_cast<long double>(dz  ) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
-    }
-    const double factor = 1.0 / std::fabs(std::pow(ssd[0], 1.0) - std::pow(ssd[size - 1], 1.0));
-    *adsorption = -1.0 * std::log(factor * area);
-}
-
-
 
 void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     double lmean = 0;
@@ -386,10 +147,9 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
     
     *mean   = lmean;
     *sd     = std::sqrt(lsd);
- 
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, int npType = 1, double imaginary_radius = -1) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -413,7 +173,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double total_energy[steps];
     double SSD[steps];
     double sample_energy[samples];
-    double sample_mfpt[samples];
+
     // Iterate over angles
     for (int angle = 0; angle < n_angles; ++angle) {
         
@@ -427,17 +187,15 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     	    phi_adjusted   = -1.0 * (phi + random_angle_offset(randomEngine));
     	    theta_adjusted = M_PI - (theta + random_angle_offset(randomEngine));
             Rotate(size, phi_adjusted, theta_adjusted, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
-               
-           double cylinderAngle = 0 * M_PI/180.0;
-           if(npType == 2 || npType == 4 || npType==5){
-             //
-           RotateZ(size, cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
+
+            if(npType == 2 || npType == 4 || npType == 5){ 
+//rotate around the axis
 
             }
-
+    
             // Convert to SSD
             ShiftZ(size, z);
-                           
+
             // Pre-square x and y
             SquareXY (size, x, y);
             
@@ -451,8 +209,6 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 }
                 else{
                 distance    = std::sqrt(x[i] + y[i] + (z[i] - start) * (z[i] - start)) - radius; // Center To Surface Distance
-               
-
                 }
                 double energyAtDist =  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
                 if(energyAtDist > 1){
@@ -472,10 +228,6 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 //for cylinder NPs we only take into consideration the radial distance z as the NP is assumed to be sufficiently long that the edge effects can be neglected.
                 distance    = std::sqrt(y[j] +  (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
                 }
-                else if(npType == 3){
-                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
-                distance = std::sqrt(  (z[j] - ssd) * (z[j] - ssd)) - radius;
-                }
                 else{
                     distance  = std::sqrt(x[j] + y[j] + (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
 }
@@ -484,45 +236,24 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 
                 SSD[i]          = ssd;
                 total_energy[i] = energy;
-
-
             }
            
-         /*   for (i = 0; i < steps; ++i) {
-                std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
-            }*/
-           // exit(0);
+            /*for (i = 0; i < steps; ++i) {
+                std::cout << SSD[i] << " " << total_energy[i] << "\n"; 
+            }
+            exit(0);*/
 
             // Integrate the results
                 if(npType == 2 || npType == 4 || npType==5){
             IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT);
-}
-else if(npType == 3){
-     IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT);
 }
 else{
-
-
             Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-
-         //and also integrate to get the product of the MFPT and the diffusion constant, MFPT*D. 
-
-
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType, calculateMFPT);
-
- 
-
-
 }
         }
   
         // Mean of all the samples
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
-        MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
- 
- 
     }
 }
 
@@ -532,11 +263,10 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
     const double imaginary_radius = config.m_imaginary_radius;
 
     double adsorption_energy[iterations] = {};
-    double mfpt_val[iterations] = {};
     double adsorption_error[iterations]  = {};
-        double mfpt_err[iterations] = {};
+    
     #ifdef PARALLEL  
-    const int n_threads         =   omp_get_max_threads();
+    const int n_threads         = omp_get_max_threads();
     #else
     const int n_threads         = 1;
     #endif
@@ -561,18 +291,14 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     n_per_thread + (thread < n_remaining), 
                     adsorption_energy, 
                     adsorption_error,
-                    mfpt_val,
-                    mfpt_err,
                     config.m_npType,
-                    imaginary_radius,
-                    config.m_calculateMFPT
+                    imaginary_radius
             ); 
         }
     }
     
 
     WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory); 
-    WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
 }
 
@@ -583,12 +309,15 @@ int main(const int argc, const char* argv[]) {
     Config config;
     configFile.UpdateConfig(config);
     commandLine.UpdateConfig(config);
-
+    cout<< "Done reading config \n" ;
     HamakerConstants  hamakerConstants(config.m_hamakerFile);
+    cout << "Done reading Hamaker file \n";
     TargetList        targetList(config.m_pdbTargets);
+    cout << "Done reading targets \n";
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
+    cout << "Done reading surface PMFs \n";
     PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap());
-
+    cout << "Done preparing PDBs \n";
     for (const double nanoparticleRadius : config.m_nanoparticleRadii) {
         for (const double zetaPotential : config.m_zetaPotential) {
             Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleRadius, config);

@@ -190,56 +190,22 @@ double res = 0;
 //case 1: the atom is sufficiently far away that no part of the cylinder is excluded, requiring d > re . In this case we use the indef. integrand of the disk with no exclusions wrt z and exploit symmetry to evaluate this once.
 if(d > re){
 res = 2*HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength);
-
-
-if(res < -500){
-std::cout << "large value in calculation of cylinder in case 1 at: " << d << " " << res << " "  << " " << re << " " <<  d - re <<"\n";
-}
  
 }
 else{
 //case 2 is more complex.  we integrate up from zc = 0 to zc = sqrt(re^2 - d^2) as this is the region in which the exclusion matters. 
-double zcMaxSq =  (re*re - d*d);
-double zcMax = 0.0001;
-if(zcMaxSq > 0){ //under very rare and seemingly random cases this code can be called for d > re, but re^2 < d^2, which would throw an error.
-zcMax = sqrt(zcMaxSq);
-
+double zcMax = sqrt(re*re - d*d);
 double zc = 0;
 double deltazc = zcMax/100.0;
-while(zc < zcMax-deltazc){
+while(zc < zcMax){
 res += HamakerAtomDiskUnit( RC, d, re,   zc+deltazc/2.0 )*deltazc;
  
 zc+=deltazc;
-
-
-
-
-}
-
-if(res < -500){
-std::cout << "large value in calculation of cylinder before analytical: " << d << " " << res << " "  << " " << re << " " <<  deltazc <<"\n";
 }
 
 
-
-}
-
-if(std::isinf(res)){
-std::cout << "found inf at " << d << " " << RC << " during integration over exclusion\n";
-}
 //next we use the analytical expression for the exclusion-free region spanning zcMax to the end of the cylinder
-res += HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength) -HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d , zcMax+0.0001);
-
-
-if(res < -500){
-std::cout << "large value in calculation of cylinder after analytical: " << d << " " << res << " "  << " " << re << " "  << zcMax<<"\n";
-std::cout << HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength) <<"\n";
-std::cout<< HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, 1e-8)<<"\n";
-}
-
-
-
-
+res += HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength) -HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, zcMax);
 //finally we use symmetry to evaluate the other half of the cylinder.
 res = res*2;
 } 
@@ -250,16 +216,13 @@ if(std::isinf(res)){
 std::cout << "found inf at " << d << " " << RC << "\n";
 }
 //std::cout << d << " "  << re << " " << res << "\n";
-
-
 return res;
 }
 
 
-//hamaker, aminoAcidRadius, nanoparticleRadius, r = surface-centre distance, pmfCutoff
+//hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff
 double HamakerSphereCylinder(const double A, const double R1, const double RT, const double r, const double re) {
 double piVal = M_PI;
-
 double integratedValue = HamakerAtomCylinderUnit(RT,r,re);
 // std::cout << r << " "  << re << " " << integratedValue << "\n";
 //integratedValue is the potential for an atom with lambda q_1 q_2 = 1. we need to do a final step of rescaling to take into account the Hamaker constant and the fact that the atom is actually an amino acid of radius R1 
@@ -267,10 +230,10 @@ double integratedValue = HamakerAtomCylinderUnit(RT,r,re);
 
 
 if(std::isnan(integratedValue)){
-std::cout << "found final nan at " << r << " " << RT << "\n";
+std::cout << "found nan at " << r << " " << RT << "\n";
 }
 if(std::isinf(integratedValue)){
-std::cout << "found final inf at " << r << " " << RT << "\n";
+std::cout << "found inf at " << r << " " << RT << "\n";
 }
 return integratedValue/(piVal ) * A * (4.0/3.0) * (R1*R1*R1);
 }

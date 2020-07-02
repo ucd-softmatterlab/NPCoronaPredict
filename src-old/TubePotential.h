@@ -46,11 +46,6 @@ double HamakerAtomTubeUnit(const double RT, const double r, const double re, int
 double r1 = r +RT; //this defines the offset between the centre of the cylinder and the centre of the amino acid
  
 
-if(r < 0.1){
-return HamakerAtomTubeUnit(RT, 0.11,re); //if we're too close to the edge then some of the expressions become unstable, so there's a floor on the value of r to prevent this.
-
-}
-
 double integratedValue = 0;
 double tubeHalfLength  = 1000;
 //we first check to see if the point is sufficiently far away that no interactions are excluded. if this is the case we have a straightforward expression in terms of elliptic integrals.
@@ -64,15 +59,8 @@ double zc = 0;
 double zbound = sqrt(re*re -(r1 - RT)*(r1-RT) );
 double deltaz = 0.05;
 //std::cout << RT << " " << r1 << " " << re << " zbound: " << zbound <<  "\n";
-while(zc < zbound-0.01){
+while(zc < zbound){
 integratedValue += deltaz*HamakerAtomCircleUnit(RT, r1, re, zc);
-
-
- if(std::isnan(integratedValue)){
-std::cout << " unit: found nan during numerical integration " << r1 << " " << RT << " zc: " << zc << " zbound: " << zbound << "\n";
-}
-
-
 //std::cout << zc << "  " << integratedValue << "\n";
 zc+=deltaz;
 }
@@ -109,7 +97,7 @@ double integratedValue = HamakerAtomTubeUnit(RT,r,re);
  
 //integratedValue is the potential for an atom with lambda q_1 q_2 = 1. we need to do a final step of rescaling to take into account the Hamaker constant and the fact that the atom is actually an amino acid of radius R1 
 //to do this, we multiply by lambda q_1 q_2 * volume of R1, then make use of the fact that A = lambda q_1 _q2 M_PI^2 to absorb some of these factors. (note that implicitly the value of M_PI arising from multiplication by the sphere volume has been cancelled due to dividing by M_PI^2)
-//note that we have neglected the factor of delta rho, i.e. the "thickness" of the CNT tube. 
+
 
 if(std::isnan(integratedValue)){
 std::cout << "found nan at " << r << " " << RT << "\n";

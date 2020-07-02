@@ -11,8 +11,6 @@
 #include <vector>
 #include <fstream>
 #include <iomanip>
-#include <boost/math/special_functions/bessel.hpp> 
-#include "CubeESPotential.h"
 
 constexpr int potential_size = 1024;
 
@@ -56,10 +54,8 @@ public:
 };
 
 Potential GeneratePotential(const SurfaceData&, const HamakerConstants&, const double, const double, const Config&);
-double HamakerPotential(const double, const double, const double, const double);
-double ElectrostaticPotential(const double, const double, const double, const double, const double);
-double ElectrostaticCylinderPotential(const double, const double, const double, const double, const double);
-double ElectrostaticCubePotential(const double, const double, const double, const double, const double);
+double HamakerPotential(const double, const double, const double, const double, const double);
+double ElectrostaticPotential(const double, const double, const double, const double, const double, const double);
 double HamakerPotentialV2(const double, const double, const double, const double, const double);
 
 class Potentials : public std::vector<Potential> {
@@ -81,8 +77,8 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     const double        bjerumLength        = config.m_bejerumLength;
     const double        debyeLength         = config.m_debyeLength;
     const auto          aminoAcidRadius     = config.AminoAcidRadius(surfaceData.m_aminoAcid);
-    const double        Z                   = config.AminoAcidCharge(surfaceData.m_aminoAcid);
-    const int           recalculateZetaPotential =  config.m_recalcZP;
+    const double        Z1                  = config.AminoAcidCharge(surfaceData.m_aminoAcid);
+    const double        Z2                  = 38.681 * zetaPotential * nanoparticleRadius * (1.0 + 4.0 * M_PI * bjerumLength) / bjerumLength;
     
     std::vector<double> energy(potential_size);
 
@@ -93,7 +89,9 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     const std::string destination = "pot-dat"; 
     const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
     std::ofstream handle(filename.c_str());
- 
+
+    handle << "# Distance    Total         Surface       Core          Electrostatic\n";
+
     for (int i = 0; i < potential_size; ++i) {
         const double r = pmfStart + (i / (potential_size - 1.0)) * (cutoff - pmfStart);
         double U       = 0.0;
@@ -105,83 +103,30 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
 
         if (config.m_enableCore) {
             if(config.m_npType == 1){ //sphere
-                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
-              // std::cout << core << " "  <<  HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff) << "\n";
+            core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
             }
-            else if(config.m_npType == 2 || config.m_npType == 5){ //cylinder, defined in CylinderPotential.h, applicable to solid cylinders and MWCNT
-                core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+            else if(config.m_npType == 2){ //cylinder, defined in CylinderPotential.h
+            core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
             }
             else if(config.m_npType == 3){//cube, defined in CubePotential.h
-                core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+            core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
             }
             else if(config.m_npType == 4){ //tube, defined in TubePotential.h
-                //core =  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
-               //approximate the tube as the difference of the outer cylinder and an inner cylinder of radius R - 0.34, where 0.34 is the approx. thickness of one "layer"
-              //since r is the NP surface - AA distance we also need to adjust this value
-                double wallThickness = 0.34;
-                double innerR = nanoparticleRadius - wallThickness;
-             
-/*
-  if(innerR>0){
-                core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff) - HamakerSphereCylinder(hamaker,aminoAcidRadius, innerR,r+wallThickness,pmfCutoff);
-}            
-else{
-  core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
-}
-*/
-
-core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
-
-
-}
-            else{
-                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
+            core =  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
             }
+            else{
+            core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
+             }
             U += core;
         }
 
         if (config.m_enableElectrostatic) {
-
-        double finalZetaPotential = zetaPotential;
-      
-
-
-
-            if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType==5){
-
-if( recalculateZetaPotential != 0){
-           finalZetaPotential = 2* zetaPotential*bjerumLength*debyeLength * cyl_bessel_k(0, nanoparticleRadius/debyeLength)/cyl_bessel_k(1,  nanoparticleRadius/debyeLength); //cylinder correction
-
-  // std::cout << " reference zeta potential: " << zetaPotential << " recalculated: " << finalZetaPotential << "\n";
-        }
-
-
-            electrostatic = ElectrostaticCylinderPotential(r,finalZetaPotential, Z, nanoparticleRadius, debyeLength);
-}
-else if(config.m_npType == 3){
-
-if( recalculateZetaPotential  != 0){
-           finalZetaPotential = 2*zetaPotential*bjerumLength*debyeLength * 1/( 1 + 0.59692 /(nanoparticleRadius/debyeLength) + 0.00626772/pow(nanoparticleRadius/debyeLength,2)    ); //cube correction
- //  std::cout << " reference zeta potential: " << zetaPotential << " recalculated: " << finalZetaPotential << "\n";
-        }
-
-
-electrostatic = ElectrostaticCubePotential(r, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
-}
-else{
-
-if( recalculateZetaPotential  != 0){
-           finalZetaPotential = 2*zetaPotential   *bjerumLength*debyeLength *(nanoparticleRadius/debyeLength)/(1+ nanoparticleRadius/debyeLength); //sphere correction
-//   std::cout << " reference zeta potential: " << zetaPotential << " recalculated: " << finalZetaPotential << "\n";
-        }
-
-            electrostatic = ElectrostaticPotential(r, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
-}
+            electrostatic = ElectrostaticPotential(r, Z1, Z2, nanoparticleRadius, bjerumLength, debyeLength);
             U += electrostatic;
         }
 
-        energy[i] = U;
-
+        energy[i] = (double) U;
+    
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << r;
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << U;
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << surface;
@@ -215,35 +160,9 @@ double HamakerPotential(const double A, const double R1, const double R2, const 
   }
 }
 
-double ElectrostaticPotential(const double h, const double zetaS, const double Z, const double R, const double ld) {
-    return 38.681727 * (zetaS * Z) * (R/ (R + h)) * exp(-1.0 * h / ld); // The constant is e/kT to handle the unit conversion
+double ElectrostaticPotential(const double r, const double Z1, const double Z2, const double nanoparticleRadius, const double bjerumLength, const double debyeLength) {
+    return (Z1 * Z2 * bjerumLength * std::exp((-1.0 * r) / debyeLength)) / (r + nanoparticleRadius);
 }
- 
-
-//Defines the approximate debye-huckel potential for an infinitely long cylinder in a solution with a fixed boundary condition at the surface and psi->0 for large distances
-//The normalisation convention here is chosen such that at h = 0 (i.e. at the surface of the NP) this should return the same value as the spherical case.
-double ElectrostaticCylinderPotential(const double h, const double zetaS, const double Z, const double R, const double ld) {
-    double cylinderES = 38.681727 * (zetaS * Z)   * cyl_bessel_k(0,  (h+R)/ld ) / cyl_bessel_k(0,  R/ld);
-
-    return cylinderES;
-}
-
-
-//calculates the debye-huckel potential for a planar surface in a weakly ionic solution.
-//this is a reasonably accurate model for a cubic nanoparticle as long as the side of a cube is a few times larger than the Debye length.
-//if it's smaller than this then we use an approximation which is valid for cubes for which R/LD < 10 or so but still requires that the cube is reasonably large as this only returns the potential for the (x=0,y=0,z) line.
-double ElectrostaticCubePotential(const double h, const double zetaS, const double Z, const double R, const double ld) {
-double cubeES=0;
-    if(R/ld > 10){
-    cubeES = 38.681727 * (zetaS * Z)   * exp(-h/ld);
-    }
-    else{
-    cubeES = 38.681727 * (zetaS * Z)   * CubeElectrostaticOrder8(R,1/ld, h );
-    }
-    return cubeES;
-}
-
-
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {
 

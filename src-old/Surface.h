@@ -62,17 +62,17 @@ public:
             else if(correctionType == 2){ //cylinder.  
 double distCeilVal = 1.4;
 if(distance > distCeilVal){
-correction =  (  HamakerAtomCylinderUnit(radius,distCeilVal,0.000000011) - HamakerAtomCylinderUnit(radius,distCeilVal,cutoff)  )/ ( HamakerAtomCylinderUnit(1000,distCeilVal,0.000000011) - HamakerAtomCylinderUnit(1000,distCeilVal,cutoff) );
+correction =  (  HamakerAtomCylinderUnit(radius,distCeilVal,0.00000001) - HamakerAtomCylinderUnit(radius,distCeilVal,cutoff)  )/ ( HamakerAtomCylinderUnit(1000,distCeilVal,0.00000001) - HamakerAtomCylinderUnit(1000,distCeilVal,cutoff) );
 }
 else{
-correction = (  HamakerAtomCylinderUnit(radius,distance,0.000000011) - HamakerAtomCylinderUnit(radius,distance,cutoff)  )/ (  HamakerAtomCylinderUnit(1000,distance,0.000000011) - HamakerAtomCylinderUnit(1000,distance,cutoff) );
+correction = (  HamakerAtomCylinderUnit(radius,distance,0.00000001) - HamakerAtomCylinderUnit(radius,distance,cutoff)  )/ (  HamakerAtomCylinderUnit(1000,distance,0.00000001) - HamakerAtomCylinderUnit(1000,distance,cutoff) );
 }
  
             }
             else if(correctionType == 3){ //cube. we assume that the exclusion distance is less than the half-length of the cube and because it's a flat surface there's no correction needed.
 correction = 1;
             }
-            else if(correctionType == 4 || correctionType==5){//tube. here the PMFs are calculated for a radius of 0.75 and so we adapt the potentials based on this. As with cylinder, this is ratio of the inclusive segment for the actual radius divided by inclusive segment for the calculated tube.
+            else if(correctionType == 4){//tube. here the PMFs are calculated for a radius of 0.75 and so we adapt the potentials based on this. As with cylinder, this is ratio of the inclusive segment for the actual radius divided by inclusive segment for the calculated tube.
       if(distance > cutoff - 0.1){
 correction = ( HamakerAtomTubeUnit(radius,cutoff-0.1,0.00001) -      HamakerAtomTubeUnit(radius,cutoff-0.1,cutoff)  )/( HamakerAtomTubeUnit(0.75,cutoff-0.1,0.00001) -      HamakerAtomTubeUnit(0.75,cutoff-0.1,cutoff)  );
 }

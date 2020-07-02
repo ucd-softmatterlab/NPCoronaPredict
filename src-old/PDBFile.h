@@ -56,7 +56,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     std::vector<int>    id;
 
     while (std::getline(handle, line)) {
-        if(line.size() > 3 && line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
+        if(line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
             try {
                 x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
                 y.emplace_back(0.1 * std::stod(line.substr(38, 8)));
@@ -79,17 +79,13 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 std::exit(1);
             }
         }
-        else if (line.size() > 5 && line.substr(0, 6) == "ENDMDL") {
+        else if (line.substr(0, 3) == "TER") {
             break;
         }
     }
 
     handle.close();
-     /*
-    for (int i = 0; i < static_cast<int>(x.size()); ++i) {
-        std::cout << x[i] << " " <<  y[i] << " " << z[i] << "\n";
-    }
-   */
+
     // Center protein
     double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
 
