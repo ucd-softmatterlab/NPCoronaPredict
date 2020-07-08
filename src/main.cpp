@@ -29,18 +29,18 @@ std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double radius,
-        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0) {
+        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, double cylinderAngle=0) {
 std::string filename;
 
  
 
     if(isMFPT==1){
      filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + "_mfpt.map";
+        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + "_"  + std::to_string(static_cast<int>(cylinderAngle))  +  "_mfpt.map";
     }
 else{
     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + ".map";
+        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + "_"  + std::to_string(static_cast<int>(cylinderAngle))  +  ".map";
 }
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
@@ -88,7 +88,8 @@ void PrintStatistics(const double *adsorption_energy, const double *adsorption_e
     std::cout << std::setw(14) << std::fixed << std::setprecision(5) << error;
     std::cout << std::endl;
 }
-
+//Phi,theta here are adjusted from the  phi,theta defining the orientation by phi -> -phi, theta -> pi - theta
+//in terms of the angles given here, this corresponds to a rotation around the z axis of phi, followed by a rotation around y of theta.
 inline void Rotate (const int size, const double phi, const double theta,
 const std::vector<double>& cx, const std::vector<double>& cy, const std::vector<double>& cz,
 double *x, double *y, double *z) {
@@ -116,9 +117,40 @@ double *x, double *y, double *z) {
 
 
 }
+//as the above function, except followed by a rotation  of omega around the z axis
+inline void Rotate3 (const int size, const double phi, const double theta, const double omega,
+const std::vector<double>& cx, const std::vector<double>& cy, const std::vector<double>& cz,
+double *x, double *y, double *z) {
+    double R[3][3];
+
+    R[0][0] = std::cos(theta) * std::cos(phi) * std::cos(omega) - std::sin(omega) * std::sin(phi);
+    R[0][1] = -1.0 * std::cos(theta) * std::sin(phi) * std::cos(omega) - std::cos(phi)*std::sin(omega);
+    R[0][2] = std::sin(theta)*std::cos(omega);
+    R[1][0] = std::sin(phi)*std::cos(omega) + std::cos(phi) * std::cos(theta)*std::sin(omega);
+    R[1][1] = std::cos(phi)*std::cos(omega) - std::cos(theta)*std::sin(omega)*std::sin(phi);
+    R[1][2] = std::sin(omega) * std::sin(theta);
+    R[2][0] = -1.0 * std::sin(theta) * std::cos(phi);
+    R[2][1] = std::sin(theta) * std::sin(phi);
+    R[2][2] = std::cos(theta);
+
+    for(int i = 0; i < size; ++i) {
+        x[i] = cx[i] * R[0][0] + cy[i] * R[0][1] + cz[i] * R[0][2];
+        y[i] = cx[i] * R[1][0] + cy[i] * R[1][1] + cz[i] * R[1][2];
+        z[i] = cx[i] * R[2][0] + cy[i] * R[2][1] + cz[i] * R[2][2];
 
 
 
+
+
+    }
+
+
+}
+
+
+
+
+//rotate the PDB anticlockwise by omega around the z-axis
 inline void RotateZ (const int size, const double omega,
 const std::vector<double>& cx, const std::vector<double>& cy, const std::vector<double>& cz,
 double *x, double *y, double *z) {
@@ -129,6 +161,7 @@ double *x, double *y, double *z) {
     R[0][2] = 0;
     R[1][0] = std::sin(omega);
     R[1][1] = std::cos(omega);
+    R[1][2] = 0;
     R[2][0] = 0;
     R[2][1] = 0;
     R[2][2] = 1;
@@ -156,8 +189,9 @@ void SquareXY (const int size, double *x, double *y) {
 }
 
 void ShiftZ (const int size, double *z) {
-    const double z_shift = *std::max_element(z, z + size);
+    const double z_shift = *std::min_element(z, z + size);
     for (int i = 0; i < size; ++i) {
+         // cout << z[i] << "->" <<  z[i] - z_shift << "\n";
         z[i] -= z_shift;
     }
 }
@@ -180,87 +214,7 @@ void Integrate(const int size, const double dz, const double init_energy, const 
 
 
 /*
-void IntegrateMFPT(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *mfpt, int npType) {
-    long double res = 0.0;
-    long double innerRes = 0.0;
 
-//the ssd list contains the positions, note that the ssd[0] corresponds to the furthest distance and ssd[size] is the closest. 
-
-
-//first pass: find the value of i corresponding to the global minimum
-int minI = 0;
-double minEnergy = energy[0];
-for(int i =0;i<size;++i){
-if(energy[i] < minEnergy){
-minEnergy  = energy[i];
-minI = i;
-}
-}
-
-//second pass: find the value of i > minI corresponding to the barrier
-int maxI = minI;
-double maxEnergy = minEnergy;
-for(int i =minI;i>0;--i){
-if(energy[i] > maxEnergy){
-//std::cout << "new max at: " << ssd[i] << " from " << maxEnergy << " to " << energy[i] << "\n";
-maxEnergy  = energy[i];
-maxI = i;
-
-}
-}
-
-
-//integrate from the end point at ssd[0] to the minimum
-    for (int i = 0; i < minI; ++i) {
-        //here ssd[i] = y and ssd[j] = rprime
-innerRes = 0;
-//std::cout << ssd[i] << "\n";
-//integrate from the end point at ssd[size] to y
-for(int j =size; j > i; --j){
-double correctionFactor = 1;
-if(npType == 1){
-correctionFactor = ssd[j]*ssd[j]/(ssd[i]*ssd[i]); //weight the integrals by r'^2/y^2 for spheres
-}
-else if(npType == 2 || npType == 4){
-correctionFactor = ssd[j]/(ssd[i]); //weight by r'/y for cylindrical types
-}
-
-
-innerRes +=  dz*std::exp(static_cast<long double>(energy[i]  -1.0*(  energy[j] )))  *correctionFactor; 
-}
-res+= dz    * innerRes;
-    
-
-
-}
-//std::cout << "minimum: U(" << ssd[minI] << ") = " << minEnergy <<   "maximum: U(" << ssd[maxI] << ") = " << maxEnergy  << "\n" ;
- //std::cout << ssd[minI] << " " << ssd[maxI] << " " <<  maxEnergy-minEnergy  << " "  << res << " " << 0.5*( ssd[0]*ssd[0] - ssd[minI]*ssd[minI] ) <<  "\n";
-
-
-//the linear-well estimate for debugging purposes
-
-double delta = ssd[maxI] - ssd[minI];
-double wellDepth = maxEnergy-minEnergy;
-double mfptEstimate = delta*delta*(-wellDepth + std::exp(wellDepth) - 1) / (wellDepth*wellDepth);
-if( res > 1e11){
-
-
-
-    std::cout << "integral: " << res << " estimate: " << mfptEstimate << " mfpt for dcoeff=1e-10 " << res*1e-8   <<  " minimum: " << minEnergy << " at " << ssd[minI] <<  " maximum " << maxEnergy << " at " << ssd[maxI] << "\n";
-
-for(int i =0;i<size;++i){
- 
-//std::cout << ssd[i] << " " << energy[i] << "\n";
- 
-}
-
-
-}
-
-
-
-     *mfpt = res;
-}
 
 */
 
@@ -389,7 +343,7 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
  
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -410,6 +364,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double x[size];
     double y[size];
     double z[size];
+    
     double total_energy[steps];
     double SSD[steps];
     double sample_energy[samples];
@@ -419,25 +374,27 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
         
         phi   = ((angle_offset + angle) % ncols) * angle_delta;
         theta = ((angle_offset + angle) / ncols) * angle_delta;
+           double cylinderAngle = cylinderAngleDeg * M_PI/180.0;
 
 	    // Sample a angle multiple times 
         for (int sample = 0; sample < samples; ++sample) {
+  //         double cylinderAngle = 90 * M_PI/180.0;
 
     	    // Rotation step
     	    phi_adjusted   = -1.0 * (phi + random_angle_offset(randomEngine));
     	    theta_adjusted = M_PI - (theta + random_angle_offset(randomEngine));
-            Rotate(size, phi_adjusted, theta_adjusted, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
+            Rotate3(size, phi_adjusted, theta_adjusted,cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
                
-           double cylinderAngle = 0 * M_PI/180.0;
-           if(npType == 2 || npType == 4 || npType==5){
+//           double cylinderAngle = 90 * M_PI/180.0;
+          // if(npType == 2 || npType == 4 || npType==5){
              //
-           RotateZ(size, cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
+         //  Rotate(size, cylinderAngle,0, xtemp, ytemp, ztemp, x, y, z);
 
-            }
+           // }
 
             // Convert to SSD
             ShiftZ(size, z);
-                           
+   //         std::cout << z[0] << " " << phi << " " << theta << "\n";               
             // Pre-square x and y
             SquareXY (size, x, y);
             
@@ -447,11 +404,18 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             for (i = 0; i < size; ++i) {
                 if(npType == 2 || npType == 4 || npType==5){
                 //for cylinder NPs we only take into consideration the radial distance with the cylinder aligned along the x-axis.
-                distance    = std::sqrt(y[i] +  (z[i] - start) * (z[i] - start)) - radius; // AA Center To NP Surface Distance (originally stop, changed to start)
+                distance    = std::sqrt(y[i] +  (z[i] + start) * (z[i] + start)) - radius; // AA Center To NP Surface Distance (originally stop, changed to start)
                 }
+                else if(npType == 3){
+                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
+                distance = std::sqrt(  (z[i] +start) * (z[i] + start)) - radius;
+                }
+
+
+
                 else{
-                distance    = std::sqrt(x[i] + y[i] + (z[i] - start) * (z[i] - start)) - radius; // Center To Surface Distance
-               
+                distance    = std::sqrt(x[i] + y[i] + (z[i] + start) * (z[i] + start)) - radius; // Center To Surface Distance
+//               std::cout << i << " "  << phi << " "  << theta << " " <<  x[i] << " " << y[i] << " " << z[i] << " " <<distance << "\n";
 
                 }
                 double energyAtDist =  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
@@ -470,14 +434,14 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 for (j = 0; j < size; ++j) {
                 if(npType == 2 || npType == 4 || npType==5){
                 //for cylinder NPs we only take into consideration the radial distance z as the NP is assumed to be sufficiently long that the edge effects can be neglected.
-                distance    = std::sqrt(y[j] +  (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
+                distance    = std::sqrt(y[j] +  (z[j] + ssd) * (z[j] + ssd)) - radius; // Center To Surface Distance
                 }
                 else if(npType == 3){
                 //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
-                distance = std::sqrt(  (z[j] - ssd) * (z[j] - ssd)) - radius;
+                distance = std::sqrt(  (z[j] + ssd) * (z[j] + ssd)) - radius;
                 }
                 else{
-                    distance  = std::sqrt(x[j] + y[j] + (z[j] - ssd) * (z[j] - ssd)) - radius; // Center To Surface Distance
+                    distance  = std::sqrt(x[j] + y[j] + (z[j] + ssd) * (z[j] + ssd)) - radius; // Center To Surface Distance
 }
                     energy += static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                 }
@@ -526,7 +490,7 @@ else{
     }
 }
 
-void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config) {
+void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config, double cylinderAngle) {
     std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
 
     const double imaginary_radius = config.m_imaginary_radius;
@@ -565,14 +529,15 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     mfpt_err,
                     config.m_npType,
                     imaginary_radius,
-                    config.m_calculateMFPT
+                    config.m_calculateMFPT,
+                    cylinderAngle
             ); 
         }
     }
     
 
-    WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory); 
-    WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1); 
+    WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory,0,cylinderAngle); 
+    WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
 }
 
@@ -588,12 +553,14 @@ int main(const int argc, const char* argv[]) {
     TargetList        targetList(config.m_pdbTargets);
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
     PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap());
-
+    int omegaDelta = 180;
     for (const double nanoparticleRadius : config.m_nanoparticleRadii) {
         for (const double zetaPotential : config.m_zetaPotential) {
             Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleRadius, config);
             for (const auto& pdb : pdbs) {
-                SurfaceScan(pdb, potentials, zetaPotential, nanoparticleRadius, config);
+                for(int i = 0; i < 180; i = i + omegaDelta){
+                SurfaceScan(pdb, potentials, zetaPotential, nanoparticleRadius, config,i);
+                }
             }
         }
     }

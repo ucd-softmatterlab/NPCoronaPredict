@@ -88,7 +88,7 @@ def getAreaHeight(pointCoords):
     return (projectedConvexHull.volume, heightAboveSurface)
 
 def rotatePDB(coords,phiVal,thetaVal):
-    phiRotated = -1.0 * phiVal
+    phiRotated =  phiVal
     thetaRotated = np.pi - thetaVal
     rotCoords = np.copy(coords)
     rotCoords[:,0] = coords[:,0] * np.cos(phiRotated) - coords[:,1] * np.sin(phiRotated)

@@ -170,7 +170,7 @@ std::cout << "Using input ZP as actual value \n";
                 return m_aminoAcidRadii[i];
             }
         }
-        std::cerr << "Error: Could not find an radius for the amino acid '" << aminoAcid << "'\n";
+        std::cerr << "Error: Could not find a radius for the amino acid '" << aminoAcid << "'\n";
         std::exit(1);
     }
 
@@ -180,7 +180,7 @@ std::cout << "Using input ZP as actual value \n";
                 return m_aminoAcidCharges[i];
             }
         }
-        std::cerr << "Error: Could not find an charge for the amino acid '" << aminoAcid << "'\n";
+        std::cerr << "Error: Could not find a charge for the amino acid '" << aminoAcid << "'\n";
         std::exit(1);
     }
 

@@ -1,0 +1,39 @@
+How to run:
+./UnitedAtom --config-file=name_of_config_file.config
+
+The expected output is a set of .map files in the results folder named in the config file. Each map file is named:
+PDBID_(NP radius in nm)_(zeta potential in microvolts)_(angle of rotation of NP in degrees).map and contains data in the form
+phi theta energy error
+
+A sample config file is provided and most options are self-explanatory. Some require more explanation as provided below:
+
+The geometry of the NP is defined by the radius and the np-type variable. The options for this are given by:
+1 = sphere (Planar PMF)
+2 = cylinder  (Planar PMF) 
+3 = cube (Planar PMF)
+4 = SWCNT ( Cylindrical PMF of diameter 1.5nm , finite thickness tube for vdW)
+5 = MWCNT (Cylindrical PMF of diameter 1.5nm, full cylinder for vdW)
+
+
+If the recalculate-zp option is set to 1 then the input zeta potential is taken to be the zeta potential for a particle of radius 1 nm in a solution with debye length 1 nm and Bjerrum length 1 nm. The zeta potential applied to
+a given particle is then adjusted to ensure that the surface charge density of the NP is a constant regardless of the radius. 
+
+Setting the calculate-mfpt flag to 1 makes the code estimate the mean-first passage time for each orientation and save this to _mfpt.map files. This is very slow and is mostly of use if you want to be more rigorous for corona studies. 
+This output must also be corrected for the diffusion coefficient of the protein in question.
+
+
+
+
+
+
+Contributors (Code and model)
+David Power (UCD)
+Ian Rouse (UCD)
+Hender Lopez (UCD(
+Vladimir Lobaskin (UCD)
+
+
+Contributors (PMF input files)
+Erik Brandt (Stockholm University)
+Marzieh Saeedimasine (Stockholm University)
+Alexander Lyubartsev (Stockholm University)
