@@ -31,16 +31,21 @@ std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double radius,
         const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, double cylinderAngle=0) {
 std::string filename;
-
- 
+std::string cylinderFileNameAppend;
+if(cylinderAngle == 0){
+cylinderFileNameAppend = "";
+} 
+else{
+cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
+}
 
     if(isMFPT==1){
      filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + "_"  + std::to_string(static_cast<int>(cylinderAngle))  +  "_mfpt.map";
+        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + cylinderFileNameAppend  +  "_mfpt.map";
     }
 else{
     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + "_"  + std::to_string(static_cast<int>(cylinderAngle))  +  ".map";
+        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + cylinderFileNameAppend  +  ".map";
 }
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
