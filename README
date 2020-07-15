@@ -1,3 +1,6 @@
+
+####UNITED ATOM######
+
 How to run:
 ./UnitedAtom --config-file=name_of_config_file.config
 
@@ -23,7 +26,58 @@ This output must also be corrected for the diffusion coefficient of the protein 
 
 
 
+###BuildCoronaParams.py###
+Converts UA output to a file suitable for loading into CoronaKMC.
 
+How to run: (requires python 2.7)
+python BuildCoronaParams.py -r [RADIUS] -z [ZETA potential] -f [folder containing UA heatmaps] -s [1 or 2 for sphere or cylinder]
+
+This additionally requires a file named ProteinConcs.csv located in the same directory of the format
+protein1name,protein1conc
+protein2name,protein2conc
+
+where proteinXname is the name of the protein used by UnitedAtom (e.g. 1AX8)  and proteinXconc is the molar concentration of that protein. The script scans the target folder for all proteins named in the ProteinConcs file for the target radius and zeta potential, then creates a file containing the binding parameters for each orientation.
+The shape specification should be used together with the correct folder for UA heatmaps for spherical or cylindrical geometries, e.g.
+python BuildCoronaParams.py -r 5 -z 0 -f results_anatase_sphere -s 1
+or
+python BuildCoronaParams.py -r 5 -z 0 -f results_anatase_cylinder -s 2
+as there is presently no way to distinguish between heatmaps for different geometeries. The -s argument mostly exists to tell the script how to calculate binding areas.
+
+The expected output from this script is a file containing an entry for every orientation of every protein included in ProteinConcs.csv . As the UA default is 3600 orientations this can be quite a long file.
+The output is of the form
+proteinname concentration radius kon koff ebind area
+
+with one entry for each orientation of each protein. The concentrations for orientations of a given protein are weighted by \sin \theta and normalised such that the sum over all orientations is equal to the total concentration set in the input file
+The radius is calculated by projecting the protein onto the surface of the NP, determining the area of this projection, and calculating the radius of a sphere required to produce the same area.
+kon is estimated from diffusion theory for sphere-sphere collisions.
+koff is estimated from kon/koff = exp(-ebind) -- a large negative ebind produces a very small koff.
+ebind is taken from the UA heatmap for that orientation.
+area is the projected area.  
+
+####CoronaKMC####
+Coarse-grained Kinetic Monte Carlo simulation of corona evolution.
+
+How to run: (requires python 2.7)
+python CoronaKMC.py  -r [RADIUS] -p [protein file] -f [File ID - number to add to filename of output]
+
+The input specified by the -p argument is a file with one entry per line of the form:
+proteinname concentration radius kon koff ebind area
+
+This output is produced by BuildCoronaParams.py. The radius given as input must be set to match whatever is specified when calculating the protein input file.
+There are a number of further optional parameters:
+-s: Defaults to 1 for a spherical NP. If set to 2 this produces a cylinder instead.
+-d: If set to 1 then proteins on the surface of the NP are allowed to diffuse. This is very slow, but necessary for irreversible adsorption.
+-c: If set to 1 then all the output is suppressed apart from the total surface coverage and total number of proteins. At the end these are used to calculate a protein with radius and binding energy that would produce these values.
+-m: If set to 1 then the meanfield approximation is enabled. 
+
+The output is the number of adsorbed proteins at each timestep. If multiple proteins in the input file have the same name then they are counted together in this output.
+This enables the use of an input file containing multiple orientations of the same protein without producing extremely complex output, while still allowing for a difference in binding between different orientations.
+
+It should be noted that if the meanfield approximation is enabled then there is an analytical solution available through matrix methods to check the results of output, but this is unlikely to be viable for large systems.
+The steady-state in the meanfield approximation is given by:
+N_i = (Area_NP/Binding_area )* (    conc_i * k_on_i/k_off_i)/( 1 + sum_j conc_j k_on_j/k_off_j)
+
+####Credits ###
 
 
 Contributors (Code and model)

@@ -2,6 +2,7 @@ import numpy as np
 import scipy.optimize as scopt
 import scipy.spatial as scispat
 import scipy.integrate as scint
+import scipy.special as scspec
 
 import argparse
 
@@ -135,11 +136,36 @@ def projectOntoSphere(coords,npRadius,beadRadius = 0.5):
     areaTerms = (PTOCyclic[:-1,0] - PTOCyclic[1:,0])/(PTOCyclic[:-1,1] - PTOCyclic[1:,1]) *(   PTOCyclic[1:,1] - PTOCyclic[:-1,1] - np.sin(PTOCyclic[1:,1]) + np.sin(PTOCyclic[:-1,1]))
     return np.sum(npRadius**2 * areaTerms)
 
+def projectOntoCylinder(coords,npRadius,beadRadius = 0.5):
+    coords[:,0] = coords[:,0] - np.mean(coords[:,0])
+    coords[:,1] = coords[:,1] - np.mean(coords[:,1])
+    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius
+    angleCoord = np.arctan2(coords[:,2] , coords[:,1])
+    beadOffsetAngle = np.arcsin( beadRadius/ np.sqrt( coords[:,1]**2 + coords[:,2]**2))
+    beadSet1 =   np.column_stack(( coords[:,0] + beadRadius, angleCoord + beadOffsetAngle   ))
+    beadSet2 =   np.column_stack( (coords[:,0] - beadRadius, angleCoord + beadOffsetAngle   ))
+    beadSet3 =   np.column_stack( (coords[:,0] + beadRadius, angleCoord - beadOffsetAngle   ))
+    beadSet4 =   np.column_stack( (coords[:,0] - beadRadius, angleCoord - beadOffsetAngle   ))
+    allBeads = np.row_stack( (beadSet1,beadSet2,beadSet3,beadSet4))
+    if len(allBeads) < 20:
+        return bindingAreaCylinder(npRadius, np.amax(  np.abs( allBeads[:,0])) ) #for a very small protein we just look at the most extreme point on the x-axis and calculate the area as if it were spherical
+    projectionHull = scispat.ConvexHull(allBeads)
+    return npRadius * projectionHull.volume
+
+
+def bindingAreaCylinder(rnp,ri):
+    return ri*rnp* 4 * np.sqrt(  rnp*(2 + rnp/ri)/ri    ) * (  scspec.ellipe(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri) )) - scspec.ellipk(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri))  )  )
+
+def cylinderRadiusWrapperFunc(ri,area,rnp):
+    return area - bindingAreaCylinder(np.sqrt(ri**2),rnp)
+
+
 parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
 parser.add_argument('-r','--radius',type=float,help="Radius of the NP",default=19)
 parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP",default=0)
 parser.add_argument('-a','--average',type=float,help="average over orientations (does nothing right now)",default=0)
 parser.add_argument('-f','--folder',type=str,help="folder containing UA heatmaps",default="results_anatase_alltargets_sphere")
+parser.add_argument('-s','--shape',type=int,help="NP shape: 1 = sphere 2 = cylinder", default=1)
 
 args = parser.parse_args()
 
@@ -176,6 +202,10 @@ npRadius = args.radius
 npZp = args.zeta
 orientationAverage = args.average
 
+npShape = args.shape
+if npShape !=1 and npShape !=2:
+    npShape = 1
+
 proteinIDList = []
 proteinDataList = []
 
@@ -205,18 +235,30 @@ for proteinData in concentrationData:
         energy   = orientation[2]
         sinTheta = np.sin(theta * np.pi / 180.0)
         rotatedCoords = rotatePDB(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0)
-        projectedArea = projectOntoSphere(rotatedCoords, npRadius) #gets the projected area of the protein
-        effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
-        effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the spherical protein which has a shadow with radius effectiveRadius
+        if npShape == 1:
+            projectedArea = projectOntoSphere(rotatedCoords, npRadius) #gets the projected area of the protein
+            effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
+            effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the sph$
+        elif npShape == 2:
+            projectedArea = projectOntoCylinder(rotatedCoords,npRadius)
+            radiusApprox = np.sqrt(projectedArea/np.pi)
+            #print scopt.root(  cylinderRadiusWrapperFunc, radiusApprox, args=(projectedArea,npRadius) )
+            optRes= scopt.minimize(  cylinderRadiusWrapperFunc, np.sqrt( projectedArea/np.pi), args=(projectedArea, npRadius),tol=0.01 )
+            effectiveRadius3D= np.abs( (optRes.x)[0])
+            #effectiveRadius = np.sqrt(projectedArea/np.pi) #figure out how to do this for the cylindrical projection!
+        else:
+            projectedArea = projectOntoSphere(rotatedCoords,npRadius)
+            effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
+            effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the spherical protein which has a shadow with radius effectiveRadius
         #print effectiveRadius, effectiveRadius3D,SphereProjectedRadius(npRadius,effectiveRadius3D)
         konApprox = projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D)
         koffApprox = konApprox * np.exp(energy)
         outputSet.append([proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
         print proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea
-        affinityList.append(float(proteinData[1])*sinTheta * sinThetaNorm * konApprox/koffApprox)
-        radiusList.append(effectiveRadius)
-        konList.append(float(proteinData[1])*sinTheta * sinThetaNorm*konApprox)
-        koffList.append(koffList)
+        #affinityList.append(float(proteinData[1])*sinTheta * sinThetaNorm * konApprox/koffApprox)
+        #radiusList.append(effectiveRadius)
+        #konList.append(float(proteinData[1])*sinTheta * sinThetaNorm*konApprox)
+        #koffList.append(koffList)
     #np.savetxt("cg_corona_data/"+proteinData[0]+"_"+str(npRadius)+".csv", outputSet)
     #concScaleFactor = 1
     #timeScaleFactor = 1e-9 #amount to rescale kon and koff by 
@@ -250,7 +292,7 @@ for proteinData in concentrationData:
     #print cgKEqConc/(concScaleFactor*float(proteinData[1])), np.exp(-boltz)
 
 
-np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(npRadius)+".csv", np.array(outputSet) , fmt="%s")
+np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(npRadius)+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
 
 
 '''

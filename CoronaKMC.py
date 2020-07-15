@@ -34,6 +34,11 @@ def collisionDetect(state, entryID):
 
 
 def adsorbCollisionDetect(state,newType,newC1,newC2):
+    if meanFieldApprox == 1:
+        if np.random.random() < 1 - surfaceCoverage :
+            return 0
+        else:
+            return 1
     if npShape == 1:
         return SphereCollisionDetect(state,newType,newC1,newC2)
     elif npShape == 2:
@@ -176,7 +181,7 @@ def outputState():
         for id in proteinIDList:
             print analyticState[id],
             resEntry.append(analyticState[id])
-    print totalProteins, " ", totalCoverage,
+    print totalProteins, " ", totalCoverage, 
     print ""
     resList.append(resEntry)
 
@@ -209,6 +214,8 @@ parser.add_argument('-p','--proteins',help="Protein file set",default="")
 parser.add_argument('-d','--diffuse',help="Enable surface diffusion",default=0)
 parser.add_argument('-c', '--coarse',help="Treat input as orientations of single protein, report only total numbers",default=0)
 parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder",default=1)
+parser.add_argument('-m','--meanfield',help="Enable mean field approximation",default=0,type=int)
+
 args = parser.parse_args()
 
 npShape = int(args.shape)
@@ -228,6 +235,8 @@ else:
     npShape = 1
     npSurfaceArea = 4*np.pi * args.radius**2
 
+
+meanFieldApprox = args.meanfield
 
 #if this flag is set to 1 then all proteins in the input are assumed to be different orientations of the same protein. the script runs as normal, then at the end prints out an average equilibrium constant and radius
 #note that this radius and equilibrium constant are dependent on the size of the NP
@@ -290,6 +299,7 @@ proteinIDList = np.arange(len(proteinData))
 resList =[]
 t = 0
 lastUpdate =0
+surfaceCoverage = 0 
 
 print "t/s",
 for proteinName in uniqueProteins:
@@ -369,10 +379,12 @@ while t < endTime:
         isOvercrowded =  adsorbCollisionDetect(np.array(state), newProteinID, newPhi, newC2)
         if isOvercrowded == 0:
             state.append([newProteinID,newPhi,newC2  ])
+            surfaceCoverage += 1.0/proteinBindingSites[newProteinID]
             #print "accepted protein ", newProteinID
     else:
         #remove the protein at the correct position
-        state.pop( chosenProcess - len(collisionRates)   )
+        removedProtein = state.pop( chosenProcess - len(collisionRates)   )
+        surfaceCoverage -= 1.0/proteinBindingSites[ removedProtein[0]]
         #print "removed protein"
 
 
