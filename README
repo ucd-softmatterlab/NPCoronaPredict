@@ -30,13 +30,25 @@ This output must also be corrected for the diffusion coefficient of the protein 
 Converts UA output to a file suitable for loading into CoronaKMC.
 
 How to run: (requires python 2.7)
-python BuildCoronaParams.py -r [RADIUS] -z [ZETA potential] -f [folder containing UA heatmaps] -s [1 or 2 for sphere or cylinder]
+python BuildCoronaParams.py -r [RADIUS] -z [ZETA potential] -f [folder containing UA heatmaps] -s [1 or 2 for sphere or cylinder] -p [protein definition file] -c [coordinate (in PDB form) folder)
 
-This additionally requires a file named ProteinConcs.csv located in the same directory of the format
+This requires a file named ProteinConcs.csv (or whatever you pass using the -p argument)  of the format
 protein1name,protein1conc
 protein2name,protein2conc
 
 where proteinXname is the name of the protein used by UnitedAtom (e.g. 1AX8)  and proteinXconc is the molar concentration of that protein. The script scans the target folder for all proteins named in the ProteinConcs file for the target radius and zeta potential, then creates a file containing the binding parameters for each orientation.
+
+The script also requires the PDB files used by UA for each protein, which it gets from the folder given by the -c argument. 
+
+For example, if the protein concentration file is named ProteinConcTest.csv and contains
+PROTA,0.0001
+and the input command is
+python BuildCoronaParams.py -r 5 -z 0 -f results -s 1 -p ProteinConcTest.csv -f pdbs
+then the following happens:
+1) The script looks in the folder "results" for a file called "PROTA_5_0.map" and loads this in.
+2) The script looks in the folder "pdbs" for a file called "PROTA.pdb" and loads this in.
+3) For each orientation in PROTA_5_0.map, the script calculates a set of binding coefficients based on the UA heatmap and geometry of the protein.
+
 The shape specification should be used together with the correct folder for UA heatmaps for spherical or cylindrical geometries, e.g.
 python BuildCoronaParams.py -r 5 -z 0 -f results_anatase_sphere -s 1
 or
@@ -50,7 +62,7 @@ proteinname concentration radius kon koff ebind area
 with one entry for each orientation of each protein. The concentrations for orientations of a given protein are weighted by \sin \theta and normalised such that the sum over all orientations is equal to the total concentration set in the input file
 The radius is calculated by projecting the protein onto the surface of the NP, determining the area of this projection, and calculating the radius of a sphere required to produce the same area.
 kon is estimated from diffusion theory for sphere-sphere collisions.
-koff is estimated from kon/koff = exp(-ebind) -- a large negative ebind produces a very small koff.
+koff is estimated from kon/koff = exp(-ebind)
 ebind is taken from the UA heatmap for that orientation.
 area is the projected area.  
 

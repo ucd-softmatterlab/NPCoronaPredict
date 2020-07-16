@@ -29,10 +29,10 @@ std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double radius,
-        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, double cylinderAngle=0) {
+        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
-if(cylinderAngle == 0){
+if(isCylinder == 0){
 cylinderFileNameAppend = "";
 } 
 else{
@@ -540,9 +540,13 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
         }
     }
     
-
-    WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory,0,cylinderAngle); 
-    WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,cylinderAngle); 
+int isCylinder = 0;   
+ if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
+ isCylinder = 1;
+   }  
+  
+    WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle); 
+    WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
 }
 
@@ -559,6 +563,10 @@ int main(const int argc, const char* argv[]) {
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
     PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap());
     int omegaDelta = 180;
+    if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
+    omegaDelta = 45;
+ }
+
     for (const double nanoparticleRadius : config.m_nanoparticleRadii) {
         for (const double zetaPotential : config.m_zetaPotential) {
             Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleRadius, config);
