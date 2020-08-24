@@ -190,7 +190,9 @@ proteinDataOriginal = np.array([
 
 
 concentrationData = np.genfromtxt(args.proteins,delimiter=",",dtype=np.str,skip_header=1)
-
+#print concentrationData
+if len(concentrationData) < 3:
+    concentrationData =np.array([concentrationData])
 
 #define where to look for the required input: a pdb file and the output from united atom
 pdbFolder = args.coordfolder
@@ -217,6 +219,7 @@ outputSet = []
 
 for proteinData in concentrationData:
     filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".map"
+    #print "looking for: ", filename
     #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
     rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
     data     = np.genfromtxt(energyMapFolder+"/"+filename)

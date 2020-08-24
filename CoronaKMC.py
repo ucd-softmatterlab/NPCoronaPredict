@@ -181,14 +181,42 @@ def outputState():
         for id in proteinIDList:
             print analyticState[id],
             resEntry.append(analyticState[id])
-    print totalProteins, " ", totalCoverage, 
+    if coarseGrainAtEnd != 0:
+        deltaGValCoverage,deltaGValNumberAverage = estimateDeltaG()
+    else:
+        deltaGValCoverage = ""
+        deltaGValNumberAverage = ""
+    print totalProteins, " ", totalCoverage, deltaGValCoverage, deltaGValNumberAverage,
     print ""
     resList.append(resEntry)
 
 
+def estimateDeltaG():
+    #if coarseGrainAtEnd != 0:
+    if len(state) > 0:
+        stateArr = (np.array(state)[:,0]).astype(int)
+    else:
+        stateArr = np.array([[]])
+        return 0,0 
+    totalProteins = 0
+    totalCoverage = 0
+    energyAverage = 0
+    for id in proteinIDList:
+        numProteins = len(stateArr[stateArr == id])
+        totalProteins += numProteins
+        totalCoverage +=  numProteins/proteinBindingSites[id]
+        energyAverage += numProteins * proteinData[id,4]
+    effectiveRadius = 2*npRadius*(-2*totalCoverage**2 + 2*totalCoverage*totalProteins + totalProteins*np.sqrt(totalCoverage*(totalProteins-totalCoverage)))/( (totalProteins - 2 * totalCoverage)**2   )
+    #print totalProteins, " ", totalCoverage
+    if meanFieldApprox != 1:
+        effectiveKeqConc = totalCoverage/(1 - totalCoverage) * np.exp(  3*totalCoverage/(1- totalCoverage) + totalCoverage**2 / (1-totalCoverage)**2 )
+    else:
+        effectiveKeqConc = totalCoverage/(1-totalCoverage)
+    deltaGEst =  -np.log(effectiveKeqConc/ np.sum(proteinData[:,0]) )
+    return deltaGEst, energyAverage/totalProteins
 
-#define the amount of time to simulate.
-endTime = 3600
+
+
 #how often the routine should print out information to the screen and store the number of adsorbed proteins for final output. 
 updateInterval =5
 
@@ -215,8 +243,11 @@ parser.add_argument('-d','--diffuse',help="Enable surface diffusion",default=0)
 parser.add_argument('-c', '--coarse',help="Treat input as orientations of single protein, report only total numbers",default=0)
 parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder",default=1)
 parser.add_argument('-m','--meanfield',help="Enable mean field approximation",default=0,type=int)
+parser.add_argument('-t','--time',help="Number of hours of simulated time",default=1.0,type=float)
 
 args = parser.parse_args()
+endTime = args.time*3600
+
 
 npShape = int(args.shape)
 
@@ -252,13 +283,13 @@ doShuffle = args.diffuse
 npRadius = args.radius
 proteinInput =  args.proteins
 
-#Protein data with [0] = concentration/M, [1] =  radius/nm, [2] = kon/ M^{-1} s^{-1}, [3] = koff/s^{-1}. [4] and [5] are unused but store the binding energy and binding area for historical reasons
+#Protein data with [0] = concentration/M, [1] =  radius/nm, [2] = kon/ M^{-1} s^{-1}, [3] = koff/s^{-1}. [4] is the binding energy, nominally -np.log(Kon/KOff)  [5] is currently unused but may be the binding area for historical reasons
 #this defines the trial set of HSA, HDL and Fib using parameters from the literature. 
 proteinDataOriginal = np.array([
 
-["HSA","1.5e-5","5","3e4","3e-5", "0",str(np.pi*5**2)],
-["HDL","6e-4","4","2.4e3","2e-3","0",str(np.pi*4**2)],
-["Fib","8.8e-6","8.3","2e3","2e-3","0",str(np.pi*8.3**2)]
+["HSA","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)],
+["HDL","6e-4","4","2.4e3","2e-3","-16.3004",str(np.pi*4**2)],
+["Fib","8.8e-6","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)]
 
 ])
 
@@ -304,8 +335,11 @@ surfaceCoverage = 0
 print "t/s",
 for proteinName in uniqueProteins:
     print proteinName,
-print "total", "total_coverage"
-
+print "total", "total_coverage",
+if coarseGrainAtEnd != 0:
+    print "DeltaG"
+else:
+    print ""
 #Kinetic Monte Carlo approach
 while t < endTime:
     leavingRates = []
@@ -426,7 +460,11 @@ if proteinInput == "":
 else:
     outputTag = proteinInput.split("/")[-1]
 
+if meanFieldApprox == 1:
+    mfTag = "mf"
+else:
+    mfTag = "hs"
 
-np.savetxt("kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_long_"+args.fileid+".txt",np.array(resList))
-np.savetxt("surface_fraction_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", outputArray.T)
+np.savetxt("corona_results/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt",np.array(resList))
+np.savetxt("corona_results/surface_fraction_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", outputArray.T)
 

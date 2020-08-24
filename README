@@ -16,7 +16,7 @@ The geometry of the NP is defined by the radius and the np-type variable. The op
 3 = cube (Planar PMF)
 4 = SWCNT ( Cylindrical PMF of diameter 1.5nm , finite thickness tube for vdW)
 5 = MWCNT (Cylindrical PMF of diameter 1.5nm, full cylinder for vdW)
-
+For a spherical NP, no rotation of the NP is performed and the output names do not have the final _ANGLE, e.g. they are 1AX8_5_0.map
 
 If the recalculate-zp option is set to 1 then the input zeta potential is taken to be the zeta potential for a particle of radius 1 nm in a solution with debye length 1 nm and Bjerrum length 1 nm. The zeta potential applied to
 a given particle is then adjusted to ensure that the surface charge density of the NP is a constant regardless of the radius. 
