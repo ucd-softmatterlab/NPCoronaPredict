@@ -20,10 +20,11 @@ public:
     const std::vector<int>      m_id;
     const double                m_length;
     const std::string           m_name;
+    const std::vector<double>   m_occupancy;
 
     PDB(const std::vector<double>& x, const std::vector<double>& y, const std::vector<double>& z,
-    const std::vector<int>& id, const double length, const std::string& name)
-        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name)
+    const std::vector<int>& id, const double length, const std::string& name, const std::vector<double>& occupancy)
+        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_occupancy(occupancy)
     {}
 };
 
@@ -54,14 +55,16 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     std::vector<double> y;
     std::vector<double> z;
     std::vector<int>    id;
-
+    std::vector<double> occupancy;
     while (std::getline(handle, line)) {
         if(line.size() > 3 && line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
             try {
                 x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
                 y.emplace_back(0.1 * std::stod(line.substr(38, 8)));
                 z.emplace_back(0.1 * std::stod(line.substr(46, 8)));
-
+                //std::cout << line << "\n";
+                //std::cout << line.substr(56,4) << "\n";
+                occupancy.emplace_back(  std::stod(line.substr(56,4)));
                 //tag = line.substr(16, 4); // When using lipids
                 tag = line.substr(17, 3);
                 StringFormat::Strip(tag);
@@ -92,11 +95,16 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
    */
     // Center protein
     double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
-
+    double totalOcc = 0;
+    double numRes = 0;
     for (int i = 0; i < static_cast<int>(x.size()); ++i) {
         mean_x += x[i];
         mean_y += y[i];
         mean_z += z[i];
+        totalOcc += occupancy[i];
+        numRes +=1;
+        //std::cout << numRes << " " << occupancy[i] << "\n";
+
     }
    
     mean_x /= x.size();
@@ -127,8 +135,8 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     const double length = std::sqrt(max_x * max_x + max_y * max_y + max_z * max_z);
 
     std::string name = TargetList::Filename(filename);
-
-    return PDB(x, y, z, id, length, name);
+    std::cout << numRes <<  " total CA, total occupancy: " << totalOcc << "\n";
+    return PDB(x, y, z, id, length, name,occupancy);
 }
 
 

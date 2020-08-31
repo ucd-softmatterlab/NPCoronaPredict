@@ -28,7 +28,7 @@ constexpr double        dz              = delta / (steps - 1);
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
-void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double radius,
+void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
         const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
@@ -41,28 +41,33 @@ cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
 
     if(isMFPT==1){
      filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + cylinderFileNameAppend  +  "_mfpt.map";
+        + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  "_mfpt.uam";
     }
 else{
     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
-        + "_" + std::to_string(static_cast<int>(1000000 * zeta)) + cylinderFileNameAppend  +  ".map";
+        + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  ".uam";
 }
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
+    handle << "#phi theta EAds/kbT Error(Eads)/kbT min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 \n"; 
     for (int i = 0; i < iterations; ++i) { 
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << phi;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << theta;
 
-        if(isMFPT==1){
-        handle << std::left << std::setw(14) << std::fixed << std::scientific << std::setprecision(5) << adsorption_energy[i];
-        }
-        else{
+        
+        //handle << std::left << std::setw(14) << std::fixed << std::scientific << std::setprecision(5) << adsorption_energy[i];
+        
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i];
-        }
+        
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_error[i];
+
+        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i];
+
+        handle << std::left << std::setw(14) << std::fixed << std::scientific << std::setprecision(5) << mfpt_val[i];
+
         handle << "\n";
     }
     handle.close();
@@ -74,16 +79,17 @@ void PrintStatistics(const double *adsorption_energy, const double *adsorption_e
     double          simpleAverage   = 0.0;
     long double     T               = 0.0;
     long double     Z               = 0.0;
-   
+    double sinThetaTot = 0.0;
     for (int i = 0; i < iterations; ++i) {
         sin_theta       = std::sin((i / ncols) * angle_delta);
         T               += adsorption_energy[i] * sin_theta * std::exp(-1.0 * adsorption_energy[i]);
         Z               += sin_theta * std::exp(-1.0 * adsorption_energy[i]);
         simpleAverage   += sin_theta * adsorption_energy[i];
         error           += sin_theta * adsorption_error[i];
+        sinThetaTot     += sin_theta;
     }
 
-    simpleAverage   /= iterations;
+    simpleAverage   /= sinThetaTot;
     error           /= iterations;
 
     std::cout << std::setw(10) << std::left << TargetList::Filename(filename);
@@ -207,7 +213,7 @@ void Sum (const int size, double* result, double *arr) {
         *result += arr[i];
     }
 }
-
+//note that for this integration routine and all others, "ssd" is actually the distance between the centre of the NP and the closest point of the protein.
 void Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
     long double area = 0.0;
     for (int i = 0; i < size; ++i) {
@@ -256,29 +262,21 @@ minI = i;
 
 for(int k = std::max(minI-minimumRange*stepSize,0); k < std::min(size,minI+minimumRange*stepSize+1); k+=stepSize){
 //integrate from the end point at ssd[0] to r0 at ssd[k]
-res = 0.0;
-    for (int i = 0; i < k; ++i) {
+    res = 0.0;
+    for (int i = 0; i < k; ++i) { //integrate over "y", runs from r0 to the escape point
         //here ssd[i] = y and ssd[j] = rprime
-innerRes = 0;
-for(int j =size; j > i; --j){
-
-
-
-
-innerRes +=  dz*std::exp(static_cast<long double>(energy[i]  -1.0*(  energy[j] )))  * pow(ssd[j]/ ssd[i], correctionFactorPower ); 
-}
-res+= dz    * innerRes;
-    
-
-
-}
-
-outerRes += dz*res* pow(ssd[k], correctionFactorPower )*std::exp(static_cast<long double>(  -1.0*(  energy[k] )));
+        innerRes = 0;
+        for(int j =size; j > i; --j){ //integrate over "x": from touching the NP to the  value of y
+            innerRes +=  dz*std::exp(static_cast<long double>(energy[i]  -1.0*(  energy[j] )))  * pow(ssd[j]/ ssd[i], correctionFactorPower ); 
+        }
+        res+= dz    * innerRes;
+    } //at this point res contains the MFPT for a given initial position
+    outerRes += dz*res* pow(ssd[k], correctionFactorPower )*std::exp(static_cast<long double>(  -1.0*(  energy[k] ))); //weight the MFPT by the probability for that initial position
 }
 double z = 0;
 for(int i=std::max(minI-minimumRange*stepSize,0);i<std::min(size,minI+minimumRange*stepSize+1);i+=stepSize){
  z+= dz* pow(ssd[i], correctionFactorPower )*std::exp(static_cast<long double>(  -1.0*(  energy[i] )));
- //calculate the partition function
+ //calculate the partition function, used to normalise the average MFPT
 }
      *mfpt = outerRes/z;
 
@@ -348,7 +346,7 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
  
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err, int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -374,6 +372,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double SSD[steps];
     double sample_energy[samples];
     double sample_mfpt[samples];
+    double sample_minloc[samples];
     // Iterate over angles
     for (int angle = 0; angle < n_angles; ++angle) {
         
@@ -423,19 +422,22 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
 //               std::cout << i << " "  << phi << " "  << theta << " " <<  x[i] << " " << y[i] << " " << z[i] << " " <<distance << "\n";
 
                 }
-                double energyAtDist =  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
+                double energyAtDist = pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
                 if(energyAtDist > 1){
                 //std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
                 }
-                init_energy += static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
+                //std::cout << pdb.m_occupancy[i] << "\n";
+                init_energy +=  pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
             }
  
 //std::cout << "total shift/num. amino acid: " <<  init_energy/size << "\n";
-            // Integration step
+            // build the distance-potential array
+            double minLoc = start;
+            double minEnergy = 0;
             for (i = 0; i < steps; ++i) {
                 ssd     = start - i * dz;
                 energy  = 0;
-
+                //loop over each residue
                 for (j = 0; j < size; ++j) {
                 if(npType == 2 || npType == 4 || npType==5){
                 //for cylinder NPs we only take into consideration the radial distance z as the NP is assumed to be sufficiently long that the edge effects can be neglected.
@@ -447,16 +449,19 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 }
                 else{
                     distance  = std::sqrt(x[j] + y[j] + (z[j] + ssd) * (z[j] + ssd)) - radius; // Center To Surface Distance
-}
-                    energy += static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
+                }
+                energy +=  pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                 }
                 
                 SSD[i]          = ssd;
                 total_energy[i] = energy;
-
+               if(energy < minEnergy){
+               minEnergy = energy;
+               minLoc = ssd;
+               }
 
             }
-           
+           sample_minloc[sample] = minLoc - radius;
          /*   for (i = 0; i < steps; ++i) {
                 std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
             }*/
@@ -490,7 +495,10 @@ else{
         // Mean of all the samples
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
         MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
- 
+         MeanAndSD(samples, &(minloc_val[angle_offset + angle]), &(minloc_err[angle_offset + angle]), sample_minloc);
+
+
+
  
     }
 }
@@ -504,6 +512,10 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
     double mfpt_val[iterations] = {};
     double adsorption_error[iterations]  = {};
         double mfpt_err[iterations] = {};
+   double minloc_val[iterations] = {};
+   double minloc_err[iterations] = {};
+
+
     #ifdef PARALLEL  
     const int n_threads         =   omp_get_max_threads();
     #else
@@ -532,6 +544,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     adsorption_error,
                     mfpt_val,
                     mfpt_err,
+                    minloc_val,
+                    minloc_err,
                     config.m_npType,
                     imaginary_radius,
                     config.m_calculateMFPT,
@@ -545,8 +559,8 @@ int isCylinder = 0;
  isCylinder = 1;
    }  
   
-    WriteMapFile(adsorption_energy, adsorption_error, radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle); 
-    WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
+    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle); 
+    //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
 }
 
