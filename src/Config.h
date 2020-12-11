@@ -34,6 +34,7 @@ public: // Key - vaules
     double      m_bejerumLength         = 1.0;
     double      m_debyeLength           = 0.7;
     double      m_imaginary_radius      = -1.0;
+    double      m_PMFCutoff      = 1.0;
     int		m_npType		= 1; //this defines the type of the nanoparticle. 1 = sphere, 2 = solid cylinder, 3 = cube, 4 = tube (hollow cylinder)
     int         m_recalcZP               = 0; //if this is non-zero then the input zeta potentials are treated as reference values for an NP of radius 1 in solution with Debye and Bjerrum lengths equal to one, and used to calculate shape- and size-dependent ZPs.
     int         m_calculateMFPT = 0 ; //if this is non-zero then UA also calculates and outputs the mean first passage time for each orientation. This involves a bunch of integration and so is slow. 
@@ -97,6 +98,9 @@ public:
             }
             else if (keys[i] == "angle-delta") {
                 m_angleDelta = AsDouble(values[i]);
+            }
+            else if (keys[i] == "pmf-cutoff") {
+                m_PMFCutoff = AsDouble(values[i]);
             }
             else if (keys[i] == "bjerum-length") {
                 m_bejerumLength = AsDouble(values[i]);

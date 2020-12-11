@@ -75,7 +75,7 @@ public:
 Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstants& hamakerConstants, const double zetaPotential, const double nanoparticleRadius, const Config& config) {
 
     const double        pmfStart            = surfaceData.m_distance.front();
-    const double        pmfCutoff           = surfaceData.m_distance.back();
+    const double        pmfCutoff           =  config.m_PMFCutoff;  //surfaceData.m_distance.back();
     const double        cutoff              = config.m_potentialCutoff;
     const double        hamaker             = hamakerConstants[surfaceData.m_aminoAcid];
     const double        bjerumLength        = config.m_bejerumLength;
@@ -150,7 +150,7 @@ core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRad
             if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType==5){
 
 if( recalculateZetaPotential != 0){
-           finalZetaPotential = 2* zetaPotential*bjerumLength*debyeLength * cyl_bessel_k(0, nanoparticleRadius/debyeLength)/cyl_bessel_k(1,  nanoparticleRadius/debyeLength); //cylinder correction
+           finalZetaPotential = 2* zetaPotential*bjerumLength*debyeLength * boost::math::cyl_bessel_k(0, nanoparticleRadius/debyeLength)/boost::math::cyl_bessel_k(1,  nanoparticleRadius/debyeLength); //cylinder correction
 
   // std::cout << " reference zeta potential: " << zetaPotential << " recalculated: " << finalZetaPotential << "\n";
         }
@@ -223,7 +223,7 @@ double ElectrostaticPotential(const double h, const double zetaS, const double Z
 //Defines the approximate debye-huckel potential for an infinitely long cylinder in a solution with a fixed boundary condition at the surface and psi->0 for large distances
 //The normalisation convention here is chosen such that at h = 0 (i.e. at the surface of the NP) this should return the same value as the spherical case.
 double ElectrostaticCylinderPotential(const double h, const double zetaS, const double Z, const double R, const double ld) {
-    double cylinderES = 38.681727 * (zetaS * Z)   * cyl_bessel_k(0,  (h+R)/ld ) / cyl_bessel_k(0,  R/ld);
+    double cylinderES = 38.681727 * (zetaS * Z)   * boost::math::cyl_bessel_k(0,  (h+R)/ld ) / boost::math::cyl_bessel_k(0,  R/ld);
 
     return cylinderES;
 }
