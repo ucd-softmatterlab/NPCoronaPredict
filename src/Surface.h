@@ -60,7 +60,7 @@ public:
             //The remaining potentials we use typically have at least one numerical integration involved and therefore we don't have simple analytical expressions. We also usually don't have limits for R->Infty and the expressions are not always numerically stable.
 //The general method we use is as follows. An inclusive segment at the target radius is found by calculating the potential with no exclusion and subtracting the potential with the known exclusion. This is then divided by the inclusive segment obtained for a flat plane (for titania PMFs) or for a CNT at a radius of 0.75nm. At large distances this fails and so a ceiling is set on d to prevent the expressions diverging. 
             else if(correctionType == 2){ //cylinder.  
-double distCeilVal = 1.4;
+double distCeilVal = cutoff;
 if(distance > distCeilVal){
 correction =  (  HamakerAtomCylinderUnit(radius,distCeilVal,0.000000011) - HamakerAtomCylinderUnit(radius,distCeilVal,cutoff)  )/ ( HamakerAtomCylinderUnit(1000,distCeilVal,0.000000011) - HamakerAtomCylinderUnit(1000,distCeilVal,cutoff) );
 }

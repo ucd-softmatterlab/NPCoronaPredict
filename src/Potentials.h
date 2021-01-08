@@ -75,8 +75,9 @@ public:
 Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstants& hamakerConstants, const double zetaPotential, const double nanoparticleRadius, const Config& config) {
 
     const double        pmfStart            = surfaceData.m_distance.front();
-    const double        pmfCutoff           =  config.m_PMFCutoff;  //surfaceData.m_distance.back();
-    const double        cutoff              = config.m_potentialCutoff;
+    const double        pmfEnd              = surfaceData.m_distance.back();  //final distance recorded in the PMF
+    const double        pmfCutoff           = config.m_PMFCutoff;  //vdW cutoff
+    const double        cutoff              = config.m_potentialCutoff; //final distance of the total potential
     const double        hamaker             = hamakerConstants[surfaceData.m_aminoAcid];
     const double        bjerumLength        = config.m_bejerumLength;
     const double        debyeLength         = config.m_debyeLength;
