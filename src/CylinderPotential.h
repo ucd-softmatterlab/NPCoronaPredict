@@ -274,6 +274,23 @@ std::cout << "found final inf at " << r << " " << RT << "\n";
 }
 return integratedValue/(piVal ) * A * (4.0/3.0) * (R1*R1*R1);
 }
+
+
+double HamakerCylinderLensTsallisApprox(const double A, const double R1, const double RT, const double r, const double re){
+double delta = r - RT;
+double a = delta/re;
+double b = RT/re;
+double val0 = (sqrt((1 - pow(a,2))/(-1 + pow(a,2) + 4*a*b + 4*pow(b,2)))*(8*pow(b,2)*(2*pow(a,2) + 4*a*b + 3*pow(b,2))*sqrt(-((-1 + pow(a,2) + 4*a*b + 4*pow(b,2))/(-1 + pow(a,2))))*pow(re,8)* atan(((a + 2*b)*sqrt((1 - pow(a,2))/(-1 + pow(a,2) + 4*a*b + 4*pow(b,2))))/a) -        a*(a + 2*b)*pow(re,8)*(6*pow(b,2) - 24*pow(b,4) + a*(2*b - 32*pow(b,3)) + pow(a,2)*(1 - 14*pow(b,2) - 16*pow(b,4)) +        24*pow(a,4)*pow(b,2)*(-1 + sqrt(-((-1 + pow(a,2) + 4*a*b + 4*pow(b,2))/(-1 + pow(a,2))))*M_PI) + pow(a,6)*(-1 + 2*sqrt(-((-1 + pow(a,2) + 4*a*b + 4*pow(b,2))/(-1 + pow(a,2))))*M_PI) +      4*pow(a,5)*b*(-2 + 3*sqrt(-((-1 + pow(a,2) + 4*a*b + 4*pow(b,2))/(-1 + pow(a,2))))*M_PI) +          2*pow(a,3)*b*(-1 + 8*pow(b,2)*(-2 + sqrt(-((-1 + pow(a,2) + 4*a*b + 4*pow(b,2))/(-1 + pow(a,2))))*M_PI)) - 4*pow(a,3)*pow(a + 2*b,3)*sqrt(-((-1 + pow(a,2) + 4*a*b + 4*pow(b,2))/(-1 + pow(a,2))))*atan((1 + pow(a,2) + 2*a*b)/sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2))))))))/(8.*pow(a,4)*pow(a + 2*b,4)*pow(re,12));
+double val2 = (-(a*sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2))))*(pow(a,9) + 10*pow(a,8)*b + 114*a*pow(b,4) + 60*pow(b,5) + pow(a,7)*(1 + 40*pow(b,2)) +   pow(a,3)*pow(b,2)*(33 + 76*pow(b,2)) + 8*pow(a,6)*(b + 10*pow(b,3)) + pow(a,5)*(1 + 29*pow(b,2) + 80*pow(b,4)) + pow(a,4)*(6*b + 62*pow(b,3) + 32*pow(b,5)) +       pow(a,2)*(92*pow(b,3) + 40*pow(b,5)))) + 3*pow(a,11)*(a + 2*b)*M_PI + 30*pow(a,10)*b*(a + 2*b)*M_PI + 120*pow(a,9)*pow(b,2)*(a + 2*b)*M_PI + 240*pow(a,8)*pow(b,3)*(a + 2*b)*M_PI + 240*pow(a,7)*pow(b,4)*(a + 2*b)*M_PI + 96*pow(a,6)*pow(b,5)*(a + 2*b)*M_PI +      12*pow(b,2)*(3*pow(a,4) + 12*pow(a,3)*b + 24*pow(a,2)*pow(b,2) + 24*a*pow(b,3) + 10*pow(b,4))*      atan(((-1 + pow(a,2))*(a + 2*b))/(a*sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2)))))) -   6*pow(a,6)*pow(a + 2*b,6)*atan((1 + pow(a,2) + 2*a*b)/sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2))))))/(3.*pow(a,6)*pow(a + 2*b,6)*pow(re,6));
+double val4 = (3*(a*(a + 2*b)*sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2))))*(3*pow(a,12) + 36*pow(a,11)*b + 1020*a*pow(b,5) + 420*pow(b,6) + 10*pow(a,2)*pow(b,4)*(107 + 28*pow(b,2)) +    3*pow(a,10)*(1 + 60*pow(b,2)) + 8*pow(a,3)*pow(b,3)*(73 + 85*pow(b,2)) + 30*pow(a,9)*(b + 16*pow(b,3)) + 8*pow(a,7)*b*(3 + 44*pow(b,2) + 72*pow(b,4)) +          2*pow(a,4)*pow(b,2)*(88 + 359*pow(b,2) + 112*pow(b,4)) + 2*pow(a,5)*b*(9 + 198*pow(b,2) + 272*pow(b,4)) + pow(a,8)*(3 + 134*pow(b,2) + 720*pow(b,4)) +           pow(a,6)*(3 + 122*pow(b,2) + 576*pow(b,4) + 192*pow(b,6))) + 12*(-(pow(a,15)*(a + 2*b)*M_PI) - 14*pow(a,14)*b*(a + 2*b)*M_PI - 84*pow(a,13)*pow(b,2)*(a + 2*b)*M_PI -        280*pow(a,12)*pow(b,3)*(a + 2*b)*M_PI - 560*pow(a,11)*pow(b,4)*(a + 2*b)*M_PI - 672*pow(a,10)*pow(b,5)*(a + 2*b)*M_PI - 448*pow(a,9)*pow(b,6)*(a + 2*b)*M_PI -           128*pow(a,8)*pow(b,7)*(a + 2*b)*M_PI - 4*pow(b,2)*(4*pow(a,6) + 24*pow(a,5)*b + 78*pow(a,4)*pow(b,2) + 152*pow(a,3)*pow(b,3) + 180*pow(a,2)*pow(b,4) + 120*a*pow(b,5) +         35*pow(b,6))*atan(((-1 + pow(a,2))*(a + 2*b))/(a*sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2)))))) +           2*pow(a,8)*pow(a + 2*b,8)*atan((1 + pow(a,2) + 2*a*b)/sqrt(-((-1 + pow(a,2))*(-1 + pow(a,2) + 4*a*b + 4*pow(b,2))))))))/(2.*pow(a,8)*pow(a + 2*b,8)*pow(re,8));
+double ampVal = val0;
+double sigmaVal = -val2/(2*val0);
+double qVal = val4*val0/(3* val2*val2);
+return ampVal * sqrt(M_PI) * tgamma(-0.5 + 1/(qVal-1))/(  sqrt((qVal-1)*sigmaVal   ) * tgamma(1/(qVal-1))   );
+
+
+}
+
  
 
 #endif

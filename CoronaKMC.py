@@ -268,6 +268,9 @@ else:
 
 
 meanFieldApprox = args.meanfield
+if meanFieldApprox != 0:
+    print "Mean-field enabled"
+
 
 #if this flag is set to 1 then all proteins in the input are assumed to be different orientations of the same protein. the script runs as normal, then at the end prints out an average equilibrium constant and radius
 #note that this radius and equilibrium constant are dependent on the size of the NP
@@ -376,7 +379,7 @@ while t < endTime:
             numAttempt = 0
             while numAttempt < maxShuffleTrials:
                 newtheta = state[i][2] + np.random.normal(0, np.sqrt(surfaceDiffusionCoeff*2*deltatTotal / (npRadius**2)) ) #using result from PRE 96 022606
-                phiVariance =  (1.0/(state[i][2]**2) + 1.0/((state[i][2] - np.pi)**2)   )* (2*surfaceDiffusionCoeff)/(npRadius**2)
+                phiVariance =  (1.0/(state[i][2]**2) + 1.0/((state[i][2] - np.pi)**2)   )* (2*surfaceDiffusionCoeff*deltatTotal)/(npRadius**2)
                 newphi = state[i][1] + np.random.normal(0,np.sqrt(phiVariance))
                 #bring phi to interval [0,2pi]
                 while newphi > 2*np.pi:

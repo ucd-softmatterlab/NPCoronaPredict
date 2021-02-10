@@ -64,7 +64,12 @@ def getAtomCoords(filename):
         if lineData[0] == "ATOM":
             coordList.append([ float(line[30:38]) , float(line[38:46]) , float(line[46:54])])
     fileIn.close()
-    return np.array(coordList)
+    # return np.array(coordList)
+    coordData = np.array(coordList)
+    coordData[:,0] = coordData[:,0] - np.mean(coordData[:,0])
+    coordData[:,1] = coordData[:,1] - np.mean(coordData[:,1])
+    coordData[:,2] = coordData[:,2] - np.mean(coordData[:,2])
+    return coordData
 
 def pointsToBeads(coords):
     if(len(coords)>2):
@@ -89,7 +94,7 @@ def getAreaHeight(pointCoords):
     return (projectedConvexHull.volume, heightAboveSurface)
 
 def rotatePDB(coords,phiVal,thetaVal):
-    phiRotated =  phiVal
+    phiRotated =  -phiVal
     thetaRotated = np.pi - thetaVal
     rotCoords = np.copy(coords)
     rotCoords[:,0] = coords[:,0] * np.cos(phiRotated) - coords[:,1] * np.sin(phiRotated)
@@ -218,7 +223,7 @@ diffusionCoeff = 1e-11
 outputSet = []
 
 for proteinData in concentrationData:
-    filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".map"
+    filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
     #print "looking for: ", filename
     #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
     rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
@@ -257,7 +262,7 @@ for proteinData in concentrationData:
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the spherical protein which has a shadow with radius effectiveRadius
         #print effectiveRadius, effectiveRadius3D,SphereProjectedRadius(npRadius,effectiveRadius3D)
-        konApprox = projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D)
+        konApprox = 0.001 *  projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D) #in mol/dm^3
         koffApprox = konApprox * np.exp(energy)
         outputSet.append([proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
         print proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea

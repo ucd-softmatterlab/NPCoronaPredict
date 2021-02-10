@@ -32,12 +32,20 @@ void WriteMapFile(const double *adsorption_energy, const double *adsorption_erro
         const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
+
+
+
+
+//If directory doesn't exist, create it.
+//boost::filesystem::create_directory(directory);
+
 if(isCylinder == 0){
 cylinderFileNameAppend = "";
 } 
 else{
 cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
 }
+
 
     if(isMFPT==1){
      filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
@@ -580,7 +588,7 @@ int main(const int argc, const char* argv[]) {
     if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
     omegaDelta = 45;
  }
-
+    boost::filesystem::create_directory(config.m_outputDirectory);
     for (const double nanoparticleRadius : config.m_nanoparticleRadii) {
         for (const double zetaPotential : config.m_zetaPotential) {
             Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleRadius, config);

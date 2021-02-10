@@ -128,10 +128,10 @@ public:
             m_recalcZP = AsInt(values[i]);
                if(m_recalcZP!=0){
               std::cout << "Treating input zeta potential as reference \n";
- }
-else{
-std::cout << "Using input ZP as actual value \n";
-}
+              }
+              else{
+              std::cout << "Using input ZP as actual value \n";
+             }
             }
             else if(keys[i] == "calculate-mfpt"){
             m_calculateMFPT = AsInt(values[i]);

@@ -73,8 +73,9 @@ correction = (  HamakerAtomCylinderUnit(radius,distance,0.000000011) - HamakerAt
 correction = 1;
             }
             else if(correctionType == 4 || correctionType==5){//tube. here the PMFs are calculated for a radius of 0.75 and so we adapt the potentials based on this. As with cylinder, this is ratio of the inclusive segment for the actual radius divided by inclusive segment for the calculated tube.
-      if(distance > cutoff - 0.1){
-correction = ( HamakerAtomTubeUnit(radius,cutoff-0.1,0.00001) -      HamakerAtomTubeUnit(radius,cutoff-0.1,cutoff)  )/( HamakerAtomTubeUnit(0.75,cutoff-0.1,0.00001) -      HamakerAtomTubeUnit(0.75,cutoff-0.1,cutoff)  );
+double distCeilVal = cutoff;
+      if(distance > distCeilVal){
+correction = ( HamakerAtomTubeUnit(radius,distCeilVal,0.00001) -      HamakerAtomTubeUnit(radius,distCeilVal,cutoff)  )/( HamakerAtomTubeUnit(0.75,distCeilVal,0.00001) -      HamakerAtomTubeUnit(0.75,distCeilVal,cutoff)  );
 }
 else{
 correction = ( HamakerAtomTubeUnit(radius,distance,0.00001) -      HamakerAtomTubeUnit(radius,distance,cutoff)  )/( HamakerAtomTubeUnit(0.75,distance,0.00001) -      HamakerAtomTubeUnit(0.75,distance,cutoff)  );
