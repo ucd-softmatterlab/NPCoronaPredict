@@ -51,6 +51,14 @@ def SphereCollisionDetect(state, newType,newPhi, newTheta):
         return 0
     newr = proteinData[ newType,1 ]
     radiusArray = proteinData[ state[:,0].astype(int), 1] 
+    if hardSphereMode == 1:
+        allowedDists = radiusArray + newr
+        distSq = ((npRadius+radiusArray)*np.cos(state[:,1])*np.sin(state[:,2]) - (npRadius+newr)*np.cos(newPhi)*np.sin(newTheta) )**2 + ((npRadius+radiusArray)*np.sin(state[:,1])*np.sin(state[:,2]) - (npRadius+newr)*np.sin(newPhi)*np.sin(newTheta) )**2 + ((npRadius+radiusArray)*np.cos(state[:,2]) - (npRadius+newr)*np.cos(newTheta) )**2
+        if np.any( np.sqrt(distSq)  < allowedDists):
+            return 1
+        else:
+            return 0
+    #second test: surface projection detection
     minimumAngle = np.arcsin(radiusArray/(radiusArray+npRadius))  + np.arcsin(newr/(newr+npRadius))
     angleDist = np.arccos( np.cos(newTheta)*np.cos(state[:,2]) + np.sin(newTheta)*np.sin(state[:,2])*np.cos( np.abs(newPhi - state[:,1]) )    )
     if np.any(angleDist < minimumAngle):
@@ -75,6 +83,22 @@ def shuffleCollisionDetect(state, shiftedNum ,newPhi, newTheta):
     return 0
 
 '''
+def hardSphereCollisionDetect(state, newType,newPhi, newTheta):
+    if(len(state))<1:
+        return 0
+    newr = proteinData[ newType,1 ]
+    radiusArray = proteinData[ state[:,0].astype(int), 1]
+    xsq = (radiusArray+npRadius) * np.cos(state[:,1]) * np.sin(state[:,2]) 
+    minimumAngle = np.arcsin(radiusArray/(radiusArray+npRadius))  + np.arcsin(newr/(newr+npRadius))
+    angleDist = np.arccos( np.cos(newTheta)*np.cos(state[:,2]) + np.sin(newTheta)*np.sin(state[:,2])*np.cos( np.abs(newPhi - state[:,1]) )   $
+    if np.any(angleDist < minimumAngle):
+        return 1
+    return 0
+'''
+
+'''
+
+old version
 def CylinderCollisionDetect(state, newType,newPhi, newZ):
     if(len(state))<1:
         return 0
@@ -98,8 +122,11 @@ def CylinderCollisionDetect(state, newType,newPhi, newZ,zoffset=0):
     radiusArray = proteinData[ state[:,0].astype(int), 1]
     #first pass: detect physical overlap
     allowedDists = radiusArray + newr
-    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
+    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2   +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
         return 1
+    #At this point in the code, no hard-sphere overlaps between proteins have been detected. so if we're enabling this mode we can now return 0
+    if hardSphereMode == 1:
+        return 0
     #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
     minRD = np.where( radiusArray > newr, radiusArray, newr)
     if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
@@ -174,8 +201,8 @@ def outputState():
         totalCoverage +=  numProteins/proteinBindingSites[id]
     for upIndex in range(len(uniqueProteins)):
         if coarseGrainAtEnd ==0:
-            print  int(round( uniqueProteinNums[upIndex])),
-        resEntry.append(int(round( uniqueProteinNums[upIndex])) )
+            print  uniqueProteinNums[upIndex]/numNPs,
+        resEntry.append(uniqueProteinNums[upIndex]/numNPs )
     if doAnalytic == 1:
         analyticState =  steadyStateA -np.matmul( sp.linalg.expm(t * aCoeffMatrix), steadyStateA)
         for id in proteinIDList:
@@ -186,7 +213,7 @@ def outputState():
     else:
         deltaGValCoverage = ""
         deltaGValNumberAverage = ""
-    print totalProteins, " ", totalCoverage, deltaGValCoverage, deltaGValNumberAverage,
+    print totalProteins/numNPs, " ", totalCoverage/numNPs, deltaGValCoverage, deltaGValNumberAverage,
     print ""
     resList.append(resEntry)
 
@@ -244,15 +271,29 @@ parser.add_argument('-c', '--coarse',help="Treat input as orientations of single
 parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder",default=1)
 parser.add_argument('-m','--meanfield',help="Enable mean field approximation",default=0,type=int)
 parser.add_argument('-t','--time',help="Number of hours of simulated time",default=1.0,type=float)
+parser.add_argument('-n','--numnp',help="Number of NPs to simulate simultaneously", default = 1, type=int)
+parser.add_argument('-x','--npconc',help="Concentration of NPs", default = 0, type=float)
+parser.add_argument('-H','--hardsphere',help="Enable true hard sphere modelling", default = 0, type=int)
+
+
 
 args = parser.parse_args()
 endTime = args.time*3600
 
+hardSphereMode = args.hardsphere
+if hardSphereMode == 1:
+    print "Enabling actual hard spheres"
 
 npShape = int(args.shape)
 
 cylinderHalfLength = 50 #end-to-centre length of the cylinder
 print npShape
+
+#define the molar concentration of NPs and the number to explicitly simulate
+#if you're using a vanishing concentration of NPs its best to simulate one at a time and post-average to get statistics
+#but simulating multiple NPs for non-zero concentrations helps suppress fluctuations in concentration.
+npConc = args.npconc #1.41e-9
+numNPs = args.numnp #10
 
 
 if npShape == 1:
@@ -290,15 +331,51 @@ proteinInput =  args.proteins
 #this defines the trial set of HSA, HDL and Fib using parameters from the literature. 
 proteinDataOriginal = np.array([
 
-["HSA","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)],
-["HDL","6e-4","4","2.4e3","2e-3","-16.3004",str(np.pi*4**2)],
+["HDL","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)],
+["HSA","6e-4","4","2.4e3","2e-3","-16.3004",str(np.pi*4**2)],
 ["Fib","8.8e-6","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)]
 
 ])
 
 
+proteinDataSlow = np.array([
+
+["HDL","1.5e-5","5","3e4","3e-6", "-20.7233",str(np.pi*5**2)],
+["HSA","6e-4","4","2.4e3","2e-4","-16.3004",str(np.pi*4**2)],
+["Fib","8.8e-6","8.3","2e3","2e-4","-16.1181",str(np.pi*8.3**2)]
+
+])
+
+proteinDataExtra = np.array([
+
+["HDL","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)],
+["HSA","6e-4","4","2.4e3","2e-3","-16.3004",str(np.pi*4**2)],
+["Fib","8.8e-6","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)],
+["FP1","6e-4","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)],
+["FP2","1.5e-5","5.5","3e4","3e-5", "-20.7233",str(np.pi*5.5**2)]
+
+
+])
+
+proteinDataFastA = np.array([
+
+["HDL","1.5e-5","5","3e6","3e-5", "-20.7233",str(np.pi*5**2)],
+["HSA","6e-4","4","2.4e5","2e-3","-16.3004",str(np.pi*4**2)],
+["Fib","8.8e-6","8.3","2e5","2e-3","-16.1181",str(np.pi*8.3**2)]
+
+])
+
+
+proteinDataBigSmall  = np.array([
+
+["Big","1.5e-5","5","3e6","3e-5", "-20.7233",str(np.pi*5**2)],
+["Small","6e-4","1","2.4e5","2e-3","-16.3004",str(np.pi*1**2)]
+
+])
+
+
 if proteinInput == "":
-    proteinDataInput = proteinDataOriginal
+    proteinDataInput = proteinDataBigSmall
 else:
     print "loading from file ", proteinInput
     proteinDataInput = np.genfromtxt(proteinInput, dtype=str)
@@ -321,7 +398,7 @@ if doAnalytic!=0:
 
 
 #calculate the collision rates used to determine which protein to add = concentration * k_on * NP surface area / protein cross sectional area
-collisionRates = (proteinData[:,0] * proteinData[:,2]) * proteinBindingSites
+collisionRates = (proteinData[:,0] * proteinData[:,2]) * proteinBindingSites * numNPs
 additionProb = np.cumsum(collisionRates)
 
 state = [] #list containing the protein ID and xyz coordinates
@@ -330,10 +407,26 @@ state = [] #list containing the protein ID and xyz coordinates
 
 proteinIDList = np.arange(len(proteinData))
 
+#orientationFactors = np.zeros_like(proteinData[:,0])
+
+#for id in proteinIDList:
+proteinTotalConcs = np.zeros_like(proteinData[:,0] )
+
+for id in proteinIDList:
+    proteinName = proteinNames[id]
+    #upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
+    proteinTotalConcs[ proteinNames == proteinName   ] += proteinData[id,0]
+
+orientationFactors = proteinData[:,0]/proteinTotalConcs
+print orientationFactors
+
+
 resList =[]
 t = 0
 lastUpdate =0
 surfaceCoverage = 0 
+
+boundProteinAll = np.zeros( len(proteinData[:,0]) )
 
 print "t/s",
 for proteinName in uniqueProteins:
@@ -349,6 +442,40 @@ while t < endTime:
     for i in range(len(state)):
         currentProtein = state[i]
         leavingRates.append( proteinData[ currentProtein[0] ,3]  )
+
+    stateArr = np.array(state)
+    if len(stateArr) < 1:
+        collisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
+    else:
+        #boundProteinAll = np.zeros(len(proteinData[:,0]))
+        #allBoundForOrientation = np.zeros( len(proteinIDList))
+        #for id in proteinIDList: #scan through all protein-orientations and sum up the total number of each protein
+        #    proteinName = proteinNames[id]
+        #    numProteins = len(stateArr[stateArr == id])
+        #    boundProteinAll[  proteinNames == proteinName   ] += numProteins
+        adjustedConc = (proteinTotalConcs - npConc * boundProteinAll / numNPs)*orientationFactors
+        adjustedConc = np.where(adjustedConc > 0, adjustedConc, 0)
+        collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
+    #print boundProteinAll[::600]
+    '''
+    uniqueProteinNums = np.zeros(len(uniqueProteins))
+    for id in proteinIDList: #scan through all protein-orientations and sum up the total number of each protein
+        proteinName = proteinNames[id]
+        upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
+        numProteins = len(stateArr[stateArr == id])
+        uniqueProteinNums[upIndex] += numProteins
+
+
+    '''
+    #base concentration - estimated bound concentration
+    #for a given protein, each orientation has concentration C0 * factor , where C0 is sum of all orientation-specific concentrations
+    # C[theta,phi] = C0*f[ theta,phi] => f[theta,phi] = C[theta,phi]/C0
+    # the time-dependent concentration is the total concentration - npConc numProteinsBound/numNPs
+    # C[t, theta, phi] = (C0 - npConc*proteinsPerNP[t]) * f[theta,phi]
+    #                  = max(C0 - npConc*proteinsPerNP[t],0) * C[t=0,theta,phi ]/C0
+
+    #collisionRates = (proteinData[:,0] - npConc*numProteinsBound/numNPs   ) * proteinData[:,2] * proteinBindingSites * numNPs 
+    additionProb = np.cumsum(collisionRates)
     allProcesses = np.concatenate((collisionRates, leavingRates))
     processCS = np.cumsum(allProcesses)
     chosenProcess= np.argmax( processCS > processCS[-1] * np.random.random() )
@@ -393,7 +520,9 @@ while t < endTime:
                     newtheta += 2*np.pi
                 if newtheta > np.pi:
                     newtheta = 2*np.pi - newtheta
-                isCollision = shuffleCollisionDetect(np.array(state), i ,newphi, newtheta) #check to see if the proposed step would lead to a collision
+                stateArr = np.array(state)
+                currentNP =  state[i][3]
+                isCollision = shuffleCollisionDetect(stateArr[ stateArr[:,3] == currentNP], i ,newphi, newtheta) #check to see if the proposed step would lead to a collision
                 if isCollision == 0:
                     state[i][1] = newphi
                     state[i][2] = newtheta
@@ -409,19 +538,27 @@ while t < endTime:
         #attempt to add a protein but reject if this would cause an overlap (i.e. the incoming protein sticks with prob 1 to bare NP, reflected otherwise)
         newProteinID = chosenProcess
         newPhi = 2*np.pi * np.random.random()
+        collidingNP = np.random.randint(0,numNPs)
         if npShape == 1:
             newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
         else:
             newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength )
-        isOvercrowded =  adsorbCollisionDetect(np.array(state), newProteinID, newPhi, newC2)
+        stateArr = np.array(state)
+        #stateArr[ stateArr[:,3] == collidingNP  ]
+        if len(state) < 1:
+            isOvercrowded = 0
+        else:
+            isOvercrowded =  adsorbCollisionDetect(stateArr[ stateArr[:,3] == collidingNP  ], newProteinID, newPhi, newC2)
         if isOvercrowded == 0:
-            state.append([newProteinID,newPhi,newC2  ])
-            surfaceCoverage += 1.0/proteinBindingSites[newProteinID]
+            state.append([newProteinID,newPhi,newC2 ,collidingNP ])
+            surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
+            boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
             #print "accepted protein ", newProteinID
     else:
-        #remove the protein at the correct position
+        #remove the protein 
         removedProtein = state.pop( chosenProcess - len(collisionRates)   )
-        surfaceCoverage -= 1.0/proteinBindingSites[ removedProtein[0]]
+        surfaceCoverage -= 1.0/(numNPs*proteinBindingSites[ removedProtein[0]])
+        boundProteinAll[  proteinNames == proteinNames[ removedProtein[0]]   ]  -= 1
         #print "removed protein"
 
 
