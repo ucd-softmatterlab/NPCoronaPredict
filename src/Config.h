@@ -38,7 +38,8 @@ public: // Key - vaules
     int		m_npType		= 1; //this defines the type of the nanoparticle. 1 = sphere, 2 = solid cylinder, 3 = cube, 4 = tube (hollow cylinder)
     int         m_recalcZP               = 0; //if this is non-zero then the input zeta potentials are treated as reference values for an NP of radius 1 in solution with Debye and Bjerrum lengths equal to one, and used to calculate shape- and size-dependent ZPs.
     int         m_calculateMFPT = 0 ; //if this is non-zero then UA also calculates and outputs the mean first passage time for each orientation. This involves a bunch of integration and so is slow. 
- 
+   int         m_savePotentials = 0; //if this is set to 1 then UA saves a potential file for each potential and orientation
+
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
         for (std::size_t i = 0; i < switches.size(); ++i) {
@@ -137,6 +138,11 @@ public:
             m_calculateMFPT = AsInt(values[i]);
               std::cout << "Calculating MFPT \n";
             }
+           else if( keys[i] == "save-potentials"){
+            m_savePotentials =AsInt(values[i]) ;
+             std::cout <<"Enabled saving UA potentials \n";
+            }
+
             else if (keys[i] == "np-type") {
                 std::cout << "npType " << values[i] << "\n";
                 int trialVal =  AsInt(values[i]);

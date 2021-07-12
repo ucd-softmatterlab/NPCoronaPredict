@@ -354,7 +354,29 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
  
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err, int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0) { 
+//geometry -specific radius for a bead at (sqrt(x),sqrt(y),z) at an NP-protein distance start.
+double getDistance(double x, double y, double z, double start, double radius,int npType){
+double distance;
+
+
+                if(npType == 2 || npType == 4 || npType==5){
+                //for cylinder NPs we only take into consideration the radial distance with the cylinder aligned along the x-axis.
+                distance    = std::sqrt(y +  (z + start) * (z + start)) - radius; // AA Center To NP Surface Distance (originally stop, changed to start)
+                }
+                else if(npType == 3){
+                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
+                distance = std::sqrt(  (z +start) * (z + start)) - radius;
+                }
+                else{
+                distance    = std::sqrt(x + y + (z + start) * (z + start)) - radius; // Center To Surface Distance
+//               std::cout << i << " "  << phi << " "  << theta << " " <<  x[i] << " " << y[i] << " " << z[i] << " " <<distance << "\n";
+
+                }
+
+return distance;
+}
+
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -388,48 +410,35 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
         theta = ((angle_offset + angle) / ncols) * angle_delta;
            double cylinderAngle = cylinderAngleDeg * M_PI/180.0;
 
-	    // Sample a angle multiple times 
-        for (int sample = 0; sample < samples; ++sample) {
+
+
+	    // Sample a angle multiple times.The sample = samples run is not included in averaging but instead used to generate output potentials  
+        for (int sample = 0; sample < samples+1 ; ++sample) {
   //         double cylinderAngle = 90 * M_PI/180.0;
 
-    	    // Rotation step
+    	    // Rotation step - random sampling is enabled if the number of samples to generate is > 1. If not, it just calculates it at the bin center
+
+            if(sample <  samples){
     	    phi_adjusted   = -1.0 * (phi + random_angle_offset(randomEngine));
     	    theta_adjusted = M_PI - (theta + random_angle_offset(randomEngine));
+             }
+             else{
+            phi_adjusted   = -1.0 * (phi  + angle_delta/2);
+            theta_adjusted = M_PI - (theta + angle_delta/2);
+             //std::cout << "final sample, fixing angle to midpoint" << sample << " " <<  samples << "\n";
+              }
+
             Rotate3(size, phi_adjusted, theta_adjusted,cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
-               
-//           double cylinderAngle = 90 * M_PI/180.0;
-          // if(npType == 2 || npType == 4 || npType==5){
-             //
-         //  Rotate(size, cylinderAngle,0, xtemp, ytemp, ztemp, x, y, z);
-
-           // }
-
             // Convert to SSD
             ShiftZ(size, z);
-   //         std::cout << z[0] << " " << phi << " " << theta << "\n";               
+   //         std::cout << z[0] << " " << phi << " " << theta << "\n";
             // Pre-square x and y
             SquareXY (size, x, y);
-            
             // Get bulk energy at the STARTING point
             init_energy = 0.0;
 
             for (i = 0; i < size; ++i) {
-                if(npType == 2 || npType == 4 || npType==5){
-                //for cylinder NPs we only take into consideration the radial distance with the cylinder aligned along the x-axis.
-                distance    = std::sqrt(y[i] +  (z[i] + start) * (z[i] + start)) - radius; // AA Center To NP Surface Distance (originally stop, changed to start)
-                }
-                else if(npType == 3){
-                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
-                distance = std::sqrt(  (z[i] +start) * (z[i] + start)) - radius;
-                }
-
-
-
-                else{
-                distance    = std::sqrt(x[i] + y[i] + (z[i] + start) * (z[i] + start)) - radius; // Center To Surface Distance
-//               std::cout << i << " "  << phi << " "  << theta << " " <<  x[i] << " " << y[i] << " " << z[i] << " " <<distance << "\n";
-
-                }
+              distance = getDistance(x[i],y[i],z[i],start,radius,npType);
                 double energyAtDist = pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
                 if(energyAtDist > 1){
                 //std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
@@ -445,22 +454,12 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             for (i = 0; i < steps; ++i) {
                 ssd     = start - i * dz;
                 energy  = 0;
-                //loop over each residue
+                //loop over each residue. loop variables: i = ssd index, j = residue index
                 for (j = 0; j < size; ++j) {
-                if(npType == 2 || npType == 4 || npType==5){
-                //for cylinder NPs we only take into consideration the radial distance z as the NP is assumed to be sufficiently long that the edge effects can be neglected.
-                distance    = std::sqrt(y[j] +  (z[j] + ssd) * (z[j] + ssd)) - radius; // Center To Surface Distance
-                }
-                else if(npType == 3){
-                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
-                distance = std::sqrt(  (z[j] + ssd) * (z[j] + ssd)) - radius;
-                }
-                else{
-                    distance  = std::sqrt(x[j] + y[j] + (z[j] + ssd) * (z[j] + ssd)) - radius; // Center To Surface Distance
-                }
+              
+              distance = getDistance(x[j],y[j],z[j],ssd,radius,npType);
                 energy +=  pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                 }
-                
                 SSD[i]          = ssd;
                 total_energy[i] = energy;
                if(energy < minEnergy){
@@ -469,6 +468,32 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                }
 
             }
+
+           if(sample == samples){
+          //for the special run at the bin-center, write out the potential and exit the loop to avoid overloading the results arrays
+           //std::cout << "preparing potential output \n";
+if(savePotentials==1){
+std::string filename;
+std::string cylinderFileNameAppend;
+if(npType == 2 || npType == 4 || npType==5){
+cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngleDeg));
+}
+else{
+cylinderFileNameAppend = "";
+}
+
+  std::cout<<phi << " " << theta << "\n";
+          filename = outputdirectory + "/" + pdbname + "_"+std::to_string(static_cast<int>(radius)) + "_" + std::to_string(static_cast<int>(1000 * zeta))+ "_" + std::to_string(static_cast<int>(phi*180/M_PI))+ "_" + std::to_string(static_cast<int>(theta*180/M_PI))+ cylinderFileNameAppend  +".uap";
+    std::ofstream handle(filename.c_str());
+             handle<<"#ssd,E(kbT)\n";
+            for (i = 0; i < steps; ++i) {
+                handle << (SSD[i] - radius) << ", " << total_energy[i] << "\n";
+            }
+    handle.close();
+}
+          continue;
+          }
+
            sample_minloc[sample] = minLoc - radius;
          /*   for (i = 0; i < steps; ++i) {
                 std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
@@ -479,12 +504,12 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 if(npType == 2 || npType == 4 || npType==5){
             IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
             IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT);
-}
-else if(npType == 3){
-     IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+            }
+             else if(npType == 3){
+             IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
             IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT);
-}
-else{
+          }
+           else{
 
 
             Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
@@ -497,14 +522,16 @@ else{
  
 
 
-}
+        }
+
+
+
         }
   
         // Mean of all the samples
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
         MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
          MeanAndSD(samples, &(minloc_val[angle_offset + angle]), &(minloc_err[angle_offset + angle]), sample_minloc);
-
 
 
  
@@ -554,10 +581,15 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
                     mfpt_err,
                     minloc_val,
                     minloc_err,
+                    pdb.m_name,
+                    config.m_outputDirectory,
                     config.m_npType,
                     imaginary_radius,
                     config.m_calculateMFPT,
-                    cylinderAngle
+                    cylinderAngle,
+                    zeta,
+                    config.m_savePotentials
+
             ); 
         }
     }

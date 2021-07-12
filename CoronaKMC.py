@@ -156,7 +156,6 @@ def outputStateAll():
         stateArr = (np.array(state)[:,0]).astype(int)
     else:
         stateArr = np.array([[]])
-        #I'm sorry anyone who has to read this next chunk of code, especially Jony and David.
     resEntry = [lastUpdate]
     totalProteins = 0
     totalCoverage = 0
@@ -185,7 +184,6 @@ def outputState():
         stateArr = (np.array(state)[:,0]).astype(int)
     else:
         stateArr = np.array([[]])
-        #I'm sorry anyone who has to read this next chunk of code, especially Jony and David.
     resEntry = [lastUpdate]
     totalProteins = 0
     totalCoverage = 0
@@ -375,7 +373,7 @@ proteinDataBigSmall  = np.array([
 
 
 if proteinInput == "":
-    proteinDataInput = proteinDataBigSmall
+    proteinDataInput = proteinDataOriginal
 else:
     print "loading from file ", proteinInput
     proteinDataInput = np.genfromtxt(proteinInput, dtype=str)
@@ -605,6 +603,6 @@ if meanFieldApprox == 1:
 else:
     mfTag = "hs"
 
-np.savetxt("corona_results/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt",np.array(resList))
-np.savetxt("corona_results/surface_fraction_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", outputArray.T)
+np.savetxt("corona_results_new/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt",np.array(resList))
+np.savetxt("corona_results_new/surface_fraction_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", outputArray.T)
 
