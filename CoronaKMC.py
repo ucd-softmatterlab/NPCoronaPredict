@@ -30,13 +30,22 @@ def collisionDetect(state, entryID):
     return 0
     
 
-#check to see if the proposed protein would overlap with any existing ones
+#Routines for testing if the proposed protein would overlap with any existing ones
 
+enableMFSpaceTest = 1 #enables the second test in the meanfield model to see if this would bring the surface coverage above 1
 
+#This function returns 1 if an overlap is detected and 0 else. 
 def adsorbCollisionDetect(state,newType,newC1,newC2):
     if meanFieldApprox == 1:
         if np.random.random() < 1 - surfaceCoverage :
-            return 0
+            if enableMFSpaceTest == 1:
+                newCoverage = surfaceCoverage + 1.0/proteinBindingSites[newType]
+                if newCoverage < 1:
+                    return 0
+                else:
+                    return 1
+            else:
+                return 0
         else:
             return 1
     if npShape == 1:
@@ -370,6 +379,13 @@ proteinDataBigSmall  = np.array([
 ["Small","6e-4","1","2.4e5","2e-3","-16.3004",str(np.pi*1**2)]
 
 ])
+
+proteinDataOneLarge = np.array([
+
+["HDL","1.5e-5","20","3e4","3e-5", "-20.7233",str(np.pi*20**2)]
+
+])
+
 
 
 if proteinInput == "":
