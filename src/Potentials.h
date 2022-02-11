@@ -101,7 +101,7 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
 
         if (config.m_enableSurface) {
             surface = surface_potential.Value(r, nanoparticleRadius, pmfCutoff,config.m_npType);
-            U += surface;
+            U += surface*300.0/config.m_temperature;
         }
 
         if (config.m_enableCore) {
@@ -138,7 +138,7 @@ core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRad
             else{
                 core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
             }
-            U += core;
+            U += core*300.0/config.m_temperature;
         }
 
         if (config.m_enableElectrostatic) {
@@ -178,7 +178,7 @@ if( recalculateZetaPotential  != 0){
 
             electrostatic = ElectrostaticPotential(r, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
 }
-            U += electrostatic;
+            U += electrostatic*300.0/config.m_temperature;
         }
 
         energy[i] = U;

@@ -590,6 +590,10 @@ else:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
 
+outputTranspose = outputArray.T
+proteinNames[ stateArray[:,0].astype(int) ]
+outputTranspose 
+
 
 if coarseGrainAtEnd != 0:
     if len(state) > 0:
@@ -619,6 +623,21 @@ if meanFieldApprox == 1:
 else:
     mfTag = "hs"
 
-np.savetxt("corona_results_new/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt",np.array(resList))
-np.savetxt("corona_results_new/surface_fraction_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", outputArray.T)
+np.savetxt("corona_results_testing/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt",np.array(resList))
+#np.savetxt("corona_results_testing/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", outputArray.T)
+
+print( "Number adsorbed: " , len(stateArray))
+print( outputTranspose.shape )
+
+
+coordFileOut = open("corona_results_testing/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
+coordFileOut.write("#Protein type, x, y, z \n")
+for i in range(len(stateArray)):
+    coordData = outputTranspose[i] 
+    outputData =[  proteinNames[   stateArray[i,0].astype(int) ] , str(coordData[1]), str(coordData[2]), str(coordData[3] ) ]
+    coordFileOut.write( ",".join(outputData) + "\n" )
+
+coordFileOut.close()
+
+
 

@@ -13,7 +13,8 @@ data        = np.genfromtxt(filename)
 theta       = data[:,1] * np.pi / 180.0
 energy      = data[:,2]
 average     = str(np.mean(np.sin(theta) * energy))
+average2    = str(   np.sum(np.sin(theta)*energy) / np.sum(np.sin(theta)))
 boltzmann   = str(np.sum(energy * np.sin(theta) * np.exp(-1.0 * energy)) / np.sum(np.sin(theta) * np.exp(-1.0 * energy)))
 
-print(",".join([protein, radius, zeta, average, boltzmann]))
+print(",".join([protein, radius, zeta, average, boltzmann, average2]))
 

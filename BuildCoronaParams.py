@@ -221,6 +221,7 @@ proteinDataList = []
 
 diffusionCoeff = 1e-11
 outputSet = []
+averageValSet = []
 
 for proteinData in concentrationData:
     filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
@@ -262,129 +263,16 @@ for proteinData in concentrationData:
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the spherical protein which has a shadow with radius effectiveRadius
         #print effectiveRadius, effectiveRadius3D,SphereProjectedRadius(npRadius,effectiveRadius3D)
-        konApprox = 0.001 *  projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D) #in mol/dm^3
+        pairDiffusionCoeff = kbT/(6*np.pi*eta) * (1.0/ (1e-9*npRadius) + 1.0/(1e-9*effectiveRadius3D))
+        #print "DCoeff: ", pairDiffusionCoeff, "pair radius", (npRadius + effectiveRadius3D), "[nm]"
+        pairCollisionRate = 4 * np.pi *(npRadius*1e-9 + effectiveRadius3D*1e-9) * pairDiffusionCoeff * avogadroNumber
+        numBindingSites = (4*np.pi*npRadius**2)/projectedArea
+        #print "Pair collision rate (total per NP):", pairCollisionRate
+        #print "Num binding sites: ", numBindingSites
+        konApprox =1000* pairCollisionRate/numBindingSites #prefactor is to go from m^3 / mol to 1/M
+        #konApprox =  projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D) #in dm^3/mol / s 
         koffApprox = konApprox * np.exp(energy)
         outputSet.append([proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
         print proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea
-        #affinityList.append(float(proteinData[1])*sinTheta * sinThetaNorm * konApprox/koffApprox)
-        #radiusList.append(effectiveRadius)
-        #konList.append(float(proteinData[1])*sinTheta * sinThetaNorm*konApprox)
-        #koffList.append(koffList)
-    #np.savetxt("cg_corona_data/"+proteinData[0]+"_"+str(npRadius)+".csv", outputSet)
-    #concScaleFactor = 1
-    #timeScaleFactor = 1e-9 #amount to rescale kon and koff by 
-    #mediumAffinity = np.array(affinityList)*concScaleFactor
-    #radiusArr = np.array(radiusList)
-    #MFCoverage = mediumAffinity/(1+np.sum(mediumAffinity))
-    #totalMFCoverage = np.sum(MFCoverage)
-    #if totalMFCoverage > 0.5:
-    #    MFCoverage2 = 0.5 * MFCoverage /totalMFCoverage
-    #    HSCoverage0 = MFCoverage2
-    #else:
-    #    HSCoverage0 = MFCoverage
-    #print HSCoverage0, np.sum(HSCoverage0), np.amax(HSCoverage0)
-    #peakBinding = np.argmax(HSCoverage0)
-    #print data[peakBinding]
-    #x0Vals = np.sqrt(HSCoverage0)/np.sqrt(1 - HSCoverage0)
-    #tvals = np.arange(5)*1e-9
-    #initialVals = HSCoverage0
-    #oneHourCorona = scint.odeint(DCoverageDTTime, initialVals, tvals,args=( np.array(radiusList) ,np.array(konList),np.array(koffList)), tfirst=True)
-    #print oneHourCorona[-1]
-    #print np.sum(oneHourCorona[-1])
-    #print konApprox
-    #HSCoverageX =  scopt.minimize( CoverageWrapperFuncOptX, x0Vals, args=(np.array(radiusList),np.array(konList),np.array(koffList)) )
-    #HSCoverage= HSCoverageX.x**2/(1+HSCoverageX.x**2)
-    #HSCoverage = HSCoverageX.x
-    #print HSCoverage
-    #numbindingSites = (4*np.pi*npRadius**2)/(np.pi*radiusArr**2)
-    #print proteinData[0], "MF: ", totalMFCoverage, np.sum(MFCoverage*numbindingSites)   ,  "HS: ", np.sum(HSCoverage), np.sum(HSCoverage*numbindingSites)
-    #coverage = np.sum(HSCoverage)
-    #cgKEqConc = coverage * np.exp(  3*coverage/(1-coverage) + coverage**2/((1-coverage)**2)     )/(1-coverage)
-    #print cgKEqConc/(concScaleFactor*float(proteinData[1])), np.exp(-boltz)
-
 
 np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(npRadius)+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
-
-
-'''
-if orientationAverage!=0:
-    for proteinData in concentrationData:
-        filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".map"
-        (eads,area) = CalculateBoltzArea(energyMapFolder+"/"+filename,  pdbFolder+"/"+proteinData[0]+".pdb")
-        proteinRadius = np.sqrt(area/np.pi)
-        #calculate kon from smulchowski collision rate
-        #kon exp(eads) =   koff 
-        konApprox = 466874 *  SphereProjectedRadius(npRadius,proteinRadius)**2 * (proteinRadius+npRadius)**2/( proteinRadius * npRadius**3)   
-        koffApprox = konApprox * np.exp(eads)
-        print [float(proteinData[1]), proteinRadius, konApprox, koffApprox, eads, np.pi*proteinRadius**2]
-        proteinDataList.append([float(proteinData[1]), proteinRadius, konApprox, koffApprox, eads, np.pi*proteinRadius**2])
-else:
-    for proteinData in concentrationData:
-        filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".map"
-        #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
-        rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
-        data     = np.genfromtxt(energyMapFolder+"/"+filename)
-        sinThetaNorm = 1.0/np.sum( np.sin(data[:,1] *np.pi/180.0   ))
-        for orientation in data:
-            theta    = orientation[1]
-            phi      = orientation[0]
-            energy   = orientation[2]
-            sinTheta = np.sin(theta * np.pi / 180.0)
-            rotatedCoords = rotatePDB(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0)
-            projectedArea = projectOntoSphere(rotatedCoords, npRadius)
-            effectiveRadius = np.sqrt(projectedArea/np.pi)
-            konApprox = projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius)
-            koffApprox = konApprox * np.exp(energy)
-            print proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius, konApprox, koffApprox, energy, projectedArea
-'''
-
-
-#print np.array(proteinDataList)
-
-'''
-proteinDataArray = np.array(proteinDataList)
-#print proteinDataArray
-radiusList = proteinDataArray[:,1]
-numbindingSites = (4*np.pi*npRadius**2)/(np.pi*radiusList**2)
-
-
-#medium affinity is the medium-specific affinity with which a protein binds to an NP, given by concentration*kads/kdads = concentration*exp(-ebind)
-mediumAffinity = proteinDataArray[:,0]
-
-
-
-#the coverages in the mean-field approximation are given by the analytical expression below.
-MFCoverage = mediumAffinity/(1+np.sum(mediumAffinity))
-x0Vals = np.sqrt(MFCoverage)/(np.sqrt(1 - MFCoverage))
-'''
-'''
-root-finding doesn't really succeed because the scipy routine isn't great.
-
-#non-linear root finding to obtain the HS coverages, using the rescaled variables x such that s = x**2/(1+x**2) and the MF coverages as the initial estimate.
-HSCoverageX = scopt.root(  CoverageWrapperFunc, x0Vals, args=(proteinDataOriginal[:,1],mediumAffinity) )
-print HSCoverageX
-print HSCoverageX.x**2/(1+HSCoverageX.x**2)
-
-thus, we instead employ a minimisation routine. we minimise the sum-of-squares of the rates calculated using the unbounded variable x where s=x**2/(1+x**2).
-this isn't bijective but works well enough.
-
-HSCoverageX =  scopt.minimize( CoverageWrapperFuncOpt, x0Vals, args=(radiusList,mediumAffinity) ,tol=1e-12)
-HSCoverage= HSCoverageX.x**2/(1+HSCoverageX.x**2)
-
-HSNumBound = HSCoverage*numbindingSites
-#array ranking from stack overflow
-HSorder = np.flip(HSNumBound.argsort())
-HSNRanks = HSorder.argsort()
-
-
-reslist = []
-print "protein-ID, R/nm, ebind/kbT, conc,  MF-coverage, MF-num, HS-coverage, HS-num"
-for i in range(len(proteinDataArray)):
-    print proteinIDList[i], radiusList[i], -np.log(mediumAffinity[i]/float(concentrationData[i,1])) , float(concentrationData[i,1]),MFCoverage[i], MFCoverage[i]*numbindingSites[i], HSCoverage[i], HSCoverage[i]*numbindingSites[i],HSNRanks[i]+1
-    #reslist.append(" ".join( map( str,   [proteinIDList[i],radiusList[i], -np.log(mediumAffinity[i]/float(concentrationData[i,1])) , float(concentrationData[i,1]),MFCoverage[i], MFCoverage[i]*numbindingSites[i], HSCoverage[i], HSCoverage[i]*numbindingSites[i]]    )  )     )
-    reslist.append(   [proteinIDList[i],radiusList[i], -np.log(mediumAffinity[i]/float(concentrationData[i,1])) , float(concentrationData[i,1]),MFCoverage[i], MFCoverage[i]*numbindingSites[i], HSCoverage[i], HSCoverage[i]*numbindingSites[i],HSNRanks[i]+1]     )
-
-print np.array(reslist, dtype=np.str)
-np.savetxt("rutile_corona_2020/corona_R"+str(int(npRadius))+"_ZP_"+str(int(npZp))+".txt", np.array(reslist, dtype=np.str),  header="protein-ID R/nm ebind/kbT conc  MF-coverage MF-num HS-coverage HS-num HS-num-rank", fmt="%s")
-'''
-

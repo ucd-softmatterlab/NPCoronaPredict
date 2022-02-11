@@ -39,6 +39,7 @@ public: // Key - vaules
     int         m_recalcZP               = 0; //if this is non-zero then the input zeta potentials are treated as reference values for an NP of radius 1 in solution with Debye and Bjerrum lengths equal to one, and used to calculate shape- and size-dependent ZPs.
     int         m_calculateMFPT = 0 ; //if this is non-zero then UA also calculates and outputs the mean first passage time for each orientation. This involves a bunch of integration and so is slow. 
    int         m_savePotentials = 0; //if this is set to 1 then UA saves a potential file for each potential and orientation
+    double     m_temperature = 300.0; //set the temperature in Kelvin. this is used as a scale for the PMFs
 
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
@@ -112,6 +113,9 @@ public:
             else if (keys[i] == "zeta-potential") {
                 m_zetaPotential = AsDoubleList(values[i]);
             }
+            else if (keys[i] == "temperature"){
+                m_temperature = AsDouble(values[i]);
+           }
             else if (keys[i] == "amino-acid-charges") {
                 m_aminoAcidCharges = AsDoubleList(values[i]);
             }

@@ -14,25 +14,38 @@ if len(argv) != 2:
 
 filename = argv[1]
 
-if not filename[-4:] == '.map':
-    print('{} is not a .map file'.format(filename))
+remap = 0
+if filename[-4:] == '.uam':
+    print("Using .uam convention")
+elif filename[-4:] == '.map':
+    print("Using .map convention, mirroring co-ordinates")
+    remap = 1
+else: 
+    print('{} is not a recognised file'.format(filename))
     exit(0)
 
-rawData         = np.genfromtxt(argv[1])
+rawData         = np.genfromtxt(argv[1])[:,0:4]
+if remap == 1:
+    rawData[:,1] = (180.0 - rawData[:,1]) - 5.0
+    rawData[:,0] = (np.where( rawData[:,0] > 180.0, rawData[:,0] - 180.0, rawData[:,0] + 180.0)) - 5.0
+
 phiData         = rawData[:,0]
 thetaData       = rawData[:,1]
 energy          = rawData[:,2]
-sinTheta        = np.sin(thetaData * np.pi / 180.0)
+print(rawData)
+
+
+sinTheta        = np.sin((2.5+thetaData) * np.pi / 180.0)
 
 boltzmanAverage = np.sum(energy * sinTheta * np.exp(-1.0 *  energy)) / np.sum(sinTheta * np.exp(-1.0 * energy))
-simpleAverage   = np.mean(sinTheta * energy)
+simpleAverage   = np.sum(sinTheta * energy)/np.sum(sinTheta) # corrected so that it works properly for isotropic proteins and single AAs with E(phi,theta) = E, else we get Esimple =  2E/Pi 
 index           = np.argmin(energy)
 
 print("Simple Average   = {:.3f}".format(simpleAverage))
 print("Boltzman Average = {:.3f}".format(boltzmanAverage))
 print("Minimum Value    = {:.3f} @ ({}, {})".format(energy[index], phiData[index], thetaData[index]))
 
-delta           = phiData[1] - phiData[0]
+delta           = 5 #phiData[1] - phiData[0]
 rows            = int(180. / delta)
 cols            = int(360. / delta)
 image           = np.zeros((rows, cols))
@@ -65,7 +78,7 @@ ax = fig.add_subplot(111)
 im = ax.pcolormesh(Lon, Lat, image, cmap = plt.cm.jet)
 cb = fig.colorbar(im, ax = ax, shrink = 0.5)
 cb.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = font)
-ax.set_title("UA HSA", fontproperties = font)
+ax.set_title(argv[1], fontproperties = font)
 ax.set_xlabel(xlabel, fontproperties = font)
 ax.set_ylabel(ylabel, fontproperties = font)
 
