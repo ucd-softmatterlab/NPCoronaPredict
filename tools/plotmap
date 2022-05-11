@@ -9,7 +9,7 @@ import scipy as sp
 import scipy.ndimage
 
 if len(argv) != 2:
-    print('Usage: ./Plot Heatmap <map.csv>')
+    print('Usage: ./Plot Heatmap <map.uam>')
     exit(0)
 
 filename = argv[1]
@@ -60,7 +60,7 @@ for phi, theta, energy, sd in rawData:
 lon = np.linspace(0, 360, cols)
 lat = np.linspace(0, 180, rows)
 Lon, Lat = np.meshgrid(lon,lat)
-image = sp.ndimage.filters.gaussian_filter(image, sigma = [1.0, 1.0], mode = ['constant', 'wrap'])
+image = sp.ndimage.filters.gaussian_filter(image, sigma = [0.1, 0.1], mode = ['constant', 'wrap'])
 
 # Plot the data
 font_path = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
@@ -73,7 +73,7 @@ ylabel    = r"$\theta$" + u"\u00B0"
 clabel    = r"k${_B}$T";
 
 
-fig = plt.figure()
+fig = plt.figure(dpi=600)
 ax = fig.add_subplot(111)
 im = ax.pcolormesh(Lon, Lat, image, cmap = plt.cm.jet)
 cb = fig.colorbar(im, ax = ax, shrink = 0.5)
@@ -84,7 +84,8 @@ ax.set_ylabel(ylabel, fontproperties = font)
 
 #plt.tight_layout()
 
-plt.show()
+ 
+plt.savefig(filename[:-4]+".png")
 
 #cax = plt.imshow(image,  interpolation = 'gaussian', aspect = 'auto')
 #plt.colorbar(cax)

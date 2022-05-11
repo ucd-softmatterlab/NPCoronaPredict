@@ -121,7 +121,8 @@ for atom in proteinStructure.get_atoms():
 
 #save the output
 io.set_structure(proteinStructure)
-io.save(outputFolder+"/"+proteinNPID+".pdb")
+print("Saving to: ", outputFolder+"/"+proteinNPID+"_opt.pdb")
+io.save(outputFolder+"/"+proteinNPID+"_opt.pdb")
 
 
 
