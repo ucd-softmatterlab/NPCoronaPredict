@@ -196,8 +196,12 @@ proteinDataOriginal = np.array([
 
 concentrationData = np.genfromtxt(args.proteins,delimiter=",",dtype=np.str,skip_header=1)
 #print concentrationData
-if len(concentrationData) < 2:
-    concentrationData =np.array([concentrationData])
+#if len(concentrationData) < 2:
+#    concentrationData =np.array([concentrationData])
+if concentrationData.ndim == 1:
+    concentrationData = np.array([concentrationData])
+
+
 #print concentrationData
 #define where to look for the required input: a pdb file and the output from united atom
 pdbFolder = args.coordfolder

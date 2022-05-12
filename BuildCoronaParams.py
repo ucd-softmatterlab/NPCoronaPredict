@@ -173,7 +173,7 @@ parser.add_argument('-f','--folder',type=str,help="folder containing UA heatmaps
 parser.add_argument('-s','--shape',type=int,help="NP shape: 1 = sphere 2 = cylinder", default=1)
 parser.add_argument('-p','--proteins',type=str,help="protein definition file",default="ProteinConcs.csv")
 parser.add_argument('-c','--coordfolder',type=str,help="location of PDB files",default="pdbs/All")
-
+parser.add_argument('-v','--verbose',type=int,help="verbose",default=0)
 args = parser.parse_args()
 
 
@@ -196,9 +196,9 @@ proteinDataOriginal = np.array([
 
 concentrationData = np.genfromtxt(args.proteins,delimiter=",",dtype=np.str,skip_header=1)
 #print concentrationData
-if len(concentrationData) < 3:
-    concentrationData =np.array([concentrationData])
-
+if concentrationData.ndim == 1:
+    concentrationData = np.array([concentrationData])
+#print concentrationData
 #define where to look for the required input: a pdb file and the output from united atom
 pdbFolder = args.coordfolder
 #energyMapFolder = "results_swcnt_alltargets"
@@ -224,8 +224,9 @@ outputSet = []
 averageValSet = []
 
 for proteinData in concentrationData:
+    #print(proteinData[0] )
     filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
-    #print "looking for: ", filename
+    print "looking for: ", filename
     #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
     rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
     data     = np.genfromtxt(energyMapFolder+"/"+filename)
@@ -273,6 +274,7 @@ for proteinData in concentrationData:
         #konApprox =  projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D) #in dm^3/mol / s 
         koffApprox = konApprox * np.exp(energy)
         outputSet.append([proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
-        print proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea
+        if args.verbose == 1:
+            print proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea
 
 np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(npRadius)+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
