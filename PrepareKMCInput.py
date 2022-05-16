@@ -20,7 +20,7 @@ import os
 
 NPRadius = 5
 NPZeta = 0
-NPMaterial = "gold"
+NPMaterial = "anatase101"
 CoronaSimTime = 1
 
 availableMaterials = ["silicaquartz","silicaamorph","anatase100","anatase101","rutile110","rutile100",
@@ -30,7 +30,7 @@ if NPMaterial not in availableMaterials:
     raise ValueError("End")
 
 
-ProjectName = "testproject"
+ProjectName = "testproject-anatase"
 ProteinStorageFolder = "all_proteins"
 ProteinWorkingFolder = "proteins_"+ProjectName
 UAResultsFolder = "results_"+ProjectName
@@ -139,7 +139,7 @@ UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(N
 print(UACommandString)
 
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f 0 -p cg_corona_data/"+UAResultsFolder+"_"+str(round(NPRadius))+"_"+str(round(NPZeta))+".csv -t "+str(CoronaSimTime)
+KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+"_"+str(round(NPRadius))+"_"+str(round(NPZeta))+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001"
 
 print(BCPCommandString)
 print(KMCCommandString)
@@ -150,6 +150,8 @@ print("If python3 isn't installed, use python BuildCoronaParams.py, python Coron
 
 
 os.system(UACommandString)
+os.system(BCPCommandString)
+os.system(KMCCommandString)
 
 
 # In[ ]:

@@ -281,4 +281,4 @@ for proteinData in concentrationData:
         if args.verbose == 1:
             print(proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
 
-np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(npRadius)+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
+np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
