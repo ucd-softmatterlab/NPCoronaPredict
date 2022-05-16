@@ -8,6 +8,7 @@ import scipy as sp
 import scipy.special as scspec
 import random
 import argparse
+import matplotlib.pyplot as plt
 
 def analyticSol(t,conc0,kon,koff,numBindingSites):
     return conc0*kon*numBindingSites/(koff+ conc0*kon) - conc0*kon*numBindingSites * np.exp(-t *(koff+conc0 * kon))/(koff+conc0*kon)
@@ -256,7 +257,7 @@ def estimateDeltaG():
 
 
 #how often the routine should print out information to the screen and store the number of adsorbed proteins for final output. 
-updateInterval =0.05
+#updateInterval =0.05
 
 
 
@@ -285,8 +286,8 @@ parser.add_argument('-t','--time',help="Number of hours of simulated time",defau
 parser.add_argument('-n','--numnp',help="Number of NPs to simulate simultaneously", default = 1, type=int)
 parser.add_argument('-x','--npconc',help="Concentration of NPs", default = 0, type=float)
 parser.add_argument('-H','--hardsphere',help="Enable true hard sphere modelling", default = 0, type=int)
-
-
+parser.add_argument('--demo',help="Enable the live demo mode", default = 0, type = int)
+parser.add_argument('--timedelta',help="Time step [s] between showing updates", default = 10.0, type=float)
 
 args = parser.parse_args()
 endTime = args.time*3600
@@ -295,7 +296,18 @@ hardSphereMode = args.hardsphere
 if hardSphereMode == 1:
     print("Enabling actual hard spheres")
 
+    
+updateInterval = args.timedelta
+    
 npShape = int(args.shape)
+
+if args.demo==1:
+    print("Enabling demonstration mode")
+    plt.ion()
+    fig = plt.figure()
+    ax1 = plt.subplot(121)
+    ax2 = plt.subplot(122,projection='3d')
+    #fig, (ax1,ax2) = plt.subplots(nrows=1,ncols=2)
 
 cylinderHalfLength = 50 #end-to-centre length of the cylinder
 
@@ -532,6 +544,37 @@ while t < endTime:
         outputState()
         #print state
         lastUpdate += updateInterval
+        if args.demo==1:
+            resArray = np.array(resList)
+            ax1.clear()
+            for i in range(len(uniqueProteins)):
+                ax1.plot( resArray[:,0]/60, resArray[:,i+1] ,label=uniqueProteins[i],color="C"+str(i))
+            ax1.set_xlabel("Time [min]")
+            ax1.set_ylabel("Num. absorbed")
+            ax1.legend()
+            ax2.clear()
+            u = np.linspace(0, 2 * np.pi, 20)
+            v = np.linspace(0, np.pi, 20)
+            x = npRadius * np.outer(np.cos(u), np.sin(v))
+            y = npRadius * np.outer(np.sin(u), np.sin(v))
+            z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
+            ax2.plot_surface(x, y, z,color='gray')            
+            for i in range(len(state)):
+                currentProtein = state[i]
+                proteinName = proteinNames[currentProtein[0]]
+                upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
+                proteinRadius = proteinData[ currentProtein[0] ,1]
+                proteinX = (proteinRadius + npRadius)*np.cos( currentProtein[1] ) * np.sin(currentProtein[2])
+                proteinY = (proteinRadius + npRadius)*np.sin( currentProtein[1] ) * np.sin(currentProtein[2])
+                proteinZ = (proteinRadius + npRadius)*np.cos(currentProtein[2] )
+                u = np.linspace(0, 2 * np.pi, 20)
+                v = np.linspace(0, np.pi, 20)
+                x = proteinX + proteinRadius * np.outer(np.cos(u), np.sin(v))
+                y = proteinY + proteinRadius * np.outer(np.sin(u), np.sin(v))
+                z = proteinZ + proteinRadius * np.outer(np.ones(np.size(u)), np.cos(v))
+                ax2.plot_surface(x, y, z,color="C"+str(upIndex))
+                
+            plt.pause(0.05)
     #next, diffuse proteins around the surface if enabled
     if doShuffle != 0 and npShape==1:
         #diffuse proteins around the surface
