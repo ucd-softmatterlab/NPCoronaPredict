@@ -51,17 +51,18 @@ if not os.path.isdir("cg_corona_data"):
 
 
 
-#These have the format [UniprotID, number concentration] and should be separated by commas
+#These have the format [UniprotID, number concentration,label] and should be separated by commas
 #Structures for these proteins are found from AlphaFold
 UniProtProteinSet = [
-    ["Q99J83", 1e-3],
-    ["Q09X10", 1e-3]
+    ["Q9BYF1", 1e-3,"ACE2Human"],
+    ["A4GE70", 1e-3,"CoffeeEnzyme"],
+    ["P02769", 1e-3,"BSA"]
 ]
 
 
 #Structures for this set are instead found from the RSC PDB repository
 PDBProteinSet = [
-    ["1AX8", 1e-3]
+    ["1AX8", 1e-3,"Leptin"]
 ]
 
 
@@ -72,11 +73,11 @@ OtherProteinSet =[
 
 AllProteins = []
 for protein in UniProtProteinSet:
-    AllProteins.append( [protein[0],protein[1], "AF"])
+    AllProteins.append( [protein[0],protein[1], "AF", protein[2]])
 for protein in PDBProteinSet:
-    AllProteins.append( [protein[0],protein[1], "PDB"])
+    AllProteins.append( [protein[0],protein[1], "PDB",protein[2]])
 for protein in OtherProteinSet:
-    AllProteins.append( [protein[0],protein[1], "Other"])
+    AllProteins.append( [protein[0],protein[1], "Other",protein[2]])
     
     
 #For all the proteins specified in the list
@@ -98,7 +99,7 @@ for proteinLine in AllProteins:
         continue
     print("Looking for ", ProteinStorageFolder+"/"+proteinID+".pdb")
     if os.path.exists( ProteinStorageFolder+"/"+proteinID+".pdb"):
-        os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+".pdb")
+        os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3]+".pdb")
         print("Found "+proteinID+" in storage folder, copied to working")
         foundProtein = 1
     else:
@@ -106,7 +107,7 @@ for proteinLine in AllProteins:
             #download from AlphaFold
             try:
                 os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID+'-F1-model_v2.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
-                os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+".pdb")
+                os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3] +".pdb")
                 foundProtein = 1
             except:
                 print("AlphaFold download failed, please try manually")
@@ -115,7 +116,7 @@ for proteinLine in AllProteins:
             #download from PDB
             try:
                 os.system('wget  https://files.rcsb.org/download/'+proteinID+'.pdb -P '+ProteinStorageFolder)
-                os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+".pdb")
+                os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3]+   ".pdb")
                 foundProtein = 1
             except:
                 print("PDB download failed, please try manually")
@@ -129,7 +130,7 @@ for proteinLine in AllProteins:
 serumOutputFile = open(ProjectName+"_serum.csv","w")
 serumOutputFile.write("#ProteinID, NumberConcentration\n")
 for protein in successfulProteins:
-    serumOutputFile.write(protein[0]+","+str(protein[1])+"\n")
+    serumOutputFile.write(protein[0]+"-"+protein[3]+","+str(protein[1])+"\n")
 serumOutputFile.close()
 
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)

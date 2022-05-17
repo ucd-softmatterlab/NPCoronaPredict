@@ -307,6 +307,8 @@ if args.demo==1:
     fig = plt.figure()
     ax1 = plt.subplot(121)
     ax2 = plt.subplot(122,projection='3d')
+    #ax3 = plt.subplot(133,projection='3d')
+
     #fig, (ax1,ax2) = plt.subplots(nrows=1,ncols=2)
 
 cylinderHalfLength = 50 #end-to-centre length of the cylinder
@@ -416,6 +418,8 @@ uniqueProteinList,uniqueProteinIDs = np.unique(proteinNames,return_index=True)
 uniqueProteins = proteinNames[np.sort(uniqueProteinIDs)]
 #print uniqueProteinIDs
 proteinBindingSites = npSurfaceArea /( bindingArea(npRadius, proteinData[:,1]) )
+
+largestProteinRadius = np.amax(proteinData[:,1])
 
 print(proteinBindingSites)
 if doAnalytic!=0:
@@ -559,6 +563,14 @@ while t < endTime:
             y = npRadius * np.outer(np.sin(u), np.sin(v))
             z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
             ax2.plot_surface(x, y, z,color='gray')            
+            plotBound = npRadius + 2*largestProteinRadius
+            ax2.set_xlim3d( -plotBound ,plotBound)
+            ax2.set_ylim3d( -plotBound , plotBound)
+            ax2.set_zlim3d( -plotBound , plotBound)
+            #ax3.plot_surface(x, y, z,color='gray')
+            #ax3.set_xlim3d( -plotBound ,plotBound)
+            #ax3.set_ylim3d( -plotBound , plotBound)
+            #ax3.set_zlim3d( -plotBound , plotBound)
             for i in range(len(state)):
                 currentProtein = state[i]
                 proteinName = proteinNames[currentProtein[0]]
@@ -573,7 +585,14 @@ while t < endTime:
                 y = proteinY + proteinRadius * np.outer(np.sin(u), np.sin(v))
                 z = proteinZ + proteinRadius * np.outer(np.ones(np.size(u)), np.cos(v))
                 ax2.plot_surface(x, y, z,color="C"+str(upIndex))
-                
+                #thetaProject =np.arctan2(  np.sqrt(x**2 + y**2) ,z  )
+                #phiProject = np.arctan2(  y, x )
+                shadowOffset = 0.1
+                pointRadius = np.sqrt(x**2+y**2+z**2)
+                xp = (shadowOffset+npRadius)*x/(pointRadius)
+                yp = (shadowOffset+npRadius )* y/(pointRadius)
+                zp = (shadowOffset+npRadius) * z /(pointRadius)
+                #ax3.plot_surface(xp,yp,zp, color="C"+str(upIndex)) 
             plt.pause(0.05)
     #next, diffuse proteins around the surface if enabled
     if doShuffle != 0 and npShape==1:
