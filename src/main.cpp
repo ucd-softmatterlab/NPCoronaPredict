@@ -13,6 +13,7 @@
 #include <cmath>
 #include <random>
 #include <iomanip>
+#include <sys/stat.h>
 
 //constexpr double        gds             = 0.22;
 constexpr double        gds             = 0.0;
@@ -27,6 +28,33 @@ constexpr double        dz              = delta / (steps - 1);
 
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
+
+bool CheckForPrecalculated(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
+        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
+std::string filename;
+std::string cylinderFileNameAppend;
+
+if(isCylinder == 0){
+cylinderFileNameAppend = "";
+} 
+else{
+cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
+}
+
+
+    if(isMFPT==1){
+     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+        + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  "_mfpt.uam";
+    }
+else{
+    filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+        + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  ".uam";
+}
+    //std::clog << "Info: testing for map at: "<< filename << "\n";
+struct stat buffer;
+return (stat (filename.c_str(), &buffer) == 0); 
+
+}
 
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
         const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
@@ -594,8 +622,21 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
         double mfpt_err[iterations] = {};
    double minloc_val[iterations] = {};
    double minloc_err[iterations] = {};
-
-
+   
+   
+   
+int isCylinder = 0;   
+ if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
+ isCylinder = 1;
+   }  
+   
+   
+    bool checkPrecalc = CheckForPrecalculated(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle);
+     //std::clog << checkPrecalc << "\n";
+    if(checkPrecalc == true){
+        std::clog << "Info: Target '" << pdb.m_name << "' (R = " << radius << ") already calculated, skipping. \n";
+    }
+    else{
     #ifdef PARALLEL  
     const int n_threads         =   omp_get_max_threads();
     #else
@@ -639,14 +680,14 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
         }
     }
     
-int isCylinder = 0;   
- if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
- isCylinder = 1;
-   }  
+
   
     WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle); 
     //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
+    
+    
+    }
 }
 
 int main(const int argc, const char* argv[]) {
