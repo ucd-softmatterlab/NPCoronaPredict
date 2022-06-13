@@ -67,7 +67,7 @@ font_path = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
 fontsize  = 16
 clabelpad = 20
    
-font      = mfm.FontProperties(fname = font_path, size = fontsize)
+font      = mfm.FontProperties(size = fontsize)
 xlabel    = r"$\phi$" + u"\u00B0"
 ylabel    = r"$\theta$" + u"\u00B0"
 clabel    = r"k${_B}$T";
