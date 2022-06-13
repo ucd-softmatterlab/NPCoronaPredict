@@ -32,7 +32,7 @@ if remap == 1:
 phiData         = rawData[:,0]
 thetaData       = rawData[:,1]
 energy          = rawData[:,2]
-print(rawData)
+#print(rawData)
 
 
 sinTheta        = np.sin((2.5+thetaData) * np.pi / 180.0)
@@ -75,7 +75,7 @@ clabel    = r"k${_B}$T";
 
 fig = plt.figure(dpi=600)
 ax = fig.add_subplot(111)
-im = ax.pcolormesh(Lon, Lat, image, cmap = plt.cm.jet)
+im = ax.pcolormesh(Lon, Lat, image, cmap = plt.cm.jet, shading='auto')
 cb = fig.colorbar(im, ax = ax, shrink = 0.5)
 cb.set_label(clabel, rotation = 270, labelpad = clabelpad, fontproperties = font)
 ax.set_title(argv[1], fontproperties = font)
