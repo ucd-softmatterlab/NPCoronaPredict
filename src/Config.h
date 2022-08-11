@@ -16,6 +16,7 @@ public: // Switches
 
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
+    std::vector<std::string>    m_npTargets         = {};
     std::vector<std::string>    m_aminoAcids        = {};
     std::vector<double>         m_aminoAcidRadii    = {};
     std::vector<double>         m_nanoparticleRadii = {};
@@ -29,6 +30,7 @@ public: // Key - vaules
     std::string m_outputDirectory       = "";
     int         m_simulationSteps       = 10000;
     int         m_potentialSize         = 2000;
+    int         m_multiNP               = 0;
     double      m_potentialCutoff       = 10.0;
     double      m_angleDelta            = 5.0;
     double      m_bejerumLength         = 1.0;
@@ -40,6 +42,9 @@ public: // Key - vaules
     int         m_calculateMFPT = 0 ; //if this is non-zero then UA also calculates and outputs the mean first passage time for each orientation. This involves a bunch of integration and so is slow. 
    int         m_savePotentials = 0; //if this is set to 1 then UA saves a potential file for each potential and orientation
     double     m_temperature = 300.0; //set the temperature in Kelvin. this is used as a scale for the PMFs
+    double m_potentialStart = 0.001; //closest approach to bounding surface
+    double m_boundingRadius = -1; //if  > 0: bounding radius (effective NP radius), if less than 0 automatically estimates this parameter using a safest value
+
 
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
@@ -76,6 +81,10 @@ public:
             }
             else if (keys[i] == "pdb-target") {
                 m_pdbTargets = AsStringList(values[i]);
+            }
+            else if(keys[i] == "np-target"){
+                m_npTargets = AsStringList(values[i]); 
+                m_multiNP = 1;
             }
             else if (keys[i] == "pmf-directory") {
                 m_pmfDirectory = values[i];
@@ -122,6 +131,10 @@ public:
             else if (keys[i] == "imaginary-radius") {
                 m_imaginary_radius = AsDouble(values[i]);
             }
+            else if (keys[i] == "bounding-radius"){
+               m_boundingRadius = AsDouble(values[i]);
+           }
+
             else if (keys[i] == "test-angle") {
                 m_testAngle = AsDoubleList(values[i]);
                 if (m_testAngle.size() != 2) {

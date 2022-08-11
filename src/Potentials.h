@@ -55,7 +55,7 @@ public:
 
 };
 
-Potential GeneratePotential(const SurfaceData&, const HamakerConstants&, const double, const double, const Config&);
+Potential GeneratePotential(const SurfaceData&, const HamakerConstants&, const double, const double, const Config&, const NP&);
 double HamakerPotential(const double, const double, const double, const double);
 double ElectrostaticPotential(const double, const double, const double, const double, const double);
 double ElectrostaticCylinderPotential(const double, const double, const double, const double, const double);
@@ -64,58 +64,123 @@ double HamakerPotentialV2(const double, const double, const double, const double
 
 class Potentials : public std::vector<Potential> {
 public:
-    Potentials(const SurfacePMFs& surfacePMFs, const HamakerConstants& hamakerConstants, const double zetaPotential, const double nanoparticleRadius, const Config& config) {
+    Potentials(const SurfacePMFs& surfacePMFs, const HamakerConstants& hamakerConstants, const double zetaPotential, const double nanoparticleBoundingRadius, const Config& config, const NP& npComponents) {
         this->reserve(surfacePMFs.size());
         for (const auto& surfaceData : surfacePMFs) {
-            this->emplace_back(GeneratePotential(surfaceData, hamakerConstants, zetaPotential, nanoparticleRadius, config));
+            this->emplace_back(GeneratePotential(surfaceData, hamakerConstants, zetaPotential, nanoparticleBoundingRadius, config, npComponents));
         }
     }
 };
 
-Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstants& hamakerConstants, const double zetaPotential, const double nanoparticleRadius, const Config& config) {
+Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstants& hamakerConstants, const double zetaPotentialAtBound, const double nanoparticleBoundingRadius, const Config& config, const NP& npComponents) {
 
-    const double        pmfStart            = surfaceData.m_distance.front();
-    const double        pmfEnd              = surfaceData.m_distance.back();  //final distance recorded in the PMF
-    const double        pmfCutoff           = config.m_PMFCutoff;  //vdW cutoff
+//    const double        pmfStart            = surfaceData.m_distance.front();
+//    const double        pmfEnd              = surfaceData.m_distance.back();  //final distance recorded in the PMF
+//    const double        pmfCutoff           = config.m_PMFCutoff;  //vdW cutoff
     const double        cutoff              = config.m_potentialCutoff; //final distance of the total potential
-    const double        hamaker             = hamakerConstants[surfaceData.m_aminoAcid];
+//    const double        hamaker             = hamakerConstants[surfaceData.m_aminoAcid];
     const double        bjerumLength        = config.m_bejerumLength;
     const double        debyeLength         = config.m_debyeLength;
-    const auto          aminoAcidRadius     = config.AminoAcidRadius(surfaceData.m_aminoAcid);
-    const double        Z                   = config.AminoAcidCharge(surfaceData.m_aminoAcid);
+//    const auto          aminoAcidRadius     = config.AminoAcidRadius(surfaceData.m_aminoAcid);
+//    const double        Z                   = config.AminoAcidCharge(surfaceData.m_aminoAcid);
     const int           recalculateZetaPotential =  config.m_recalcZP;
     
     std::vector<double> energy(potential_size);
 
-    SurfacePotential surface_potential(surfaceData.m_energy, surfaceData.m_distance);
-    
-    double  surface = 0.0, core = 0.0, electrostatic = 0.0;
+    double potentialStart = config.m_potentialStart;
+ 
+std::cout << surfaceData.m_aminoAcid << " start: " << potentialStart << "\n";
+   for(int j = 0; j < npComponents.m_length; ++j){
+   std::vector<string> aaName;
+    aaName.push_back(surfaceData.m_aminoAcid); 
+    HamakerConstants  hamakerConstantsComponent(npComponents.m_hamakerFile[j]);
 
+    //The SurfacePMFs object is responsible for reading in a set of PMF files, here set to a single file generated from aaName.
+    SurfacePMFs surfaceDataComponentSet(npComponents.m_pmfFile[j], config.m_pmfPrefix, aaName);
+    SurfaceData surfacePMFComponent = surfaceDataComponentSet.front();
+    SurfacePotential surface_potential(surfacePMFComponent.m_energy, surfacePMFComponent.m_distance);
+
+
+    double hamaker = hamakerConstantsComponent[surfaceData.m_aminoAcid];
+    auto          aminoAcidRadius     = config.AminoAcidRadius(surfaceData.m_aminoAcid);
+    double        Z                   = config.AminoAcidCharge(surfaceData.m_aminoAcid);
+
+
+
+
+    double  surface = 0.0, core = 0.0, electrostatic = 0.0;
+//    double potentialStart = 0.4; //config.m_potentialStart (when added)
     const std::string destination = "pot-dat"; 
     const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
-    std::ofstream handle(filename.c_str());
- 
+  //  std::ofstream handle(filename.c_str());
+        int npShape = npComponents.m_shape[j];
+        double nanoparticleRadius = npComponents.m_radius[j];
+ double component_centre [3] = {npComponents.m_x[j],npComponents.m_y[j],npComponents.m_z[j]};
+double component_corePrefactor = npComponents.m_coreFactor[j];
+double component_surfacePrefactor  = npComponents.m_surfFactor[j];
+double zetaPotential = npComponents.m_zeta[j];
+double pmfCutoff = npComponents.m_pmfCutoff[j];
+
+
+//double  applyCorrection = npComponents.m_applyCorrection;
+int correctionTypeOverride = npComponents.m_correctionType[j];
+double temperatureFactor = 300.0/config.m_temperature;
+   //std::cout<< "NP: " << j << " radius " << nanoparticleRadius << " core-material: " << component_corePrefactor << "*"<< npComponents.m_hamakerFile[j] << " val: " << hamaker*component_corePrefactor   << ", surface-material: " << component_surfacePrefactor << "*"  << npComponents.m_pmfFile[j] << " sample at distance 0.5 " << surface_potential.Value(0.5,10000,1) << "\n";
+
     for (int i = 0; i < potential_size; ++i) {
-        const double r = pmfStart + (i / (potential_size - 1.0)) * (cutoff - pmfStart);
+        const double r = potentialStart + (i / (potential_size - 1.0)) * (cutoff - potentialStart);
         double U       = 0.0;
+        //r is the distance from the bounding surface of the NP to the centre of the bead. 
+       //for an AA bead at [0,0,r + R_bound], calculate the distance from the surface of the NP bead to the centre of the AA bead, denoted r*
+double rstar = 0;
+        //cylindrical distance
+       if(npShape == 2 || npShape == 4 || npShape == 5){
+rstar = sqrt(   pow(component_centre[1],2) + pow(nanoparticleBoundingRadius + r - component_centre[2],2) ) - nanoparticleRadius;
+       }
+      else if(npShape == 3){
+//for now we approximate the effective distance from a cube by that of the enscribed sphere
+ rstar = sqrt( pow(component_centre[0],2) + pow(component_centre[1],2) + pow(nanoparticleBoundingRadius + r - component_centre[2],2) ) - nanoparticleRadius;
+     }
+else{
+//default to spherical
+           //the centre of the NP bead is at component_centre[0],cc[1],cc[2]
+            //the AA bead is located at npBoundingRadius + r
+        rstar = sqrt( pow(component_centre[0],2) + pow(component_centre[1],2) + pow(nanoparticleBoundingRadius + r - component_centre[2],2) ) - nanoparticleRadius; //the actual NP-surface to bead-centre distance for the NP component;
+}
+       //cylinder distance
+        //rstar: cylinder is parallel to the x axis but can have y and z offsets
+        //double rstar = sqrt(   pow(component_centre[1],2) + pow(nanoparticleBoundingRadius + r - component_centre[2],2) ) - nanoparticleRadius; 
+
+/*
+//for reasons of numerical stability, the distance is floored at 0.01 nm. This should prevent errors if the AA bead is inside an NP bead.
+if(rstar < aminoAcidRadius + 0.01){
+//std::cout <<"Calculated rstar " << rstar << "at r=" << r <<  " NP bead radius=" << nanoparticleRadius<< "\n";
+rstar =  aminoAcidRadius + 0.01;
+
+}
+*/
+
 
         if (config.m_enableSurface) {
-            surface = surface_potential.Value(r, nanoparticleRadius, pmfCutoff,config.m_npType);
-            U += surface*300.0/config.m_temperature;
+            surface = surface_potential.Value(rstar, nanoparticleRadius, pmfCutoff,correctionTypeOverride);
+            U += component_surfacePrefactor*surface;
+           //std::cout << rstar << " " << correctionTypeOverride << " " <<  U << "\n";
         }
 
+        //For Hamaker potentials we
+        
         if (config.m_enableCore) {
-            if(config.m_npType == 1){ //sphere
-                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
+            if(npShape == 1){ //sphere
+                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, rstar, pmfCutoff);
               // std::cout << core << " "  <<  HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff) << "\n";
             }
-            else if(config.m_npType == 2 || config.m_npType == 5){ //cylinder, defined in CylinderPotential.h, applicable to solid cylinders and MWCNT
-                core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+            else if(npShape == 2 || npShape == 5){ //cylinder, defined in CylinderPotential.h, applicable to solid cylinders and MWCNT
+                core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
             }
-            else if(config.m_npType == 3){//cube, defined in CubePotential.h
-                core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+            else if(npShape == 3){//cube, defined in CubePotential.h
+                core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
             }
-            else if(config.m_npType == 4){ //tube, defined in TubePotential.h
+            else if(npShape == 4){ //tube, defined in TubePotential.h
                 //core =  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
                //approximate the tube as the difference of the outer cylinder and an inner cylinder of radius R - 0.34, where 0.34 is the approx. thickness of one "layer"
               //since r is the NP surface - AA distance we also need to adjust this value
@@ -131,14 +196,21 @@ else{
 }
 */
 
-core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,r,pmfCutoff);
+core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
 
 
 }
             else{
-                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff);
+                core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, rstar, pmfCutoff);
             }
-            U += core*300.0/config.m_temperature;
+
+             
+ if(core*core > 1e6){
+std::cout << "large core at rstar " << rstar << " " << core <<  " from NP component " << j  <<  "\n";
+std::cout << "Bounding sphere - AA centre distance: " << r << " bounding radius " << nanoparticleBoundingRadius << " NP component radius " << nanoparticleRadius << "AA radius" << aminoAcidRadius << "\n";
+}
+
+            U +=  component_corePrefactor*core;
         }
 
         if (config.m_enableElectrostatic) {
@@ -148,7 +220,7 @@ core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRad
 
 
 
-            if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType==5){
+            if(npShape == 2 || npShape == 4 || npShape==5){
 
 if( recalculateZetaPotential != 0){
            finalZetaPotential = 2* zetaPotential*bjerumLength*debyeLength * boost::math::cyl_bessel_k(0, nanoparticleRadius/debyeLength)/boost::math::cyl_bessel_k(1,  nanoparticleRadius/debyeLength); //cylinder correction
@@ -157,9 +229,9 @@ if( recalculateZetaPotential != 0){
         }
 
 
-            electrostatic = ElectrostaticCylinderPotential(r,finalZetaPotential, Z, nanoparticleRadius, debyeLength);
+            electrostatic = ElectrostaticCylinderPotential(rstar,finalZetaPotential, Z, nanoparticleRadius, debyeLength);
 }
-else if(config.m_npType == 3){
+else if(npShape == 3){
 
 if( recalculateZetaPotential  != 0){
            finalZetaPotential = 2*zetaPotential*bjerumLength*debyeLength * 1/( 1 + 0.59692 /(nanoparticleRadius/debyeLength) + 0.00626772/pow(nanoparticleRadius/debyeLength,2)    ); //cube correction
@@ -167,7 +239,7 @@ if( recalculateZetaPotential  != 0){
         }
 
 
-electrostatic = ElectrostaticCubePotential(r, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
+electrostatic = ElectrostaticCubePotential(rstar, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
 }
 else{
 
@@ -176,24 +248,43 @@ if( recalculateZetaPotential  != 0){
 //   std::cout << " reference zeta potential: " << zetaPotential << " recalculated: " << finalZetaPotential << "\n";
         }
 
-            electrostatic = ElectrostaticPotential(r, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
+            electrostatic = ElectrostaticPotential(rstar, finalZetaPotential, Z, nanoparticleRadius, debyeLength);
 }
-            U += electrostatic*300.0/config.m_temperature;
+            U += electrostatic;
         }
 
-        energy[i] = U;
+        energy[i] += U*temperatureFactor;
+
+        //handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << r;
+       //handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << U;
+       // handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << surface;
+       // handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << core;
+        //handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << electrostatic;
+        //handle << "\n";
+    }
+//std::cout << " j added, energy at test: " << energy[0] << "\n";
+
+}
+    const std::string destination = "pot-dat";
+    const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
+
+
+
+
+    std::ofstream handle(filename.c_str());
+    for (int i = 0; i < potential_size; ++i) {
+        const double r = potentialStart + (i / (potential_size - 1.0)) * (cutoff - potentialStart);
 
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << r;
-        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << U;
-        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << surface;
-        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << core;
-        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << electrostatic;
+        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << energy[i];
+        //handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << surface;
+        //handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << core;
+        //handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << electrostatic;
         handle << "\n";
-    }
-
+}
     handle.close(); 
 
-    return Potential(energy, pmfStart, cutoff);
+    return Potential(energy, potentialStart, cutoff);
 }
 
 double HamakerPotential(const double A, const double R1, const double R2, const double r, const double cutoff) {

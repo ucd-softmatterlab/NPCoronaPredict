@@ -7,6 +7,10 @@
 #include "TargetList.h"
 #include "Surface.h"
 #include "PDBFile.h"
+
+#include "NPTargetList.h"
+#include "NPFile.h"
+
 #include "Potentials.h"
 
 #include <omp.h>
@@ -25,12 +29,16 @@ constexpr int           iterations      = nrows * ncols;
 constexpr int           samples         = 128;
 constexpr int           steps           = 512;
 constexpr double        dz              = delta / (steps - 1);
+//define the Boltzmann and Avogadro constants for energy conversions
+constexpr double        kbConst       =  1.380649e-23;
+constexpr double        naConst       =  6.02214076e23; 
+
 
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 bool CheckForPrecalculated(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
-        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
+        const double zeta, const std::string& name, const std::string& directory, const std::string& npName, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
 
@@ -43,11 +51,11 @@ cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
 
 
     if(isMFPT==1){
-     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+     filename = directory + "/" + npName+"/"+TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
         + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  "_mfpt.uam";
     }
 else{
-    filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+    filename = directory + "/" + npName+"/"+TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
         + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  ".uam";
 }
     //std::clog << "Info: testing for map at: "<< filename << "\n";
@@ -57,7 +65,7 @@ return (stat (filename.c_str(), &buffer) == 0);
 }
 
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
-        const double zeta, const std::string& name, const std::string& directory, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
+        const double zeta, const std::string& name, const std::string& directory,  const std::string& npName ,  double temperature=300.0,  int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
 
@@ -76,17 +84,17 @@ cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
 
 
     if(isMFPT==1){
-     filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+     filename = directory + "/" + npName+"/"+TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
         + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  "_mfpt.uam";
     }
 else{
-    filename = directory + "/" + TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
+    filename = directory + "/" + npName+"/"+ TargetList::Filename(name) + "_" + std::to_string(static_cast<int>(radius))
         + "_" + std::to_string(static_cast<int>(1000 * zeta)) + cylinderFileNameAppend  +  ".uam";
 }
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
-    handle << "#phi theta EAds/kbT Error(Eads)/kbT min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 \n"; 
+    handle << "#phi theta EAds/kbT=300 Error(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol \n"; 
     for (int i = 0; i < iterations; ++i) { 
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
@@ -103,6 +111,9 @@ else{
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i];
 
         handle << std::left << std::setw(14) << std::fixed << std::scientific << std::setprecision(5) << mfpt_val[i];
+        
+        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i] * 300.0 * kbConst * naConst / 1000.0;
+        
 
         handle << "\n";
     }
@@ -283,7 +294,7 @@ void Sum (const int size, double* result, double *arr) {
     }
 }
 //note that for this integration routine and all others, "ssd" is actually the distance between the centre of the NP and the closest point of the protein.
-void Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
+void Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption,double temperature) {
     long double area = 0.0;
 
     for (int i = 0; i < size; ++i) {
@@ -291,7 +302,7 @@ void Integrate(const int size, const double dz, const double init_energy, const 
         area += static_cast<long double>(ssd[i] * ssd[i] * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
     }
     const double factor = 3.0 / std::fabs(std::pow(ssd[0], 3.0) - std::pow(ssd[size - 1], 3.0));
-    *adsorption = -1.0 * std::log(factor * area);
+    *adsorption = -1.0 * (temperature/300.0) * std::log(factor * area);
 }
 
 
@@ -300,7 +311,7 @@ void Integrate(const int size, const double dz, const double init_energy, const 
 
 */
 
-void IntegrateMFPT(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *mfpt, int npType, int calculateMFPT) {
+void IntegrateMFPT(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *mfpt, int npType, int calculateMFPT,double temperature) {
     long double res = 0.0;
     long double innerRes = 0.0;
     long double outerRes = 0.0;
@@ -364,7 +375,7 @@ else{
 
 
 
-void IntegrateCylinder(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
+void IntegrateCylinder(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption,double temperature) {
     long double area = 0.0;
     for (int i = 0; i < size; ++i) {
 
@@ -385,17 +396,17 @@ std::cout << "found inf at " << i << " " <<   "\n";
 
 
 
-    *adsorption = -1.0 * std::log(factor * area);
+    *adsorption = -1.0 * (temperature/300.0)  * std::log(factor * area);
 }
 
 
-void IntegrateCube(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption) {
+void IntegrateCube(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption,double temperature) {
     long double area = 0.0;
     for (int i = 0; i < size; ++i) {
         area += static_cast<long double>(dz  ) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
     }
     const double factor = 1.0 / std::fabs(std::pow(ssd[0], 1.0) - std::pow(ssd[size - 1], 1.0));
-    *adsorption = -1.0 * std::log(factor * area);
+    *adsorption = -1.0  * (temperature/300.0) * std::log(factor * area);
 }
 
 
@@ -439,7 +450,7 @@ double distance;
 return distance;
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0) { 
 
     // Decleare all variables at the begining 
     const int               size            = pdb.m_id.size();
@@ -556,7 +567,7 @@ cylinderFileNameAppend = "";
 }
 
   std::cout<<phi << " " << theta << "\n";
-          filename = outputdirectory + "/" + pdbname + "_"+std::to_string(static_cast<int>(radius)) + "_" + std::to_string(static_cast<int>(1000 * zeta))+ "_" + std::to_string(static_cast<int>(phi*180/M_PI))+ "_" + std::to_string(static_cast<int>(theta*180/M_PI))+ cylinderFileNameAppend  +".uap";
+          filename = outputdirectory + "/" + npName + "/"+ pdbname + "_"+std::to_string(static_cast<int>(radius)) + "_" + std::to_string(static_cast<int>(1000 * zeta))+ "_" + std::to_string(static_cast<int>(phi*180/M_PI))+ "_" + std::to_string(static_cast<int>(theta*180/M_PI))+ cylinderFileNameAppend  +".uap";
     std::ofstream handle(filename.c_str());
              handle<<"#ssd,E(kbT)\n";
             for (i = 0; i < steps; ++i) {
@@ -575,22 +586,22 @@ cylinderFileNameAppend = "";
 
             // Integrate the results
                 if(npType == 2 || npType == 4 || npType==5){
-            IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT);
+            IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]),temperature);
+            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT,temperature);
             }
              else if(npType == 3){
-             IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT);
+             IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]),temperature);
+            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT,temperature);
           }
            else{
 
 
-            Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]));
+            Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]), temperature);
 
          //and also integrate to get the product of the MFPT and the diffusion constant, MFPT*D. 
 
 
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType, calculateMFPT);
+            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType, calculateMFPT,temperature);
 
  
 
@@ -611,7 +622,7 @@ cylinderFileNameAppend = "";
     }
 }
 
-void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config, double cylinderAngle) {
+void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config, double cylinderAngle, const NP& np) {
     std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
 
     const double imaginary_radius = config.m_imaginary_radius;
@@ -631,10 +642,10 @@ int isCylinder = 0;
    }  
    
    
-    bool checkPrecalc = CheckForPrecalculated(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle);
+    bool checkPrecalc = CheckForPrecalculated(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, 0,isCylinder,cylinderAngle);
      //std::clog << checkPrecalc << "\n";
     if(checkPrecalc == true){
-        std::clog << "Info: Target '" << pdb.m_name << "' (R = " << radius << ") already calculated, skipping. \n";
+        std::clog << "Info: Target '" <<np.m_name << ":" << pdb.m_name << "' (R = " << radius << ") already calculated, skipping. \n";
     }
     else{
     #ifdef PARALLEL  
@@ -669,12 +680,15 @@ int isCylinder = 0;
                     minloc_err,
                     pdb.m_name,
                     config.m_outputDirectory,
+                    np.m_name,
                     config.m_npType,
                     imaginary_radius,
                     config.m_calculateMFPT,
                     cylinderAngle,
                     zeta,
-                    config.m_savePotentials
+                    config.m_savePotentials,
+                    config.m_temperature
+
 
             ); 
         }
@@ -682,7 +696,7 @@ int isCylinder = 0;
     
 
   
-    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory,0,isCylinder,cylinderAngle); 
+    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,isCylinder,cylinderAngle); 
     //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
     
@@ -702,21 +716,68 @@ int main(const int argc, const char* argv[]) {
     TargetList        targetList(config.m_pdbTargets);
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
     PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap());
+
+    
+    // config.m_npTargets is a list of strings - targets to look at for .np files 
+    
+    
     int omegaDelta = 180;
     if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
     omegaDelta = 45;
- }
+     }
     boost::filesystem::create_directory(config.m_outputDirectory);
+    boost::filesystem::create_directory(config.m_outputDirectory+"/nps");
+     //generate some NPs 
+        std::string npFileDir = config.m_outputDirectory+"/nps/"+config.m_configFile +  "_NPs";
+              boost::filesystem::create_directory(npFileDir);
+     //manually generate NPs , save them to a folder for storage, read this folder in as input to make sure generated NPs are handled identically to read-in NPs and so that their structure is kept
+    if(   config.m_multiNP == 0){   
+         int npID = 1;
     for (const double nanoparticleRadius : config.m_nanoparticleRadii) {
         for (const double zetaPotential : config.m_zetaPotential) {
-            Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleRadius, config);
-            for (const auto& pdb : pdbs) {
-                for(int i = 0; i < 180; i = i + omegaDelta){
-                SurfaceScan(pdb, potentials, zetaPotential, nanoparticleRadius, config,i);
-                }
-            }
+            
+
+            //x,y,z,radius,zeta,coreFactor=1,surfFactor=1,shape, hamakerFile,pmfFile,pmfCutoff,correctionType
+            std::string npOutString = "0,0,0," + to_string(nanoparticleRadius)+"," + to_string(zetaPotential) + "," + "1,1," + to_string(config.m_npType) +","+ config.m_hamakerFile +","+ config.m_pmfDirectory+"," + to_string(config.m_PMFCutoff) + ","+to_string( config.m_npType )+"\n";
+            std::cout << npOutString;
+            std::string npIDString = "np"+to_string(npID)+"R_"+to_string(nanoparticleRadius)+"_ZP_"+to_string(zetaPotential*1000);
+            std::string npOutLoc = npFileDir+"/"+npIDString+".np";
+            npID++;
+            
+             std::ofstream handle(npOutLoc.c_str());
+             handle<<"#NP file generated by UnitedAtom\n";
+             handle << npOutString;
+             handle.close();
+            
         }
     }
+    config.m_npTargets.emplace_back(npFileDir); 
+    }
+    // 
+        NPTargetList npTargetList(config.m_npTargets);
+        NPs nps(npTargetList.m_paths, config.AminoAcidIdMap());
+    
+   //scan over multiple NP files 
+
+    for( const auto& np: nps){
+    std::string npEnergyDir = config.m_outputDirectory+"/"+np.m_name;
+    boost::filesystem::create_directory(npEnergyDir);
+    double zetaPotential = 0;
+    double nanoparticleBoundingRadius;
+    if(config.m_boundingRadius < 0){
+    nanoparticleBoundingRadius = np.m_boundRadius;
+    }
+    else{
+    nanoparticleBoundingRadius = config.m_boundingRadius;
+    }
+    Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleBoundingRadius, config,np);
+    for (const auto& pdb : pdbs){
+    for(int i = 0; i < 180; i = i + omegaDelta){
+    SurfaceScan(pdb,potentials,zetaPotential,nanoparticleBoundingRadius,config,i,np);
+    }
+    }
+    }
+    
 
     return 0;
 }
