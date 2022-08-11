@@ -121,8 +121,9 @@ double boundRadius = 0;
             correctionType.emplace_back(std::stoi(results[11]));
             
             double newBoundRadius = 0;
-            newBoundRadius = sqrt( xval*xval + yval*yval + zval*zval   ) + radiusval;
-
+            newBoundRadius =  radiusval; //count only beads at (0,0,0) for the purpose of estimating the bounding radius.
+            //previous expression: sqrt( xval*xval + yval*yval + zval*zval   ) + radiusval;
+            
             if(newBoundRadius > boundRadius){
             boundRadius = newBoundRadius;
             }

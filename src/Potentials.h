@@ -169,7 +169,8 @@ rstar =  aminoAcidRadius + 0.01;
 
         //For Hamaker potentials we
         
-        if (config.m_enableCore) {
+        if (config.m_enableCore ) {
+            if( nanoparticleRadius > pmfCutoff){
             if(npShape == 1){ //sphere
                 core = HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, rstar, pmfCutoff);
               // std::cout << core << " "  <<  HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff) << "\n";
@@ -209,8 +210,13 @@ core =wallThickness *  HamakerSphereTube(hamaker,aminoAcidRadius,nanoparticleRad
 std::cout << "large core at rstar " << rstar << " " << core <<  " from NP component " << j  <<  "\n";
 std::cout << "Bounding sphere - AA centre distance: " << r << " bounding radius " << nanoparticleBoundingRadius << " NP component radius " << nanoparticleRadius << "AA radius" << aminoAcidRadius << "\n";
 }
-
+            }
+            else{
+                core = 0; //neglect hamaker for tiny beads as this is entirely within the PMF
+            }
             U +=  component_corePrefactor*core;
+            
+            
         }
 
         if (config.m_enableElectrostatic) {

@@ -94,7 +94,7 @@ else{
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
-    handle << "#phi theta EAds/kbT=300 Error(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol \n"; 
+    handle << "#phi theta EAds/kbT=300 Error(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm\n"; 
     for (int i = 0; i < iterations; ++i) { 
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
@@ -114,6 +114,7 @@ else{
         
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i] * 300.0 * kbConst * naConst / 1000.0;
         
+                handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i] + radius;
 
         handle << "\n";
     }
@@ -298,8 +299,9 @@ void Integrate(const int size, const double dz, const double init_energy, const 
     long double area = 0.0;
 
     for (int i = 0; i < size; ++i) {
-
-        area += static_cast<long double>(ssd[i] * ssd[i] * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
+        double energyDiff = energy[i] - init_energy;
+        
+        area += static_cast<long double>(ssd[i] * ssd[i] * dz) * std::exp(static_cast<long double>(-1.0 * (energyDiff))); 
     }
     const double factor = 3.0 / std::fabs(std::pow(ssd[0], 3.0) - std::pow(ssd[size - 1], 3.0));
     *adsorption = -1.0 * (temperature/300.0) * std::log(factor * area);

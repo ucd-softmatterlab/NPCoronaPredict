@@ -52,6 +52,7 @@ public:
 
 
  double correction  = 1.0;
+      if(radius > cutoff){ //if the np bead itself is smaller than the cutoff distance, no correction is applied
             if(correctionType == 1){
             double top        = cutoff * cutoff * (distance - 2.0 * radius) + 2.0 * cutoff * distance * (distance - 2.0 * radius) - 3.0 * distance * distance * (distance + 2.0 * radius);
             double bottom     = 2.0 * (cutoff * cutoff + 2.0 * cutoff * distance + 3.0 * distance * distance) * (distance + radius);
@@ -80,7 +81,8 @@ public:
                correction = ( HamakerAtomTubeUnit(radius,distance,0.00001) -      HamakerAtomTubeUnit(radius,distance,cutoff)  )/( HamakerAtomTubeUnit(0.75,distance,0.00001) -      HamakerAtomTubeUnit(0.75,distance,cutoff)  );
               }
             }
-
+      }
+      
  
         // Multiply and return
         return energy * correction;
