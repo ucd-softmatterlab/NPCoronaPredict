@@ -61,6 +61,7 @@ double ElectrostaticPotential(const double, const double, const double, const do
 double ElectrostaticCylinderPotential(const double, const double, const double, const double, const double);
 double ElectrostaticCubePotential(const double, const double, const double, const double, const double);
 double HamakerPotentialV2(const double, const double, const double, const double, const double);
+double SmallHamaker(const double, const double, const double, const double, const double);
 
 class Potentials : public std::vector<Potential> {
 public:
@@ -212,7 +213,7 @@ std::cout << "Bounding sphere - AA centre distance: " << r << " bounding radius 
 }
             }
             else{
-                core = 0; //neglect hamaker for tiny beads as this is entirely within the PMF
+                core = SmallHamaker(hamaker, aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff); // handle this more carefully
             }
             U +=  component_corePrefactor*core;
             
@@ -342,6 +343,30 @@ double cubeES=0;
 }
 
 
+double SmallHamaker(const double A, const double R1, const double R2, const double r, const double cutoff) {
+     const double C  = r + R2; // Center to center distance
+double re = cutoff;
+double d = C - R1 - R2;
+long double res = 0;
+
+//case 1: beads are far apart, return standard hamaker
+if(re < 1e-20 || d > re){
+res =  -A * 1/6.0 *( 2*R1*R2/(C*C -(R1+R2)*(R1+R2)) + 2*R1*R2/ (C*C -(R1-R2)*(R1-R2)) + std::log(( C*C - (R1+R2)*(R1+R2) )/( C*C - (R1-R2)*(R1-R2) ))   );
+}
+else if( C   + R1 + R2 < re  ){ // case 2: all of bead 1 and 2 are in the exclusion region, return 0 
+res = 0;
+    
+}
+  else{
+      //at least some of one sphere is within the exclusion zone
+      res = 0;
+      
+  }
+  
+  
+  
+  return res;
+}
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {
 

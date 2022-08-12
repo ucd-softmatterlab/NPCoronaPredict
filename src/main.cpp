@@ -732,7 +732,7 @@ int main(const int argc, const char* argv[]) {
     
     
     std::string configFileIn = commandLine.ConfigFileName();
-    boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/lastconfig.config");
+//  boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+lastconfig+".config");
     
      //generate some NPs 
         std::string npFileDir = config.m_outputDirectory+"/nps/"+config.m_configFile +  "_NPs";
