@@ -743,11 +743,11 @@ int main(const int argc, const char* argv[]) {
     for (const double nanoparticleRadius : config.m_nanoparticleRadii) {
         for (const double zetaPotential : config.m_zetaPotential) {
             
-
+             //std::to_string(static_cast<int>(radius))    + "_" + std::to_string(static_cast<int>(1000 * zeta))
             //x,y,z,radius,zeta,coreFactor=1,surfFactor=1,shape, hamakerFile,pmfFile,pmfCutoff,correctionType
             std::string npOutString = "0,0,0," + to_string(nanoparticleRadius)+"," + to_string(zetaPotential) + "," + "1,1," + to_string(config.m_npType) +","+ config.m_hamakerFile +","+ config.m_pmfDirectory+"," + to_string(config.m_PMFCutoff) + ","+to_string( config.m_npType )+"\n";
             std::cout << npOutString;
-            std::string npIDString = "np"+to_string(npID)+"R_"+to_string(nanoparticleRadius)+"_ZP_"+to_string(zetaPotential*1000);
+            std::string npIDString = "np"+to_string(npID)+"R_"+to_string(static_cast<int>(nanoparticleRadius))+"_ZP_"+to_string(  static_cast<int>( zetaPotential*1000));
             std::string npOutLoc = npFileDir+"/"+npIDString+".np";
             npID++;
             

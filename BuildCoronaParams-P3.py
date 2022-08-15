@@ -3,7 +3,7 @@ import scipy.optimize as scopt
 import scipy.spatial as scispat
 import scipy.integrate as scint
 import scipy.special as scspec
-
+import os
 import argparse
 
 def SphereProjectedRadius(RNP,radius):
@@ -280,5 +280,11 @@ for proteinData in concentrationData:
         outputSet.append([proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
         if args.verbose == 1:
             print(proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
+energyMapFolderSubpathTerms = energyMapFolder.split("/")
+if len(energyMapFolderSubpathTerms) > 1:
+    outputFileLoc = "cg_corona_data/" + "/".join(energyMapFolderSubpathTerms[:-1])
+    os.makedirs(outputFileLoc,exist_ok=True)
+else:
+    outputFileLoc = "cg_corona_data"
 
 np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")

@@ -21,7 +21,7 @@ import os
 NPRadius = 5
 NPZeta = 0
 NPMaterial = "anatase101"
-CoronaSimTime = 1
+CoronaSimTime = 1e-5
 
 availableMaterials = ["silicaquartz","silicaamorph","anatase100","anatase101","rutile110","rutile100",
                       "fe2o3","CdSe","gold","carbonblack"]
@@ -33,16 +33,16 @@ if NPMaterial not in availableMaterials:
 ProjectName = "testproject-anatase"
 ProteinStorageFolder = "all_proteins"
 ProteinWorkingFolder = "proteins_"+ProjectName
-UAResultsFolder = "results_"+ProjectName
+UAResultsFolderBase = "results_"+ProjectName
+UAResultsFolder = UAResultsFolderBase+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZeta*1000))
 
-if not os.path.isdir(ProteinStorageFolder):
-    os.mkdir(ProteinStorageFolder)
-if not os.path.isdir(ProteinWorkingFolder):
-    os.mkdir(ProteinWorkingFolder)
-if not os.path.isdir(UAResultsFolder):
-    os.mkdir(UAResultsFolder)
-if not os.path.isdir("cg_corona_data"):
-    os.mkdir("cg_corona_data")
+allFolders = [ProteinStorageFolder,ProteinWorkingFolder,UAResultsFolderBase,UAResultsFolder,"cg_corona_data"]
+for folderName in allFolders:
+    if not os.path.isdir(folderName):
+        print("Making folder ",folderName)
+        os.mkdir(folderName)
+
+
     
 #Defines the set of proteins that calculations should be run for. 
 #In all cases, if you have no proteins in this category leave the list empty
@@ -136,11 +136,11 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolder+ " -m "+NPMaterial+" --operation-type=pdb-folder"
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder"
 print(UACommandString)
 
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+"_"+str(round(NPRadius))+"_"+str(round(NPZeta))+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001"
+KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+"_"+str(round(NPRadius))+"_"+str(round(NPZeta))+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
 
 print(BCPCommandString)
 print(KMCCommandString)

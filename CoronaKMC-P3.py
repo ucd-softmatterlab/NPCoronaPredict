@@ -9,6 +9,7 @@ import scipy.special as scspec
 import random
 import argparse
 import matplotlib.pyplot as plt
+import os
 
 def analyticSol(t,conc0,kon,koff,numBindingSites):
     return conc0*kon*numBindingSites/(koff+ conc0*kon) - conc0*kon*numBindingSites * np.exp(-t *(koff+conc0 * kon))/(koff+conc0*kon)
@@ -288,6 +289,7 @@ parser.add_argument('-x','--npconc',help="Concentration of NPs", default = 0, ty
 parser.add_argument('-H','--hardsphere',help="Enable true hard sphere modelling", default = 0, type=int)
 parser.add_argument('--demo',help="Enable the live demo mode", default = 0, type = int)
 parser.add_argument('--timedelta',help="Time step [s] between showing updates", default = 10.0, type=float)
+parser.add_argument('-P','--projectname',help="Project name (name of base output directory)", default="corona_results_testing" )
 
 args = parser.parse_args()
 endTime = args.time*3600
@@ -474,8 +476,11 @@ if meanFieldApprox == 1:
     mfTag = "mf"
 else:
     mfTag = "hs"
-finalName = "corona_results_testing/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
-runningName ="corona_results_testing/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+
+kmcOutputDir = args.projectname+"/coronakmc"
+os.makedirs(kmcOutputDir, exist_ok=True)    
+finalName = kmcOutputDir+"/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+runningName =kmcOutputDir+"/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
 
 runningFile = open(runningName, "w")
 
@@ -706,7 +711,7 @@ print( "Number adsorbed: " , len(stateArray))
 print( outputTranspose.shape )
 
 
-coordFileOut = open("corona_results_testing/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
+coordFileOut = open(kmcOutputDir+"/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
 coordFileOut.write("#Protein type, x, y, z \n")
 for i in range(len(stateArray)):
     coordData = outputTranspose[i] 

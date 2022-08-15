@@ -1,6 +1,17 @@
 
 ####UNITED ATOM######
 
+How to build:
+Install GCC and Boost with development headers (more detailed instructions to come). Also install python3, numpy, scipy and matplotlib as some of the tools use these.
+
+Once everything is installed run
+make clean; make
+This will bring up a number of warnings, primarily due to unused parameters which are left as hooks for future versions of the code. These are generally ok to ignore. 
+Boost errors usually indicate that it's not finding the correct version of Boost, which can happen if you have multiple versions installed. Try editing the Makefile to add the
+-Lpath/to/recent/boost
+option.
+
+
 How to run:
 ./UnitedAtom --config-file=name_of_config_file.config
 
