@@ -37,8 +37,12 @@ This output must also be corrected for the diffusion coefficient of the protein 
 
 Temperature: This can be set in the config file using the temperature option. Output energies are given in units of kb * T=300 K for backwards compatability and also in kJ/mol for ease of comparison.
 
+save-potentials : if set to 1, enables saving the protein-NP potential for each orientation. This takes up a lot of space and is buggy due to multithreading, its mostly useful for debugging
+
+
 If np-target is set to a folder or specific .np file this enables the multi-component NP mode for NP complexes. This is relatively stable for core-shell models but still has some issues with brushes
 Multi-component NPs are defined by a .np file in which any line starting with a # is a header and all other lines define component NPs in the complex.
+
 
 
 NPs with non-spherical structures require a bounding radius to be defined. By default, this is estimated by drawing a sphere around the entire complex and taking the minimum radius
