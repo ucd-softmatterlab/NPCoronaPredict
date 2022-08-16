@@ -28,7 +28,7 @@ constexpr int           nrows           = 36;
 constexpr int           iterations      = nrows * ncols;
 constexpr int           samples         = 128;
 constexpr int           steps           = 512;
-constexpr double        dz              = delta / (steps - 1);
+constexpr double        dz              = delta / (steps - 1); //for non-uniform NPs this is updated for the integration
 //define the Boltzmann and Avogadro constants for energy conversions
 constexpr double        kbConst       =  1.380649e-23;
 constexpr double        naConst       =  6.02214076e23; 
@@ -452,12 +452,12 @@ double distance;
 return distance;
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0) { 
+void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0) { 
 
-    // Decleare all variables at the begining 
+    // Decleare all variables at the begining . Integration runs from the start at the largest value of r and proceeds inwards to the stop value, nominally R_{NP}.
     const int               size            = pdb.m_id.size();
-    const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds;
-    const double            start           = stop + delta;
+    const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds; //gds = 0 and imaginary radius is unused so this should always just return radius.
+    const double            start           =  outerRadius + delta;  //stop + delta;
 
     int                     i;
     int                     j;
@@ -470,10 +470,12 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double                  distance;
     double                  ssd;
 
+     
+    
     double x[size];
     double y[size];
     double z[size];
-    
+    double actualDZ = (start - stop)/(steps-1);
     double total_energy[steps];
     double SSD[steps];
     double sample_energy[samples];
@@ -531,7 +533,7 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             double minLoc = start;
             double minEnergy = 0;
             for (i = 0; i < steps; ++i) {
-                ssd     = start - i * dz;
+                ssd     = start - i * actualDZ;
                 energy  = 0;
                 //loop over each residue. loop variables: i = ssd index, j = residue index
                 for (j = 0; j < size; ++j) {
@@ -588,22 +590,22 @@ cylinderFileNameAppend = "";
 
             // Integrate the results
                 if(npType == 2 || npType == 4 || npType==5){
-            IntegrateCylinder(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]),temperature);
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT,temperature);
+            IntegrateCylinder(steps, actualDZ, init_energy, total_energy, SSD, &(sample_energy[sample]),temperature);
+            IntegrateMFPT(steps, actualDZ, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT,temperature);
             }
              else if(npType == 3){
-             IntegrateCube(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]),temperature);
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT,temperature);
+             IntegrateCube(steps, actualDZ, init_energy, total_energy, SSD, &(sample_energy[sample]),temperature);
+            IntegrateMFPT(steps, actualDZ, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType,calculateMFPT,temperature);
           }
            else{
 
 
-            Integrate(steps, dz, init_energy, total_energy, SSD, &(sample_energy[sample]), temperature);
+            Integrate(steps, actualDZ, init_energy, total_energy, SSD, &(sample_energy[sample]), temperature);
 
          //and also integrate to get the product of the MFPT and the diffusion constant, MFPT*D. 
 
 
-            IntegrateMFPT(steps, dz, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType, calculateMFPT,temperature);
+            IntegrateMFPT(steps, actualDZ, init_energy, total_energy, SSD, &(sample_mfpt[sample]), npType, calculateMFPT,temperature);
 
  
 
@@ -624,7 +626,7 @@ cylinderFileNameAppend = "";
     }
 }
 
-void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const Config& config, double cylinderAngle, const NP& np) {
+void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const double outerRadius,const Config& config, double cylinderAngle, const NP& np) {
     std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
 
     const double imaginary_radius = config.m_imaginary_radius;
@@ -672,6 +674,7 @@ int isCylinder = 0;
                     pdb, 
                     potentials, 
                     radius, 
+                    outerRadius,
                     thread * n_per_thread  + (thread < n_remaining ? thread : n_remaining), 
                     n_per_thread + (thread < n_remaining), 
                     adsorption_energy, 
@@ -771,16 +774,19 @@ int main(const int argc, const char* argv[]) {
     boost::filesystem::create_directory(npEnergyDir);
     double zetaPotential = 0;
     double nanoparticleBoundingRadius;
+    double nanoparticleOuterBoundingRadius;
     if(config.m_boundingRadius < 0){
     nanoparticleBoundingRadius = np.m_boundRadius;
+    nanoparticleOuterBoundingRadius = np.m_outerBoundRadius;
     }
     else{
     nanoparticleBoundingRadius = config.m_boundingRadius;
+    nanoparticleOuterBoundingRadius = config.m_boundingRadius+0.01;
     }
     Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleBoundingRadius, config,np);
     for (const auto& pdb : pdbs){
     for(int i = 0; i < 180; i = i + omegaDelta){
-    SurfaceScan(pdb,potentials,zetaPotential,nanoparticleBoundingRadius,config,i,np);
+    SurfaceScan(pdb,potentials,zetaPotential,nanoparticleBoundingRadius,nanoparticleOuterBoundingRadius,config,i,np);
     }
     }
     }

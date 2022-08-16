@@ -28,15 +28,16 @@ public:
     const std::vector<string>   m_hamakerFile;
     const std::vector<string>   m_pmfFile;
     const double                m_boundRadius;
+    const double                m_outerBoundRadius;
     const std::vector<double>   m_pmfCutoff;
     const std::vector<int>      m_correctionType;
  
     NP(const std::vector<double>& x, const std::vector<double>& y, const std::vector<double>& z,
     const std::vector<int>& id, const double length, const std::string& name, const std::vector<double>& radius,  
 const std::vector<double>& zeta,const std::vector<double>& coreFactor,const std::vector<double>& surfFactor   ,const std::vector<int>& shape,   
-const std::vector<string>& hamakerFile , const std::vector<string>& pmfFile , const double boundRadius, const std::vector<double>& pmfCutoff, std::vector<int>& correctionType )
+const std::vector<string>& hamakerFile , const std::vector<string>& pmfFile , const double boundRadius, const double outerBoundRadius, const std::vector<double>& pmfCutoff, std::vector<int>& correctionType )
         : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_radius(radius), m_zeta(zeta), 
-m_coreFactor(coreFactor), m_surfFactor(surfFactor), m_shape(shape), m_hamakerFile(hamakerFile), m_pmfFile(pmfFile), m_boundRadius(boundRadius), m_pmfCutoff(pmfCutoff), m_correctionType(correctionType)
+m_coreFactor(coreFactor), m_surfFactor(surfFactor), m_shape(shape), m_hamakerFile(hamakerFile), m_pmfFile(pmfFile), m_boundRadius(boundRadius), m_outerBoundRadius(outerBoundRadius), m_pmfCutoff(pmfCutoff), m_correctionType(correctionType)
     {}
 };
 
@@ -81,7 +82,7 @@ NP ReadNPFile(const std::string& filename, const std::unordered_map<std::string,
 //x,y,z,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile
 double length = 0;
 double boundRadius = 0;
-
+double outerBoundRadius = 0;
 
     while (std::getline(handle, line)) {
         if(line.size() > 3 && line.substr(0, 1) != "#") {
@@ -105,7 +106,7 @@ double boundRadius = 0;
             double yval = std::stod(results[1]);
             double zval = std::stod(results[2]);
             double radiusval = std::stod(results[3]);
-
+//std::cout << "Adding component at " << xval << "," << yval << "," <<zval << " of radius " << radiusval << " with zeta " << std::stod(results[4]) << "\n";
 
             x.emplace_back(xval);
             y.emplace_back(yval);
@@ -121,13 +122,20 @@ double boundRadius = 0;
             correctionType.emplace_back(std::stoi(results[11]));
             
             double newBoundRadius = 0;
+            double newOuterBoundRadius = 0;
+            newOuterBoundRadius = sqrt( xval*xval + yval*yval + zval*zval   ) + radiusval;
             newBoundRadius =  radiusval; //count only beads at (0,0,0) for the purpose of estimating the bounding radius.
             //previous expression: sqrt( xval*xval + yval*yval + zval*zval   ) + radiusval;
             
             if(newBoundRadius > boundRadius){
             boundRadius = newBoundRadius;
             }
-
+            if(newOuterBoundRadius > outerBoundRadius){
+                outerBoundRadius = newOuterBoundRadius;
+            }
+            
+            
+            
             length +=1;
             }
             catch (const std::invalid_argument& ia) {
@@ -199,7 +207,7 @@ double boundRadius = 0;
   
     std::string name = NPTargetList::Filename(filename);
     std::cout << "NP filename: " << name << " generated with bounding radius " << boundRadius <<"\n";
-    return NP(x, y, z, id, length, name,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile,boundRadius,pmfCutoff,correctionType);
+    return NP(x, y, z, id, length, name,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile,boundRadius,outerBoundRadius,pmfCutoff,correctionType);
 }
 
 #endif
