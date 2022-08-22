@@ -1,0 +1,10 @@
+cp NC4.dat CHL.dat
+cp MAS.dat EST.dat
+cp DMEP.dat PHO.dat
+cp MAMM.dat ETA.dat
+cp ALA.dat GLY.dat
+cp HSP.dat HIS.dat
+cp HIS.dat HIP.dat
+cp HSD.dat HID.dat
+cp HSE.dat HIE.dat
+cp BGLC.dat DGL.dat
