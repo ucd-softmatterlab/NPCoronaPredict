@@ -90,6 +90,15 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
 
     double potentialStart = config.m_potentialStart;
  
+
+    const std::string destination = "pot-dat/" + npComponents.m_name  ; 
+    //const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
+
+    boost::filesystem::create_directory("pot-dat") ;
+    boost::filesystem::create_directory(destination) ;
+
+
+
 std::cout << surfaceData.m_aminoAcid << " start: " << potentialStart << "\n";
    for(int j = 0; j < npComponents.m_length; ++j){
    std::vector<string> aaName;
@@ -111,8 +120,8 @@ std::cout << surfaceData.m_aminoAcid << " start: " << potentialStart << "\n";
 
     double  surface = 0.0, core = 0.0, electrostatic = 0.0;
 //    double potentialStart = 0.4; //config.m_potentialStart (when added)
-    const std::string destination = "pot-dat"; 
-    const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
+   // const std::string destination = "pot-dat/" + npComponents.m_name  ; 
+   // const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
   //  std::ofstream handle(filename.c_str());
         int npShape = npComponents.m_shape[j];
         double nanoparticleRadius = npComponents.m_radius[j];
@@ -272,9 +281,10 @@ if( recalculateZetaPotential  != 0){
 //std::cout << " j added, energy at test: " << energy[0] << "\n";
 
 }
-    const std::string destination = "pot-dat";
+    //const std::string destination = "pot-dat";
     const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
-
+    //boost::filesystem::create_directory("pot-dat") ;
+    //boost::filesystem::create_directory(destination) ;
 
 
 
