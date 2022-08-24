@@ -522,11 +522,11 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             
              closestSCD[i] = 0;
              if(  overlapPenalty > 0){
-              double aaBeadRadius = config.m_aminoAcidRadii[ pdb.m_id[i] ];
+              double aaBeadRadius = config.m_aminoAcidRadii[ pdb.m_id[i] ] * config.m_overlapRadiusFactor ;
               //std::cout << pdb.m_id[i] <<  " " << config.m_aminoAcidRadii[ pdb.m_id[i] ]   <<"\n";
                    for( j = 0; j < np.m_radius.size()  ; ++j){
                        //std::cout << i << ":" << j << "\n";
-                       double npBeadRadius = np.m_radius[j];
+                       double npBeadRadius = np.m_radius[j] * config.m_overlapRadiusFactor;
 
                        double distTerm1 = pow( aaBeadRadius + npBeadRadius, 2) - pow( x[i] - np.m_x[j],2 ) - pow( y[i] - np.m_y[j],2 );
                       //std::cout << distTerm1 << "\n";

@@ -45,7 +45,7 @@ public: // Key - vaules
     double m_potentialStart = 0.001; //closest approach to bounding surface
     double m_boundingRadius = -1; //if  > 0: bounding radius (effective NP radius), if less than 0 automatically estimates this parameter using a safest value
    double m_overlapPenalty = 0.0; //Penalty for overlapping NP - AA beads
-
+   double m_overlapRadiusFactor = 1.0;
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
         for (std::size_t i = 0; i < switches.size(); ++i) {
@@ -137,6 +137,12 @@ public:
            else if (keys[i] == "overlap-penalty"){
                  m_overlapPenalty = AsDouble(values[i]);
             }   
+           else if (keys[i] == "overlap-radiusfactor"){
+                 m_overlapRadiusFactor = AsDouble(values[i]);
+                 if(  m_overlapRadiusFactor < 0){
+                   std::cout << "Warning: overlap radius factors < 0 will lead to unphysical behaviour. If you're trying to disable overlap set overlap-penalty less than zero. \n";
+                  }
+            }  
             else if (keys[i] == "test-angle") {
                 m_testAngle = AsDoubleList(values[i]);
                 if (m_testAngle.size() != 2) {
