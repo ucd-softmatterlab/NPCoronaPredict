@@ -520,6 +520,8 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             for( i = 0; i< size; ++i){ //loop over AA beads
              double closestAllowedSSD = 0;
             
+             closestSCD[i] = 0;
+             if(  overlapPenalty > 0){
               double aaBeadRadius = config.m_aminoAcidRadii[ pdb.m_id[i] ];
               //std::cout << pdb.m_id[i] <<  " " << config.m_aminoAcidRadii[ pdb.m_id[i] ]   <<"\n";
                    for( j = 0; j < np.m_radius.size()  ; ++j){
@@ -558,6 +560,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                }
 
             }
+           }
+
+
          //    if(closestSCD[i] > 0){
          //   std::cout << "Closest allowed SCD: " << closestAllowedSCD << "\n";
          //      }
