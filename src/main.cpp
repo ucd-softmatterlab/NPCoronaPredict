@@ -452,7 +452,7 @@ double distance;
 return distance;
 }
 
-void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0) { 
+void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
 
     // Decleare all variables at the begining . Integration runs from the start at the largest value of r and proceeds inwards to the stop value, nominally R_{NP}.
     const int               size            = pdb.m_id.size();
@@ -481,6 +481,8 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
     double sample_energy[samples];
     double sample_mfpt[samples];
     double sample_minloc[samples];
+    double closestSCD[size]; //closest allowed NP_nominal_surface to aa_centre distance allowed for each AA
+
     // Iterate over angles
     for (int angle = 0; angle < n_angles; ++angle) {
         
@@ -510,8 +512,55 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
             //JitterPDB(size, 0.1, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z );
 
 
-            // Convert to SSD
+            // Convert to SSD except because this doesn't take into account the radius of the AA bead it's really the distance from the surface of the NP to the centre of the closest AA bead.
             ShiftZ(size, z);
+
+
+            //Find the closest approach
+            for( i = 0; i< size; ++i){ //loop over AA beads
+             double closestAllowedSSD = 0;
+            
+              double aaBeadRadius = config.m_aminoAcidRadii[ pdb.m_id[i] ];
+              //std::cout << pdb.m_id[i] <<  " " << config.m_aminoAcidRadii[ pdb.m_id[i] ]   <<"\n";
+                   for( j = 0; j < np.m_radius.size()  ; ++j){
+                       //std::cout << i << ":" << j << "\n";
+                       double npBeadRadius = np.m_radius[j];
+
+                       double distTerm1 = pow( aaBeadRadius + npBeadRadius, 2) - pow( x[i] - np.m_x[j],2 ) - pow( y[i] - np.m_y[j],2 );
+                      //std::cout << distTerm1 << "\n";
+                       if(distTerm1 > 0){
+                                  
+                            double ssdAtTouching1 = np.m_z[j] -aaBeadRadius  - z[i] - radius +  sqrt( distTerm1)  ;
+                            //double ssdAtTouching2 = np.m_z[j] -aaBeadRadius  - z[i] - radius - sqrt( distTerm1 )  ;
+                             
+                            if( ssdAtTouching1 > closestAllowedSSD){ 
+                            closestAllowedSSD = ssdAtTouching1;
+                            //std::cout << "Protein bead " << i << "(" << x[i] << "," << y[i] << "," << z[i] << ") contacts NP bead " << j << "(" << np.m_x[j] << "," << np.m_y[j] << "," << np.m_z[j] << ") at SSD " << closestAllowedSSD << "\n";       
+                            // std::cout << " Bead centre will be at: " << x[i] << "," << y[i] << "," << z[i] + radius + aaBeadRadius + closestAllowedSSD << "\n";
+                             //  std::cout << "Distance between centres: " << sqrt( pow(x[i] - np.m_x[j],2) + pow(y[i] - np.m_y[j],2) + pow(z[i]  + radius + aaBeadRadius + closestAllowedSSD - np.m_z[j],2) ) << "\n";
+                            
+                            }
+
+                            //if( ssdAtTouching2 > closestAllowedSSD){ 
+                            //closestAllowedSSD = ssdAtTouching2;
+                            //std::cout << "Protein bead " << i << "(" << x[i] << "," << y[i] << "," << z[i] << ") contacts NP bead " << j << "(" << np.m_x[j] << "," << np.m_y[j] << "," << np.m_z[j] << ") at SSD " << closestAllowedSSD << "\n";
+                            //}
+                            //if( ssdAtTouching2 > closestAllowedSSD){
+                            //closestAllowedSSD = ssdAtTouching2;
+                            //}
+                       }
+
+                    }
+
+
+               if(  closestAllowedSSD + aaBeadRadius > closestSCD[i]  ){
+                     closestSCD[i] = closestAllowedSSD + aaBeadRadius ; //correct for the fact that here SSD is the surface-surface distance while everywhere else ssd means surface-centre distance because David.
+               }
+
+            }
+         //    if(closestSCD[i] > 0){
+         //   std::cout << "Closest allowed SCD: " << closestAllowedSCD << "\n";
+         //      }
    //         std::cout << z[0] << " " << phi << " " << theta << "\n";
             // Pre-square x and y
             SquareXY (size, x, y);
@@ -526,20 +575,46 @@ void AdsorptionEnergies(const PDB& pdb, const Potentials& potentials, const doub
                 }
                 //std::cout << pdb.m_occupancy[i] << "\n";
                 init_energy +=  pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
+
+
+
+              //find the distance of closest approach
+
+  
+
+
+
+
+
             }
  
+
+
+
 //std::cout << "total shift/num. amino acid: " <<  init_energy/size << "\n";
             // build the distance-potential array
+              // 
             double minLoc = start;
             double minEnergy = 0;
+
+
+
             for (i = 0; i < steps; ++i) {
                 ssd     = start - i * actualDZ;
                 energy  = 0;
+
                 //loop over each residue. loop variables: i = ssd index, j = residue index
                 for (j = 0; j < size; ++j) {
-              
+ 
+              //distance is AA centre to NP (Nominal) surface
               distance = getDistance(x[j],y[j],z[j],ssd,radius,npType);
-                energy +=  pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
+              double appliedOverlapPenalty = 0.0;
+               if(distance < closestSCD[j]){
+                //std::cout <<"applying overlap penalty "<<overlapPenalty << " at scd " << distance << " due to restriciton " << closestSCD[j] << "\n";
+                appliedOverlapPenalty = overlapPenalty;
+                }
+
+                energy +=  pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
                  if(std::isnan(pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance)))){
                   std::cout << "NaN generated by res. " << j << " type: "  << pdb.m_id[j]  <<   " at " << distance << "\n";
                     }
@@ -672,6 +747,8 @@ int isCylinder = 0;
         for (thread = 0; thread < n_threads; ++thread) {
             AdsorptionEnergies(
                     pdb, 
+                    np,
+                    config,
                     potentials, 
                     radius, 
                     outerRadius,
@@ -692,8 +769,8 @@ int isCylinder = 0;
                     cylinderAngle,
                     zeta,
                     config.m_savePotentials,
-                    config.m_temperature
-
+                    config.m_temperature,
+                    config.m_overlapPenalty
 
             ); 
         }
