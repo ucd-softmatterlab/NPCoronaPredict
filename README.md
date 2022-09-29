@@ -11,6 +11,13 @@ Boost errors usually indicate that it's not finding the correct version of Boost
 -Lpath/to/recent/boost
 option.
 
+Please note that if you have a slightly older version of boost there may be a compilation error:
+src/main.cpp:821:110: error: ‘boost::filesystem::copy_options’ has not been declared
+caused by the line:
+boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_options::overwrite_existing);
+To fix this either upgrade boost, comment this line out, or change it to :
+boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_option::overwrite_if_exists);
+
 
 How to run:
 ./UnitedAtom --config-file=name_of_config_file.config
