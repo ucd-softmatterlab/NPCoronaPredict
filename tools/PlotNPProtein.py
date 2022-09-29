@@ -35,7 +35,7 @@ def getAtomCoordsNames(filename):
 #note that the UA orientation definition is defined such that the orientation labelled "phi, theta" must be rotated by "-phi, pi - theta" to produce the optimal binding orientation relative to an NP "under" the protein.
 #if you're ever unsure check using the Dipole.pdb or Tetra.pdb models as these are designed to be very easy to interpret on NPs of large zeta potentials.
 def rotatePDB(coords,phi,theta):
-    rxx = np.cos(theta)*np.sin(phi)
+    rxx = np.cos(theta)*np.cos(phi)
     rxy = -1 * np.cos(theta)*np.sin(phi)
     rxz = np.sin(theta)
     ryx = np.sin(phi)
