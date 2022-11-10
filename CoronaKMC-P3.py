@@ -329,6 +329,12 @@ if npShape == 1:
 elif npShape == 2:
     print("Cylindrical NP")
     npSurfaceArea = (2*cylinderHalfLength)*2*np.pi * args.radius
+elif npShape == 0:
+    print("Truncated sphere")
+    thetaMax = np.pi/8
+    vmax = 1
+    vlower = 0.5*(1 + np.cos(thetaMax) )
+    npSurfaceArea =  2 * pi * args.radius**2 * (1 - np.cos(thetaMax) )
 else:
     print("Shape not recognised, defaulting to spherical")
     npShape = 1
@@ -644,6 +650,9 @@ while t < endTime:
         collidingNP = np.random.randint(0,numNPs)
         if npShape == 1:
             newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
+        elif npShape == 0:
+            v = (vmax - vlower)*np.random.random() + vlower
+            newC2 = np.arccos(2 * v - 1)
         else:
             newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength )
         stateArr = np.array(state)
