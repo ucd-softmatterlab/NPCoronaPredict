@@ -3,7 +3,7 @@ import scipy.optimize as scopt
 import scipy.spatial as scispat
 import scipy.integrate as scint
 import scipy.special as scspec
-import os
+
 import argparse
 
 def SphereProjectedRadius(RNP,radius):
@@ -246,10 +246,12 @@ for proteinData in concentrationData:
     boltz    = np.sum(data[:,2] * sinThetaAll * np.exp(-1.0 * data[:,2])) / np.sum(sinThetaAll * np.exp(-1.0 * data[:,2]))
     konList = []
     koffList = []
+    #nameList = []
     for orientation in data:
         theta    = orientation[1]
         phi      = orientation[0]
         energy   = orientation[2]
+        #nameList.append( proteinData[0]+":"+str(theta)+"-"+str(phi) )
         sinTheta = np.sin(theta * np.pi / 180.0)
         rotatedCoords = rotatePDB(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0)
         if npShape == 1:
@@ -277,14 +279,8 @@ for proteinData in concentrationData:
         konApprox =1000* pairCollisionRate/numBindingSites #prefactor is to go from m^3 / mol to 1/M
         #konApprox =  projectedArea/( npRadius**2) * avogadroNumber * (npRadius + effectiveRadius3D) * kbT/(6*np.pi*eta) * (1.0/npRadius + 1.0/effectiveRadius3D) #in dm^3/mol / s 
         koffApprox = konApprox * np.exp(energy)
-        outputSet.append([proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
+        outputSet.append([proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
         if args.verbose == 1:
-            print(proteinData[0], float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
-energyMapFolderSubpathTerms = energyMapFolder.split("/")
-if len(energyMapFolderSubpathTerms) > 1:
-    outputFileLoc = "cg_corona_data/" + "/".join(energyMapFolderSubpathTerms[:-1])
-    os.makedirs(outputFileLoc,exist_ok=True)
-else:
-    outputFileLoc = "cg_corona_data"
+            print(proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
 
 np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")

@@ -9,7 +9,6 @@ import scipy.special as scspec
 import random
 import argparse
 import matplotlib.pyplot as plt
-import os
 
 def analyticSol(t,conc0,kon,koff,numBindingSites):
     return conc0*kon*numBindingSites/(koff+ conc0*kon) - conc0*kon*numBindingSites * np.exp(-t *(koff+conc0 * kon))/(koff+conc0*kon)
@@ -289,7 +288,7 @@ parser.add_argument('-x','--npconc',help="Concentration of NPs", default = 0, ty
 parser.add_argument('-H','--hardsphere',help="Enable true hard sphere modelling", default = 0, type=int)
 parser.add_argument('--demo',help="Enable the live demo mode", default = 0, type = int)
 parser.add_argument('--timedelta',help="Time step [s] between showing updates", default = 10.0, type=float)
-parser.add_argument('-P','--projectname',help="Project name (name of base output directory)", default="corona_results_testing" )
+parser.add_argument('-l','--loadfile',help="KMC file for previous run (precoating)", default="")
 
 args = parser.parse_args()
 endTime = args.time*3600
@@ -306,11 +305,11 @@ npShape = int(args.shape)
 if args.demo==1:
     print("Enabling demonstration mode")
     plt.ion()
-    fig = plt.figure()
+    fig = plt.figure(figsize=(12.8,4.8))
     ax1 = plt.subplot(121)
     ax2 = plt.subplot(122,projection='3d')
     #ax3 = plt.subplot(133,projection='3d')
-
+    #plt.tight_layout()
     #fig, (ax1,ax2) = plt.subplots(nrows=1,ncols=2)
 
 cylinderHalfLength = 50 #end-to-centre length of the cylinder
@@ -329,12 +328,6 @@ if npShape == 1:
 elif npShape == 2:
     print("Cylindrical NP")
     npSurfaceArea = (2*cylinderHalfLength)*2*np.pi * args.radius
-elif npShape == 0:
-    print("Truncated sphere")
-    thetaMax = np.pi/8
-    vmax = 1
-    vlower = 0.5*(1 + np.cos(thetaMax) )
-    npSurfaceArea =  2 * pi * args.radius**2 * (1 - np.cos(thetaMax) )
 else:
     print("Shape not recognised, defaulting to spherical")
     npShape = 1
@@ -350,7 +343,7 @@ if meanFieldApprox != 0:
 #note that this radius and equilibrium constant are dependent on the size of the NP
 coarseGrainAtEnd = args.coarse
 
-
+updateNum=0
 
 #define some constants
 kbtVal = 1
@@ -413,15 +406,54 @@ proteinDataOneLarge = np.array([
 ])
 
 
+#kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
+
+precoatNames = []
+precoatData = []
+precoatState = []
+precoatIDs = []
+precoatIDLast = 0
+if args.loadfile != "":
+    print("Loading pre-coating file", args.loadfile)
+    precoatFile = open(args.loadfile, "r")
+    for line in precoatFile:
+        if line[0]=="#":
+            continue
+        lineTerms = line.strip().split(",")
+        precoatName = "PC-"+lineTerms[0]
+        if precoatName not in precoatNames:
+            precoatNames.append(precoatName)
+            precoatData.append( [precoatName, lineTerms[1],lineTerms[2],lineTerms[3],lineTerms[4],lineTerms[5],lineTerms[6] ])
+            precoatIDs.append(precoatIDLast)
+            precoatIDLast += 1
+        precoatID = precoatNames.index(  precoatName)
+        precoatState.append(  [  precoatName, float(lineTerms[7]),float(lineTerms[8]),float(lineTerms[9])    ] )
+    precoatFile.close()
 
 if proteinInput == "":
     proteinDataInput = proteinDataOriginal
 else:
     print("loading from file ", proteinInput)
     proteinDataInput = np.genfromtxt(proteinInput, dtype=str)
-    print(proteinDataInput)
+    #print(proteinDataInput)
+#proteinData = proteinDataInput[:,1:].astype(float)
+
+if len(precoatData)>0:
+    proteinDataInput = np.concatenate(( np.array(precoatData), proteinDataInput))
+    #print(proteinDataInput)
+
+
+
 proteinData = proteinDataInput[:,1:].astype(float)
-proteinNames = proteinDataInput[:,0]
+
+proteinNamesAll = proteinDataInput[:,0]
+#print(proteinNamesAll)
+proteinNameList = []
+for proteinNameOrientation in proteinNamesAll:
+    nameTerms = proteinNameOrientation.split(":")
+    proteinNameList.append(nameTerms[0])
+proteinNames = np.array(proteinNameList,dtype=str)
+
 uniqueProteinList,uniqueProteinIDs = np.unique(proteinNames,return_index=True)
 uniqueProteins = proteinNames[np.sort(uniqueProteinIDs)]
 #print uniqueProteinIDs
@@ -429,7 +461,7 @@ proteinBindingSites = npSurfaceArea /( bindingArea(npRadius, proteinData[:,1]) )
 
 largestProteinRadius = np.amax(proteinData[:,1])
 
-print(proteinBindingSites)
+#print(proteinBindingSites)
 if doAnalytic!=0:
     aCoeffMatrix = np.zeros( (len(proteinData), len(proteinData)))
     bVector = proteinData[:,2] * proteinData[:,0] * proteinBindingSites
@@ -449,6 +481,8 @@ state = [] #list containing the protein ID and xyz coordinates
 
 proteinIDList = np.arange(len(proteinData))
 
+
+
 #orientationFactors = np.zeros_like(proteinData[:,0])
 
 #for id in proteinIDList:
@@ -459,8 +493,8 @@ for id in proteinIDList:
     #upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
     proteinTotalConcs[ proteinNames == proteinName   ] += proteinData[id,0]
 
-orientationFactors = proteinData[:,0]/proteinTotalConcs
-print(orientationFactors)
+orientationFactors = proteinData[:,0]/(1e-15+proteinTotalConcs)
+#print(orientationFactors)
 
 
 resList =[]
@@ -469,6 +503,28 @@ lastUpdate =0
 surfaceCoverage = 0 
 
 boundProteinAll = np.zeros( len(proteinData[:,0]) )
+
+
+
+
+
+#Add in pre-existing proteins from the save file, if any
+
+for i in range(len(precoatState)):
+    existingProteinName = precoatState[i][0]
+    #print(existingProteinName)
+    #print(proteinNamesAll)
+    newProteinID = np.where( proteinNamesAll == existingProteinName)[0][0]
+    #print(newProteinID)
+    #quit()
+    newPhi = precoatState[i][1]
+    newC2 = precoatState[i][2]
+    collidingNP = precoatState[i][3]
+    state.append([newProteinID,newPhi,newC2 ,collidingNP ])
+    surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
+    boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
+
+
 
 
 
@@ -482,11 +538,8 @@ if meanFieldApprox == 1:
     mfTag = "mf"
 else:
     mfTag = "hs"
-
-kmcOutputDir = args.projectname+"/coronakmc"
-os.makedirs(kmcOutputDir, exist_ok=True)    
-finalName = kmcOutputDir+"/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
-runningName =kmcOutputDir+"/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+finalName = "corona_results_testing/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+runningName ="corona_results_testing/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
 
 runningFile = open(runningName, "w")
 
@@ -574,7 +627,7 @@ while t < endTime:
             y = npRadius * np.outer(np.sin(u), np.sin(v))
             z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
             ax2.plot_surface(x, y, z,color='gray')            
-            plotBound = npRadius + 2*largestProteinRadius
+            plotBound = npRadius + largestProteinRadius
             ax2.set_xlim3d( -plotBound ,plotBound)
             ax2.set_ylim3d( -plotBound , plotBound)
             ax2.set_zlim3d( -plotBound , plotBound)
@@ -605,6 +658,9 @@ while t < endTime:
                 zp = (shadowOffset+npRadius) * z /(pointRadius)
                 #ax3.plot_surface(xp,yp,zp, color="C"+str(upIndex)) 
             plt.pause(0.05)
+
+            plt.savefig("kmc_movie/frame_"+str(updateNum)+".png")
+            updateNum+=1
     #next, diffuse proteins around the surface if enabled
     if doShuffle != 0 and npShape==1:
         #diffuse proteins around the surface
@@ -650,9 +706,6 @@ while t < endTime:
         collidingNP = np.random.randint(0,numNPs)
         if npShape == 1:
             newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
-        elif npShape == 0:
-            v = (vmax - vlower)*np.random.random() + vlower
-            newC2 = np.arccos(2 * v - 1)
         else:
             newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength )
         stateArr = np.array(state)
@@ -720,14 +773,33 @@ print( "Number adsorbed: " , len(stateArray))
 print( outputTranspose.shape )
 
 
-coordFileOut = open(kmcOutputDir+"/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
+coordFileOut = open("corona_results_testing/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
 coordFileOut.write("#Protein type, x, y, z \n")
 for i in range(len(stateArray)):
     coordData = outputTranspose[i] 
-    outputData =[  proteinNames[   stateArray[i,0].astype(int) ] , str(coordData[1]), str(coordData[2]), str(coordData[3] ) ]
+    outputData =[  proteinNamesAll[   stateArray[i,0].astype(int) ] , str(coordData[1]), str(coordData[2]), str(coordData[3] ) ]
     coordFileOut.write( ",".join(outputData) + "\n" )
-
 coordFileOut.close()
+#proteinDataOneLarge = np.array([
+#
+#["HDL","1.5e-5","20","3e4","3e-5", "-20.7233",str(np.pi*20**2)]
+#])
 
+# proteinData:
+# concentration, size, kon, koff, eads, area
+#state:
+#ID, C1, C2, NP
+
+kmcFileOut=open("corona_saves/"+outputTag+"_"+str(npRadius)+".kmc","w")
+kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
+for i in range(len(stateArray)):
+    proteinID = stateArray[i,0].astype(int)
+    proteinName = proteinNamesAll[proteinID]
+    proteinDataLine = proteinData[proteinID]
+    #print(proteinID,proteinName,proteinDataLine, stateArray[i])
+    outputSet = [ proteinName, 0, proteinDataLine[1], proteinDataLine[2], proteinDataLine[3],proteinDataLine[4], proteinDataLine[5] ,stateArray[i,1], stateArray[i,2], stateArray[i,3]]
+    outputLine = ",".join( [ str(a) for a in outputSet])
+    kmcFileOut.write(outputLine+"\n")
+kmcFileOut.close()
 runningFile.close()
 
