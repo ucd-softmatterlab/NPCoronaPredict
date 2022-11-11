@@ -328,6 +328,13 @@ if npShape == 1:
 elif npShape == 2:
     print("Cylindrical NP")
     npSurfaceArea = (2*cylinderHalfLength)*2*np.pi * args.radius
+elif npShape == 3:
+    print("Truncated sphere")
+    surfaceFraction = 0.1 #must be between 0 and 1
+    thetaMax =  np.acos( 1 - 2* surfaceFraction) # np.pi/8
+    vmax = 1
+    vlower = 0.5*(1 + np.cos(thetaMax) )
+    npSurfaceArea =  2 * pi * args.radius**2 * (1 - np.cos(thetaMax) )
 else:
     print("Shape not recognised, defaulting to spherical")
     npShape = 1
@@ -706,8 +713,13 @@ while t < endTime:
         collidingNP = np.random.randint(0,numNPs)
         if npShape == 1:
             newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
-        else:
+        elif npShape == 2:
             newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength )
+        elif npShape == 3:
+            v = (vmax - vlower)*np.random.random() + vlower
+            newC2 = np.arccos(2 * v - 1)
+        else:
+            newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
         stateArr = np.array(state)
         #stateArr[ stateArr[:,3] == collidingNP  ]
         if len(state) < 1:
@@ -737,6 +749,9 @@ if npShape == 1:
 elif npShape == 2:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius)
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1])   , heightAboveSurface * np.sin(stateArray[:,1])  ,stateArray[:,2] ,radiusArray ))
+elif npShape == 3:
+    heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
+    outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
 else:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
