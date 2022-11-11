@@ -2,7 +2,7 @@
 Given a list of protein (or other molecule) concentrations and binding energies runs an MC model to determine the coverage in the steady-state.
 
 '''
-
+import os
 import numpy as np
 import scipy as sp
 import scipy.special as scspec
@@ -545,6 +545,8 @@ if meanFieldApprox == 1:
     mfTag = "mf"
 else:
     mfTag = "hs"
+
+os.makedirs("corona_results_testing",exist_ok=True)
 finalName = "corona_results_testing/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
 runningName ="corona_results_testing/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
 
