@@ -551,7 +551,8 @@ finalName = "corona_results_testing/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(d
 runningName ="corona_results_testing/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
 
 runningFile = open(runningName, "w")
-
+runningFileHeader = ",".join( [a for a in uniqueProteins])
+runningFile.write("t/s,"+runningFileHeader+",total,total_coverage\n")
 
 print("t/s",end=' ')
 for proteinName in uniqueProteins:
