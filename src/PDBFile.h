@@ -28,20 +28,20 @@ public:
     {}
 };
 
-PDB ReadPDBFile(const std::string&, const std::unordered_map<std::string, std::size_t>&);
+PDB ReadPDBFile(const std::string&, const std::unordered_map<std::string, std::size_t>&, const int , const double, const double  );
 
 class PDBs : public std::vector<PDB> {
 public:
     PDBs(const std::vector<std::string>& filenames,
-        const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap) {
+        const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap, const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0) {
         this->reserve(filenames.size());
         for (const auto& filename : filenames) {
-            this->push_back(ReadPDBFile(filename, aminoAcidIdMap));
+            this->push_back(ReadPDBFile(filename, aminoAcidIdMap,inputDisorderStrat, disorderMin, disorderMax));
         }
     }
 };
 
-PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap) {
+PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap, const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0) {
     std::ifstream handle(filename.c_str());
     if (!handle.is_open()) {
         std::cerr << "Error: Could not find pdb file '" << filename << "'\n";
@@ -50,12 +50,13 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
 
     std::string line;
     std::string tag;
-
+    int disorderStrat = inputDisorderStrat;
     std::vector<double> x;
     std::vector<double> y;
     std::vector<double> z;
     std::vector<int>    id;
     std::vector<double> occupancy;
+    std::vector<double> bfactor;
     while (std::getline(handle, line)) {
         if(line.size() > 3 && line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
             try {
@@ -64,7 +65,8 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 z.emplace_back(0.1 * std::stod(line.substr(46, 8)));
                 //std::cout << line << "\n";
                 //std::cout << line.substr(56,4) << "\n";
-                occupancy.emplace_back(  std::stod(line.substr(56,4)));
+                occupancy.emplace_back(  std::stod(line.substr(54,6)));
+                bfactor.emplace_back( std::stod(line.substr(60,6)));
                 //tag = line.substr(16, 4); // When using lipids
                 tag = line.substr(17, 3);
                 StringFormat::Strip(tag);
@@ -93,28 +95,66 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
         std::cout << x[i] << " " <<  y[i] << " " << z[i] << "\n";
     }
    */
+   
+   //Strategies for dealing with disordered residues:
+   //0   = default = do nothing
+   //1 = shift to COM defined by ordered residues, leave active
+   // 2 = shift to COM defined by ordered residues, set occupancy to 0
+   //note that disordered is defined using AlphaFold convention for bfactor, pIDDT < 50 = disordered. If you're using non-AF proteins then this will give bad results so set disorderStrat = 0 for those.
     // Center protein
     double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
     double totalOcc = 0;
     double numRes = 0;
     for (int i = 0; i < static_cast<int>(x.size()); ++i) {
-        mean_x += x[i];
-        mean_y += y[i];
-        mean_z += z[i];
-        totalOcc += occupancy[i];
+        int isDisordered = 0;
+        if(bfactor[i]>disorderMin && bfactor[i] < disorderMax){
+        isDisordered = 1;
+        }
+        if(disorderStrat == 2 && isDisordered == 1){
+        occupancy[i] = 0.01;
+        }
+    
+    
+        if(disorderStrat == 0 ||  isDisordered == 0){ //if the residue is ordered or we don't care about disorder then it contributes to the COM
+        mean_x += x[i]*occupancy[i];
+        mean_y += y[i]*occupancy[i];
+        mean_z += z[i]*occupancy[i];
+        totalOcc += occupancy[i]; 
+        }
+        
         numRes +=1;
-        //std::cout << numRes << " " << occupancy[i] << "\n";
 
     }
-   
-    mean_x /= x.size();
-    mean_y /= y.size();
-    mean_z /= z.size();
-
+   if(totalOcc > 0.5){
+    mean_x /= totalOcc;
+    mean_y /= totalOcc;
+    mean_z /= totalOcc;
+    }
+    else{
+    mean_x = 0;
+    mean_y = 0;
+    mean_z = 0;
+    }
     for (int i = 0; i < static_cast<int>(x.size()); ++i) {
+    
+    
+        int isDisordered = 0;
+        if(bfactor[i]>disorderMin && bfactor[i] < disorderMax){
+        isDisordered = 1;
+        }
+    
+    
+    if(disorderStrat == 0 || isDisordered == 0){ //apathetic to disorder or ordered: shift relative to COM
         x[i] -= mean_x;
         y[i] -= mean_y;
         z[i] -= mean_z;
+    }
+    else{ //disordered when we care about that: set to the COM
+        x[i] = 0;
+        y[i] = 0;
+        z[i] = 0;
+    }
+      
     }
     
     // Lenght

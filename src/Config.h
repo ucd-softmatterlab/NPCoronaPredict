@@ -46,6 +46,15 @@ public: // Key - vaules
     double m_boundingRadius = -1; //if  > 0: bounding radius (effective NP radius), if less than 0 automatically estimates this parameter using a safest value
    double m_overlapPenalty = 0.0; //Penalty for overlapping NP - AA beads
    double m_overlapRadiusFactor = 1.0;
+    int         m_disorderStrat = 0; //0 = ignore disorder, 1 = shift disordered atoms to COM of remaining atoms, 2 = shift and disable
+  //Disordered residues are those falling between disorderMinBound and disorderMaxBound given below. 
+  //For AlphaFold, setting disorderMinBound less than 0 and disorderMaxBound to 50 gets the suggested limits.
+  //For physical proteins see e.g. https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-018-2083-8 for a discussion of what a>
+  double m_disorderMinBound = -5; //b-factors less than this value are not recognised as disordered
+  double m_disorderMaxBound = 50; //b-factors greater than this value are not recognised as disordered.
+
+
+
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
         for (std::size_t i = 0; i < switches.size(); ++i) {
@@ -167,6 +176,27 @@ public:
             m_savePotentials =AsInt(values[i]) ;
              std::cout <<"Enabled saving UA potentials \n";
             }
+
+           else if( keys[i] == "disorder-strategy"){
+            m_disorderStrat =AsInt(values[i]) ;
+            if(m_disorderStrat == 1){
+             std::cout <<"Disorder strategy: shift to COM \n";
+              }
+              else if(m_disorderStrat == 2){
+            std::cout <<"Disorder strategy: shift to COM and ignore \n";
+              }
+            else{
+                    std::cout <<"Disorder strategy: proceed as normal \n";    
+            m_disorderStrat = 0;
+            }
+            }
+            else if(keys[i] == "disorder-minbound"){
+            m_disorderMinBound = AsDouble(values[i]);
+            }
+            else if(keys[i] == "disorder-maxbound"){
+            m_disorderMaxBound = AsDouble(values[i]);
+            }
+
 
             else if (keys[i] == "np-type") {
                 std::cout << "npType " << values[i] << "\n";

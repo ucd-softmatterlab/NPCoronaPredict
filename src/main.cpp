@@ -128,6 +128,7 @@ void PrintStatistics(const double *adsorption_energy, const double *adsorption_e
     long double     T               = 0.0;
     long double     Z               = 0.0;
     double sinThetaTot = 0.0;
+    double minEnergy = 50.0;
     for (int i = 0; i < iterations; ++i) {
         sin_theta       = std::sin((i / ncols) * angle_delta);
         T               += adsorption_energy[i] * sin_theta * std::exp(-1.0 * adsorption_energy[i]);
@@ -135,15 +136,23 @@ void PrintStatistics(const double *adsorption_energy, const double *adsorption_e
         simpleAverage   += sin_theta * adsorption_energy[i];
         error           += sin_theta * adsorption_error[i];
         sinThetaTot     += sin_theta;
+        if(adsorption_energy[i] < minEnergy){
+        minEnergy = adsorption_energy[i];
+        }
     }
 
     simpleAverage   /= sinThetaTot;
     error           /= iterations;
+    double boltzAverage = T/Z;
+    if(isnan(boltzAverage)){
+    boltzAverage = minEnergy;
+    }
+
 
     std::cout << std::setw(10) << std::left << TargetList::Filename(filename);
     std::cout << std::setw(10) << std::fixed << std::setprecision(1) << radius;
     std::cout << std::setw(14) << std::fixed << std::setprecision(5) << simpleAverage;
-    std::cout << std::setw(14) << std::fixed << std::setprecision(5) << (T/Z);
+    std::cout << std::setw(14) << std::fixed << std::setprecision(5) << boltzAverage;
     std::cout << std::setw(14) << std::fixed << std::setprecision(5) << error;
     std::cout << std::endl;
 }
@@ -297,14 +306,24 @@ void Sum (const int size, double* result, double *arr) {
 //note that for this integration routine and all others, "ssd" is actually the distance between the centre of the NP and the closest point of the protein.
 void Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption,double temperature) {
     long double area = 0.0;
-
+    double minEnergy = 500.0;
     for (int i = 0; i < size; ++i) {
         double energyDiff = energy[i] - init_energy;
-        
+        if(energyDiff < minEnergy){
+        minEnergy = energyDiff;
+        }
         area += static_cast<long double>(ssd[i] * ssd[i] * dz) * std::exp(static_cast<long double>(-1.0 * (energyDiff))); 
     }
     const double factor = 3.0 / std::fabs(std::pow(ssd[0], 3.0) - std::pow(ssd[size - 1], 3.0));
-    *adsorption = -1.0 * (temperature/300.0) * std::log(factor * area);
+   
+
+    double adsorptionEnergy = -1.0 * (temperature/300.0) * std::log(factor * area);
+    if(isnan(adsorptionEnergy)){
+    adsorptionEnergy = minEnergy;
+    }
+    *adsorption = adsorptionEnergy;
+
+
 }
 
 
@@ -802,7 +821,7 @@ int main(const int argc, const char* argv[]) {
     HamakerConstants  hamakerConstants(config.m_hamakerFile);
     TargetList        targetList(config.m_pdbTargets);
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
-    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap());
+    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  , config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound);
 
     
     // config.m_npTargets is a list of strings - targets to look at for .np files 
