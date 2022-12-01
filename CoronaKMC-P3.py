@@ -287,9 +287,11 @@ parser.add_argument('-n','--numnp',help="Number of NPs to simulate simultaneousl
 parser.add_argument('-x','--npconc',help="Concentration of NPs", default = 0, type=float)
 parser.add_argument('-H','--hardsphere',help="Enable true hard sphere modelling", default = 0, type=int)
 parser.add_argument('--demo',help="Enable the live demo mode", default = 0, type = int)
-parser.add_argument('--timedelta',help="Time step [s] between showing updates", default = 10.0, type=float)
+parser.add_argument('--timedelta',help="Time step [s] between showing updates", default = 1e-5, type=float)
 parser.add_argument('-l','--loadfile',help="KMC file for previous run (precoating)", default="")
+parser.add_argument('-P','--projectname',help="Name for project", default="testproject")
 
+doMovie = False
 args = parser.parse_args()
 endTime = args.time*3600
 
@@ -546,9 +548,16 @@ if meanFieldApprox == 1:
 else:
     mfTag = "hs"
 
-os.makedirs("corona_results_testing",exist_ok=True)
-finalName = "corona_results_testing/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
-runningName ="corona_results_testing/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+coronaSaveDir = "corona_results/"+args.projectname
+
+os.makedirs(coronaSaveDir,exist_ok=True)
+
+if doMovie==True:
+    os.makedirs(coronaSaveDir+"/movie",exist_ok=True)
+
+finalName = coronaSaveDir+"/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+runningName = coronaSaveDir+"/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
+
 
 runningFile = open(runningName, "w")
 runningFileHeader = ",".join( [a for a in uniqueProteins])
@@ -668,8 +677,8 @@ while t < endTime:
                 zp = (shadowOffset+npRadius) * z /(pointRadius)
                 #ax3.plot_surface(xp,yp,zp, color="C"+str(upIndex)) 
             plt.pause(0.05)
-
-            plt.savefig("kmc_movie/frame_"+str(updateNum)+".png")
+            if doMovie == True:
+                plt.savefig(coronaSaveDir+"/movie/frame_"+str(updateNum)+".png")
             updateNum+=1
     #next, diffuse proteins around the surface if enabled
     if doShuffle != 0 and npShape==1:
@@ -791,7 +800,7 @@ print( "Number adsorbed: " , len(stateArray))
 print( outputTranspose.shape )
 
 
-coordFileOut = open("corona_results_testing/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
+coordFileOut = open(coronaSaveDir+"/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
 coordFileOut.write("#Protein type, x, y, z \n")
 for i in range(len(stateArray)):
     coordData = outputTranspose[i] 
@@ -808,7 +817,7 @@ coordFileOut.close()
 #state:
 #ID, C1, C2, NP
 
-kmcFileOut=open("corona_saves/"+outputTag+"_"+str(npRadius)+".kmc","w")
+kmcFileOut=open(coronaSaveDir+"/"+outputTag+"_"+str(npRadius)+".kmc","w")
 kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
 for i in range(len(stateArray)):
     proteinID = stateArray[i,0].astype(int)
