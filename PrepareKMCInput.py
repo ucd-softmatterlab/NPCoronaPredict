@@ -21,6 +21,7 @@ import os
 NPRadius = 5
 NPZeta = 0
 NPMaterial = "anatase101"
+CGBeadFile = "beadsets/StandardAABeadSet.csv"
 CoronaSimTime = 1e-5
 
 
@@ -151,7 +152,7 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder"
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile
 print(UACommandString)
 
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
