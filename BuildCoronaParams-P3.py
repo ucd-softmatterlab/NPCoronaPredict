@@ -3,6 +3,7 @@ import scipy.optimize as scopt
 import scipy.spatial as scispat
 import scipy.integrate as scint
 import scipy.special as scspec
+import os
 
 import argparse
 
@@ -283,4 +284,8 @@ for proteinData in concentrationData:
         if args.verbose == 1:
             print(proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
 
-np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
+
+os.makedirs("cg_corona_data",exist_ok=True)
+np.savetxt("cg_corona_data/"+energyMapFolder+".csv", np.array(outputSet) , fmt="%s")
+
+#np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
