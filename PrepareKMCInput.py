@@ -156,7 +156,7 @@ UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(N
 print(UACommandString)
 
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+"_"+str(round(NPRadius))+"_"+str(round(NPZeta))+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
+KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
 
 print(BCPCommandString)
 print(KMCCommandString)
