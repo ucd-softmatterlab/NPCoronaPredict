@@ -285,7 +285,8 @@ for proteinData in concentrationData:
             print(proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
 
 
-os.makedirs("cg_corona_data",exist_ok=True)
+os.makedirs("cg_corona_data/"+"/".join(energyMapFolder.split("/")[:-1]),exist_ok=True)
+#"/".join(energyMapFolder.split("/")[:-1])
 np.savetxt("cg_corona_data/"+energyMapFolder+".csv", np.array(outputSet) , fmt="%s")
 
 #np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")
