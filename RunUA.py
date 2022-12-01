@@ -3,7 +3,7 @@ import argparse
 
 
 
-
+'''
 materialSet = {
 "silicaquartz": ["surface/SiO2-Quartz","hamaker/SiO2_Quartz.dat",1],
 "silicaamorph" :[ "surface/SiO2-Amorphous","hamaker/SiO2_Amorph.dat",1],
@@ -32,8 +32,18 @@ materialSet = {
 "bi-graphene":[ "surface/bi-graphene", "hamaker/Graphene.dat",1],
 "tri-graphene":[ "surface/tri-graphene", "hamaker/Graphene.dat",1]
 }
-
-
+'''
+materialSet = {}
+materialFile = open("MaterialSet.csv","r")
+for line in materialFile:
+    if line[0] == "#":
+        continue
+    lineTerms = line.split(",")
+    if len(lineTerms)<4:
+        print("Problem reading material line: ", line)
+        continue
+    materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
+print(materialSet)
 parser = argparse.ArgumentParser(description="Parameters for UA Config File Generation")
 parser.add_argument('--operation-type', required = True, choices = ['pdb' , 'pdb-folder'], type = str, help = 'Currently only \'pdb\' or pdb-folder are valid')
 parser.add_argument("-p","--input-file",  required=True, help="Path to protein PDB file")
@@ -53,6 +63,8 @@ if args.material in materialSet:
     canRun = 1
 else:
     print("An error has occured, cancelling run. Please check material name again.")
+    print("Input material: ", args.material)
+    print("Known materials: ", materialSet.keys)
     quit()
 
 outputConfigFile = open("uaconfigautogen.config","w")

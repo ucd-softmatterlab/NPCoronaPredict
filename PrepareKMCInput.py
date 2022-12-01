@@ -23,14 +23,29 @@ NPZeta = 0
 NPMaterial = "anatase101"
 CoronaSimTime = 1e-5
 
-availableMaterials = ["silicaquartz","silicaamorph","anatase100","anatase101","rutile110","rutile100",
-                      "fe2o3","CdSe","gold","carbonblack"]
+
+availableMaterials = []
+materialFile = open("MaterialSet.csv","r") 
+for line in materialFile:
+    if line[0] == "#":
+        continue
+    lineTerms = line.split(",")
+    if len(lineTerms)<4:
+        print("Problem reading material line: ", line)
+        continue
+    availableMaterials.append(lineTerms[0])
+    
+    #materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
+#print(materialSet)
+print(availableMaterials)
+
+#availableMaterials = ["silicaquartz","silicaamorph","anatase100","anatase101","rutile110","rutile100","fe2o3","CdSe","gold","carbonblack"]
 if NPMaterial not in availableMaterials:
-    print("Could not find material, check the spelling. ")
+    print("Could not find material ", NPMaterial, " check the spelling. ")
     raise ValueError("End")
 
 
-ProjectName = "testproject-anatase"
+ProjectName = "testproject-anatase-oct"
 ProteinStorageFolder = "all_proteins"
 ProteinWorkingFolder = "proteins_"+ProjectName
 UAResultsFolderBase = "results_"+ProjectName
