@@ -30,3 +30,4 @@ redgrapheneoxide-hollow,surface/redgrapheneoxide,hamaker/Null.dat,1
 graphene-hollow,surface/graphene,hamaker/Null.dat,1
 bi-graphene-hollow,surface/bi-graphene,hamaker/Null.dat,1
 tri-graphene-hollow,surface/tri-graphene,hamaker/Null.dat,1
+peg-pmfp,surface_pmfp/Au-001-PEG-pmfp,hamaker/Null.dat,1
