@@ -836,8 +836,13 @@ int main(const int argc, const char* argv[]) {
     
     
     std::string configFileIn = commandLine.ConfigFileName();
-    boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_options::overwrite_existing);
+    //Uncomment this line to re-enable config file saving
+    //boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_options::overwrite_existing);
     
+    //Or uncomment this line if you're on Ubuntu 18.04 and Boost is locked to a version with the slightly different naming convention that they then changed
+    // boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_option::overwrite_if_exists);
+
+
      //generate some NPs 
         std::string npFileDir = config.m_outputDirectory+"/nps/"+config.m_configFile +  "_NPs";
               boost::filesystem::create_directory(npFileDir);
