@@ -290,6 +290,7 @@ parser.add_argument('--demo',help="Enable the live demo mode", default = 0, type
 parser.add_argument('--timedelta',help="Time step [s] between showing updates", default = 1e-5, type=float)
 parser.add_argument('-l','--loadfile',help="KMC file for previous run (precoating)", default="")
 parser.add_argument('-P','--projectname',help="Name for project", default="testproject")
+parser.add_argument('-R','--runningfile',help="Save output snapshots", default=0, type=int)
 
 doMovie = False
 args = parser.parse_args()
@@ -327,16 +328,17 @@ numNPs = args.numnp #10
 if npShape == 1:
     print("Spherical NP")
     npSurfaceArea = 4*np.pi * args.radius**2
+    thetaMax = np.pi
 elif npShape == 2:
     print("Cylindrical NP")
     npSurfaceArea = (2*cylinderHalfLength)*2*np.pi * args.radius
 elif npShape == 3:
     print("Truncated sphere")
     surfaceFraction = 0.1 #must be between 0 and 1
-    thetaMax =  np.acos( 1 - 2* surfaceFraction) # np.pi/8
+    thetaMax =  np.arccos( 1 - 2* surfaceFraction) # np.pi/8
     vmax = 1
     vlower = 0.5*(1 + np.cos(thetaMax) )
-    npSurfaceArea =  2 * pi * args.radius**2 * (1 - np.cos(thetaMax) )
+    npSurfaceArea =  2 * np.pi * args.radius**2 * (1 - np.cos(thetaMax) )
 else:
     print("Shape not recognised, defaulting to spherical")
     npShape = 1
@@ -632,6 +634,9 @@ while t < endTime:
         #print state
         lastUpdate += updateInterval
         if args.demo==1:
+            shapeClass = "sphere"
+            if npShape == 2:
+                shapeClass = "cylinder"
             resArray = np.array(resList)
             ax1.clear()
             for i in range(len(uniqueProteins)):
@@ -640,11 +645,22 @@ while t < endTime:
             ax1.set_ylabel("Num. absorbed")
             ax1.legend()
             ax2.clear()
-            u = np.linspace(0, 2 * np.pi, 20)
-            v = np.linspace(0, np.pi, 20)
-            x = npRadius * np.outer(np.cos(u), np.sin(v))
-            y = npRadius * np.outer(np.sin(u), np.sin(v))
-            z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
+            if shapeClass == "sphere":
+                u = np.linspace(0, 2 * np.pi, 20)
+                v = np.linspace(0, thetaMax, 20)
+                x = npRadius * np.outer(np.cos(u), np.sin(v))
+                y = npRadius * np.outer(np.sin(u), np.sin(v))
+                z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
+            elif shapeClass == "cylinder":
+                u = np.linspace(0,2*np.pi,20)
+                v = np.linspace(-1,1,20,endpoint=True)
+                x = npRadius * np.outer(np.cos(u), np.ones(np.size(v)))
+                y = npRadius * np.outer(np.sin(u), np.ones(np.size(v)))
+                print("NP surface element coords")
+                print(x)
+                print(y)
+                z = cylinderHalfLength* np.outer(np.ones(np.size(u)), v)
+                print(z)
             ax2.plot_surface(x, y, z,color='gray')            
             plotBound = npRadius + largestProteinRadius
             ax2.set_xlim3d( -plotBound ,plotBound)
@@ -659,9 +675,14 @@ while t < endTime:
                 proteinName = proteinNames[currentProtein[0]]
                 upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
                 proteinRadius = proteinData[ currentProtein[0] ,1]
-                proteinX = (proteinRadius + npRadius)*np.cos( currentProtein[1] ) * np.sin(currentProtein[2])
-                proteinY = (proteinRadius + npRadius)*np.sin( currentProtein[1] ) * np.sin(currentProtein[2])
-                proteinZ = (proteinRadius + npRadius)*np.cos(currentProtein[2] )
+                if shapeClass == "sphere":
+                    proteinX = (proteinRadius + npRadius)*np.cos( currentProtein[1] ) * np.sin(currentProtein[2])
+                    proteinY = (proteinRadius + npRadius)*np.sin( currentProtein[1] ) * np.sin(currentProtein[2])
+                    proteinZ = (proteinRadius + npRadius)*np.cos(currentProtein[2] )
+                else:
+                    proteinX = (proteinRadius + npRadius)*np.cos( currentProtein[1] ) 
+                    proteinY = (proteinRadius + npRadius)*np.sin( currentProtein[1] ) 
+                    proteinZ = (currentProtein[2] )
                 u = np.linspace(0, 2 * np.pi, 20)
                 v = np.linspace(0, np.pi, 20)
                 x = proteinX + proteinRadius * np.outer(np.cos(u), np.sin(v))
