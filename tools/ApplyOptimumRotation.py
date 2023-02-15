@@ -48,8 +48,10 @@ def getRotationMatrix(phi,theta):
 parser = argparse.ArgumentParser(description = "Settings for rotating PDB")
 parser.add_argument("-p", "--proteinfile", help="Path to initial protein .pdb structure")
 parser.add_argument("-u", "--uafile", help="Path to UA heatmap in .uam format")
-parser.add_argument("-z", "--zoffset", help="Additional offset to apply along z axis in Angstrom",default=0)
+parser.add_argument("-z", "--zoffset", help="Additional offset to apply along z axis in nm",default=0)
 parser.add_argument("-o", "--outputfolder", help="Folder to save output",default="rotated_pdbs") 
+parser.add_argument("-R", "--radius", help="NP radius in nm", default=20)
+parser.add_argument("-s", "--shiftradius", help="If non-zero, shift protein by NP radius", default = 0)
 args = parser.parse_args()
 
 
@@ -57,9 +59,12 @@ npRadius = 0 #an additional offset to apply
 #Tetra.pdb is a test "protein" using the CHL and PHO residues arranged in a tetrahedron with 3 CHL and 1 PHO. CHL carries a +1 charge and PHO a -1 charge, so we expect the orientation with PHO facing away from the NP to occur on NPs with -ve zeta potential and PHO in contact with the NP on NPs of +ve zeta potential
 proteinStructurePath = args.proteinfile
 proteinHeatmapPath = args.uafile
-npRadius = args.zoffset
+npRadius = float(args.radius) * 10
+zoffset = float(args.zoffset) * 10
 outputFolder = args.outputfolder
-
+shiftRadius = 0
+if int(args.shiftradius) != 0:
+    shiftRadius = 1
 
 parser = PDBParser(PERMISSIVE=1)
 sup = Superimposer()
@@ -112,19 +117,34 @@ for atom in proteinStructure.get_atoms():
     coordsFinal = [xrot,yrot,zrot]
     atom.set_coord(coordsFinal)
 
+
+beadNPDistanceSet = []
 #finally shift along z to the target location
 for atom in proteinStructure.get_atoms():
    coords0 = atom.get_coord()
    #print(coords0)
-   zshift = coords0[2] - zmin + optimalBindingLine[4] + npRadius
+   zshift = coords0[2] - zmin + optimalBindingLine[4]*10  + zoffset + shiftRadius*npRadius
+   zshiftNP = coords0[2] - zmin + optimalBindingLine[4]*10  + zoffset +  npRadius
    atom.set_coord( [ coords0[0], coords0[1], zshift])
+   if atom.get_name() == "CA":
+       atomOffsetDist = np.sqrt(  coords0[0]**2 + coords0[1]**2 + zshiftNP**2  ) - npRadius
+       residueID = atom.get_parent()
+       
+       #print( residueID.__repr__(),residueID.get_resname(), atomOffsetDist)
+       beadNPDistanceSet.append( [residueID.get_resname(), 0.1*atomOffsetDist])
+beadNPDistanceSet.sort( key = lambda x: float(x[1]) )
+print(beadNPDistanceSet)
 
 #save the output
 io.set_structure(proteinStructure)
+os.makedirs(outputFolder,exist_ok = True)
 print("Saving to: ", outputFolder+"/"+proteinNPID+"_opt.pdb")
 io.save(outputFolder+"/"+proteinNPID+"_opt.pdb")
-
-
+outFile = open( outputFolder+"/"+proteinNPID+"_beaddists.csv","w")
+outFile.write("#Type,distance[nm]\n")
+for bead in beadNPDistanceSet:
+    outFile.write( bead[0]+","+str(bead[1]) +"\n")
+outFile.close()
 
 #(rawCoords,resNames) =getAtomCoordsNames(proteinStructurePath)
 #mean-center protein, convert to NM
