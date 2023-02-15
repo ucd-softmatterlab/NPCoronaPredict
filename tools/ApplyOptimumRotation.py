@@ -34,7 +34,7 @@ def rotatePDB(coords,phi,theta):
     return finalCoords
 
 def getRotationMatrix(phi,theta):
-    rxx = np.cos(theta)*np.sin(phi)
+    rxx = np.cos(theta)*np.cos(phi)
     rxy = -1 * np.cos(theta)*np.sin(phi)
     rxz = np.sin(theta)
     ryx = np.sin(phi)
@@ -75,7 +75,19 @@ proteinHeatmapData     = np.genfromtxt(proteinHeatmapPath)
 proteinHeatmapData[:,0] = proteinHeatmapData[:,0] + 2.5 #UA orientation output is left-hand bin edges, this pushes it back to centre-bin edges
 proteinHeatmapData[:,1] = proteinHeatmapData[:,1] + 2.5
 optimalBindingLine = proteinHeatmapData[ np.argmin( proteinHeatmapData[:,2]   ) ]
-#print(optimalBindingLine)
+
+sinthetaVals = np.sin( proteinHeatmapData[:,1] * np.pi / 180.0)
+simpleAverage = np.sum( proteinHeatmapData[:,2] * sinthetaVals )/np.sum(   sinthetaVals  )
+boltzAverage = np.sum( proteinHeatmapData[:,2] * sinthetaVals *np.exp(-1.0 * proteinHeatmapData[:,2]))/np.sum(   sinthetaVals *np.exp(-1.0 * proteinHeatmapData[:,2]))
+
+
+print("Protein binding energy stats: ")
+print("Minimum energy: ", optimalBindingLine[2])
+print("Simple average: ", simpleAverage)
+print("Boltzmann average: ", boltzAverage)
+print(optimalBindingLine)
+
+
 minTheta = optimalBindingLine[1]
 minPhi = optimalBindingLine[0]
 
