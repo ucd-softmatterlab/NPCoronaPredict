@@ -195,7 +195,7 @@ proteinDataOriginal = np.array([
 #the PDB ID is used to find the corresponding UA output file.
 
 
-concentrationData = np.genfromtxt(args.proteins,delimiter=",",dtype=np.str,skip_header=1)
+concentrationData = np.genfromtxt(args.proteins,delimiter=",",dtype=str,skip_header=1)
 #print concentrationData
 #if len(concentrationData) < 2:
 #    concentrationData =np.array([concentrationData])
