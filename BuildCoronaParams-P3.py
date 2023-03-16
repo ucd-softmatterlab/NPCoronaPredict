@@ -105,6 +105,26 @@ def rotatePDB(coords,phiVal,thetaVal):
     finalCoords[:,2] = -1.0 * rotCoords[:,0] * np.sin(thetaRotated) + rotCoords[:,2] * np.cos(thetaRotated)
     return finalCoords
 
+
+def rotatePDB3(coords,phiVal,thetaVal,omegaVal):
+    phiRotated =  -phiVal
+    thetaRotated = np.pi - thetaVal
+    omegaRotated = omegaVal
+    rotCoords = np.copy(coords)
+    rotCoords[:,0] = coords[:,0] * np.cos(phiRotated) - coords[:,1] * np.sin(phiRotated)
+    rotCoords[:,1] = coords[:,0] * np.sin(phiRotated) + coords[:,1] * np.cos(phiRotated)
+    finalCoords = np.copy(rotCoords)
+    finalCoords[:,0] = rotCoords[:,0] * np.cos(thetaRotated) + rotCoords[:,2] * np.sin(thetaRotated)
+    finalCoords[:,2] = -1.0 * rotCoords[:,0] * np.sin(thetaRotated) + rotCoords[:,2] * np.cos(thetaRotated)
+
+    finalCoords2 = np.copy(finalCoords)
+    finalCoords2[:,0] = finalCoords[:,0] * np.cos(omegaRotated) - finalCoords[:,1] * np.sin(phiRotated)
+    finalCoords2[:,1] = finalCoords[:,0] * np.sin(phiRotated) + finalCoords[:,1] * np.cos(phiRotated)
+
+
+    return finalCoords2
+
+
 def CalculateBoltzArea(filename,pdbFile):
     data     = np.genfromtxt(filename)
     rawCoords =  getAtomCoords(pdbFile)*0.1 # convert to nm
@@ -163,7 +183,7 @@ def bindingAreaCylinder(rnp,ri):
     return ri*rnp* 4 * np.sqrt(  rnp*(2 + rnp/ri)/ri    ) * (  scspec.ellipe(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri) )) - scspec.ellipk(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri))  )  )
 
 def cylinderRadiusWrapperFunc(ri,area,rnp):
-    return area - bindingAreaCylinder(np.sqrt(ri**2),rnp)
+    return (area - bindingAreaCylinder(np.sqrt(ri**2),rnp))**2
 
 
 parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
@@ -175,6 +195,7 @@ parser.add_argument('-s','--shape',type=int,help="NP shape: 1 = sphere 2 = cylin
 parser.add_argument('-p','--proteins',type=str,help="protein definition file",default="ProteinConcs.csv")
 parser.add_argument('-c','--coordfolder',type=str,help="location of PDB files",default="pdbs/All")
 parser.add_argument('-v','--verbose',type=int,help="verbose",default=0)
+parser.add_argument('-n','--nullfile',type=int,default=0,help="Write out the null corona input (planar projection, zero binding energy)")
 args = parser.parse_args()
 
 
@@ -221,6 +242,11 @@ npShape = args.shape
 if npShape !=1 and npShape !=2:
     npShape = 1
 
+doNullCorona = False
+if args.nullfile != 0:
+    doNullCorona = True
+    outputSetNull = []
+    nullCoronaDenom = 1
 proteinIDList = []
 proteinDataList = []
 
@@ -230,11 +256,27 @@ averageValSet = []
 
 for proteinData in concentrationData:
     #print(proteinData[0] )
-    filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
-    print("looking for: ", filename)
-    #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
+    if npShape==1:
+        filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
+        print("looking for: ", filename)
+        #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
+        #rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
+        data     = np.genfromtxt(energyMapFolder+"/"+filename)
+        omegaSet = np.reshape( np.zeros_like(data[:,0]), (-1,1) )
+        data = np.concatenate( (data,omegaSet) , axis=1)
+    else:
+        alldatafiles = []
+        for omega in [0,45,90,135]:
+            filename = proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+"_"+str(omega)+".uam"
+            print("Looking for: ", filename)
+            newdata = np.genfromtxt(energyMapFolder+"/"+filename)
+            omegaSet = np.reshape( np.zeros_like(newdata[:,0]) + omega, (-1,1))
+            #print(omegaSet)
+            newdata = np.concatenate( (newdata, omegaSet) ,axis=1)
+            alldatafiles.append(newdata)
+        data = np.concatenate(alldatafiles,axis=0)
+    #print(data[0:2])
     rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
-    data     = np.genfromtxt(energyMapFolder+"/"+filename)
     thetaOffset = (np.amax(data[1:,1] - data[0:-1,1]))/2.0 #UA output gives the left-edge of the bin containing the angular orientations, this corrects for that
     phiOffset = (np.amax(data[1:,0] - data[0:-1,0]))/2.0 #UA output gives the left-edge of the bin containing the angular orientations, this corrects for that
     #print thetaOffset
@@ -252,9 +294,10 @@ for proteinData in concentrationData:
         theta    = orientation[1]
         phi      = orientation[0]
         energy   = orientation[2]
+        omega = orientation[-1]
         #nameList.append( proteinData[0]+":"+str(theta)+"-"+str(phi) )
         sinTheta = np.sin(theta * np.pi / 180.0)
-        rotatedCoords = rotatePDB(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0)
+        rotatedCoords = rotatePDB3(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0, omega*np.pi/180.0)
         if npShape == 1:
             projectedArea = projectOntoSphere(rotatedCoords, npRadius) #gets the projected area of the protein
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
@@ -265,6 +308,9 @@ for proteinData in concentrationData:
             #print scopt.root(  cylinderRadiusWrapperFunc, radiusApprox, args=(projectedArea,npRadius) )
             optRes= scopt.minimize(  cylinderRadiusWrapperFunc, np.sqrt( projectedArea/np.pi), args=(projectedArea, npRadius),tol=0.01 )
             effectiveRadius3D= np.abs( (optRes.x)[0])
+            if effectiveRadius3D > radiusApprox:
+                effectiveRadius3D = radiusApprox #cap the effective radius to the value computed from the projected area 
+            #print("First approx: ", radiusApprox, " second approx: ", effectiveRadius3D)
             #effectiveRadius = np.sqrt(projectedArea/np.pi) #figure out how to do this for the cylindrical projection!
         else:
             projectedArea = projectOntoSphere(rotatedCoords,npRadius)
@@ -283,10 +329,27 @@ for proteinData in concentrationData:
         outputSet.append([proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea])
         if args.verbose == 1:
             print(proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadius3D, konApprox, koffApprox, energy, projectedArea)
-
-
+        if doNullCorona == True:
+            projectedAreaPlane = projectOntoSphere(rotatedCoords,npRadius+500.0)
+            effectiveRadiusPlane = np.sqrt(projectedAreaPlane/np.pi)
+            outputSetNull.append([proteinData[0], proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadiusPlane, konApprox, konApprox, 0, projectedAreaPlane])
 os.makedirs("cg_corona_data/"+"/".join(energyMapFolder.split("/")[:-1]),exist_ok=True)
 #"/".join(energyMapFolder.split("/")[:-1])
 np.savetxt("cg_corona_data/"+energyMapFolder+".csv", np.array(outputSet) , fmt="%s")
-
+if doNullCorona == True:
+    nullConcArray = np.array(outputSetNull)
+    np.savetxt("cg_corona_data/"+energyMapFolder+"_nullcorona.csv", nullConcArray , fmt="%s")
+    allConcs = nullConcArray[:,2].astype(float)
+    mfDenom = 1.0 + np.sum(allConcs)
+    numBindingSites = 1.0 / ( nullConcArray[:,7].astype(float)) #num binding sites per nm^2 implicitly
+    mfProteinNums = allConcs*numBindingSites/mfDenom
+    uniqueProteins = np.unique(nullConcArray[:,0])
+    proteinNumberDict = {}
+    for up in uniqueProteins:
+        proteinNumberDict[up] = 0
+    for i in range(len(nullConcArray[:,0])):
+        proteinNumberDict[nullConcArray[i,0] ] += mfProteinNums[i]
+    print(proteinNumberDict)
+    
+    #write out the steady-state mean-field corona prediction 
 #np.savetxt("cg_corona_data/"+energyMapFolder+"_"+str(int(npRadius))+"_"+str(int(npZp))+".csv", np.array(outputSet) , fmt="%s")

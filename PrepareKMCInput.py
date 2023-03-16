@@ -14,18 +14,30 @@
 
 
 import os
+import argparse
+
+
+parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
+parser.add_argument('-r','--radius',type=float,help="Radius of the NP",default=5)
+parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP",default=0)
+parser.add_argument('-m','--material',type=str,help="Material",default="anatase101")
+parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
+parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of other proteins to include in format ID,concentration" , default="")
+parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable)", default=1)
+args = parser.parse_args()
 
 
 #Define some naming conventions used throughout the setup.
 
-NPRadius = 5
-NPZeta = 0
-NPMaterial = "anatase101"
+NPRadius = int(args.radius)
+NPZeta = int(args.zeta)
+NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
 CoronaSimTime = 1e-5
-
+isCylinder = False
 
 availableMaterials = []
+materialDefs = {}
 materialFile = open("MaterialSet.csv","r") 
 for line in materialFile:
     if line[0] == "#":
@@ -35,7 +47,7 @@ for line in materialFile:
         print("Problem reading material line: ", line)
         continue
     availableMaterials.append(lineTerms[0])
-    
+    materialDefs[ lineTerms[0] ] = lineTerms
     #materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
 #print(materialSet)
 print(availableMaterials)
@@ -45,8 +57,11 @@ if NPMaterial not in availableMaterials:
     print("Could not find material ", NPMaterial, " check the spelling. ")
     raise ValueError("End")
 
-
-ProjectName = "testproject-anatase-oct"
+npShape=int(materialDefs[NPMaterial][3])
+if npShape == 2 or  npShape == 4 or npShape == 5:
+    isCylinder = True
+    print("Enabling cylinder mode")
+ProjectName = args.projectname
 ProteinStorageFolder = "all_proteins"
 ProteinWorkingFolder = "proteins_"+ProjectName
 UAResultsFolderBase = "results_"+ProjectName
@@ -85,6 +100,21 @@ PDBProteinSet = [
 #Structures for these are taken directly from the storage folder
 OtherProteinSet =[
 ]
+
+
+proteinItNum = 0
+loadSerumFile = "" 
+if args.otherproteins != "":
+    loadSerumFile = args.otherproteins # "daphnia_serum/daphnia_serum_mass1.0_fixedmassfrac.csv"
+if loadSerumFile!= "":
+    serumFile = open(loadSerumFile,"r")
+    for line in serumFile:
+        if line[0]=="#":
+            continue
+        lineTerms = line.strip().split(",")
+        proteinItNum+=1
+        OtherProteinSet.append([ lineTerms[0],lineTerms[1],"P"+str(proteinItNum) ])
+
 
 
 AllProteins = []
@@ -142,7 +172,8 @@ for proteinLine in AllProteins:
     if foundProtein == 1:
         successfulProteins.append(proteinLine)
 
-
+if len(successfulProteins) == 0:
+     raise ValueError("No proteins were found. Please check again")
 serumOutputFile = open(ProjectName+"_serum.csv","w")
 serumOutputFile.write("#ProteinID, NumberConcentration\n")
 for protein in successfulProteins:
@@ -158,6 +189,12 @@ print(UACommandString)
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
 KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
 
+if isCylinder == True:
+    print("Adding cylinder argument")
+    BCPCommandString = BCPCommandString+" -s 2"
+    KMCCommandString = KMCCommandString+" -s 2"
+
+
 print(BCPCommandString)
 print(KMCCommandString)
 print("If python3 isn't installed, use python BuildCoronaParams.py, python CoronaKMC.py instead")
@@ -165,10 +202,10 @@ print("If python3 isn't installed, use python BuildCoronaParams.py, python Coron
 
 # In[15]:
 
-
-os.system(UACommandString)
-os.system(BCPCommandString)
-os.system(KMCCommandString)
+if args.autorun != 0:
+    os.system(UACommandString)
+    os.system(BCPCommandString)
+    os.system(KMCCommandString)
 
 
 # In[ ]:
