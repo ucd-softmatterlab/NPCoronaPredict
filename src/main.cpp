@@ -669,7 +669,7 @@ else{
 cylinderFileNameAppend = "";
 }
 
-  std::cout<<phi << " " << theta << "\n";
+  //std::cout<<phi << " " << theta << "\n";
           filename = outputdirectory + "/" + npName + "/"+ pdbname + "_"+std::to_string(static_cast<int>(radius)) + "_" + std::to_string(static_cast<int>(1000 * zeta))+ "_" + std::to_string(static_cast<int>(phi*180/M_PI))+ "_" + std::to_string(static_cast<int>(theta*180/M_PI))+ cylinderFileNameAppend  +".uap";
     std::ofstream handle(filename.c_str());
              handle<<"#ssd,E(kbT)\n";
@@ -878,7 +878,7 @@ int main(const int argc, const char* argv[]) {
     for( const auto& np: nps){
     std::string npEnergyDir = config.m_outputDirectory+"/"+np.m_name;
     boost::filesystem::create_directory(npEnergyDir);
-    double zetaPotential = 0;
+    double zetaPotential = np.m_zetaName;
     double nanoparticleBoundingRadius;
     double nanoparticleOuterBoundingRadius;
     if(config.m_boundingRadius < 0){

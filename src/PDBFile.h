@@ -63,6 +63,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
                 y.emplace_back(0.1 * std::stod(line.substr(38, 8)));
                 z.emplace_back(0.1 * std::stod(line.substr(46, 8)));
+                //std::cout << 0.1 * std::stod(line.substr(30, 8)) << "," << 0.1 * std::stod(line.substr(38, 8)) << "," << 0.1 * std::stod(line.substr(46, 8))<<"\n";
                 //std::cout << line << "\n";
                 //std::cout << line.substr(56,4) << "\n";
                 occupancy.emplace_back(  std::stod(line.substr(54,6)));

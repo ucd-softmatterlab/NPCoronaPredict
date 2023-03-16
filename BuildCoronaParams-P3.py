@@ -187,8 +187,8 @@ def cylinderRadiusWrapperFunc(ri,area,rnp):
 
 
 parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
-parser.add_argument('-r','--radius',type=float,help="Radius of the NP",default=19)
-parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP",default=0)
+parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",default=19)
+parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
 parser.add_argument('-a','--average',type=float,help="average over orientations (does nothing right now)",default=0)
 parser.add_argument('-f','--folder',type=str,help="folder containing UA heatmaps",default="results_anatase_alltargets_sphere")
 parser.add_argument('-s','--shape',type=int,help="NP shape: 1 = sphere 2 = cylinder", default=1)

@@ -315,7 +315,7 @@ if args.demo==1:
     #plt.tight_layout()
     #fig, (ax1,ax2) = plt.subplots(nrows=1,ncols=2)
 
-cylinderHalfLength = 50 #end-to-centre length of the cylinder
+cylinderHalfLength = 10 #end-to-centre length of the cylinder
 
 
 #define the molar concentration of NPs and the number to explicitly simulate

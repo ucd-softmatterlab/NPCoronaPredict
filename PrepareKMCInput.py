@@ -18,8 +18,8 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
-parser.add_argument('-r','--radius',type=float,help="Radius of the NP",default=5)
-parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP",default=0)
+parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",default=5)
+parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
 parser.add_argument('-m','--material',type=str,help="Material",default="anatase101")
 parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
 parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of other proteins to include in format ID,concentration" , default="")
@@ -29,8 +29,8 @@ args = parser.parse_args()
 
 #Define some naming conventions used throughout the setup.
 
-NPRadius = int(args.radius)
-NPZeta = int(args.zeta)
+NPRadius = int(args.radius) #in nm
+NPZeta = int(args.zeta) #in mV
 NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
 CoronaSimTime = 1e-5
@@ -65,7 +65,7 @@ ProjectName = args.projectname
 ProteinStorageFolder = "all_proteins"
 ProteinWorkingFolder = "proteins_"+ProjectName
 UAResultsFolderBase = "results_"+ProjectName
-UAResultsFolder = UAResultsFolderBase+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZeta*1000))
+UAResultsFolder = UAResultsFolderBase+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZeta))
 
 allFolders = [ProteinStorageFolder,ProteinWorkingFolder,UAResultsFolderBase,UAResultsFolder,"cg_corona_data"]
 for folderName in allFolders:
@@ -183,10 +183,10 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile
 print(UACommandString)
 
-BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(round(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
+BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
 KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
 
 if isCylinder == True:
