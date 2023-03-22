@@ -186,11 +186,17 @@ rstar =  aminoAcidRadius + 0.01;
               // std::cout << core << " "  <<  HamakerPotentialV2(hamaker, aminoAcidRadius, nanoparticleRadius, r, pmfCutoff) << "\n";
             }
             else if(npShape == 2 || npShape == 5){ //cylinder, defined in CylinderPotential.h, applicable to solid cylinders and MWCNT
+                  //std::cout << "calculating for " << rstar << "\n";
                 core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
+<<<<<<< HEAD
                  if(std::isnan(core) ){
                  std::cout<< "Nan generated at rstar: " << rstar << "\n";
                   }
             }
+=======
+                //std::cout << rstar << " " << core << "\n";
+ }
+>>>>>>> 1442fb17985ba88ff6fe786ed27f3ebd7efa6716
             else if(npShape == 3){//cube, defined in CubePotential.h
                 core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
             }
