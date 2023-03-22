@@ -20,6 +20,17 @@ cntNH2-2,surface/CNT15-NH2-2,hamaker/CNTFilm.dat,4
 cntNH2-14,surface/CNT15-NH2-14,hamaker/CNTFilm.dat,4
 cntNH3+-2,surface/CNT15-NH3+-2,hamaker/CNTFilm.dat,4
 cntNH3+-4,surface/CNT15-NH3+-4,hamaker/CNTFilm.dat,4
+mwcnt,surface/CNT15,hamaker/CNTFilm.dat,5
+mwcntOH4,surface/CNT15-OH-4,hamaker/CNTFilm.dat,5
+mwcntOH14,surface/CNT15-OH-14,hamaker/CNTFilm.dat,5
+mwcntCOOH3,surface/CNT15-COOH-3,hamaker/CNTFilm.dat,5
+mwcntCOOH30,surface/CNT15-COOH-30,hamaker/CNTFilm.dat,5
+mwcntCOO--3,surface/CNT15-COO--3,hamaker/CNTFilm.dat,5
+mwcntCOO--10,surface/CNT15-COO--10,hamaker/CNTFilm.dat,5
+mwcntNH2-2,surface/CNT15-NH2-2,hamaker/CNTFilm.dat,5
+mwcntNH2-14,surface/CNT15-NH2-14,hamaker/CNTFilm.dat,5
+mwcntNH3+-2,surface/CNT15-NH3+-2,hamaker/CNTFilm.dat,5
+mwcntNH3+-4,surface/CNT15-NH3+-4,hamaker/CNTFilm.dat,5
 grapheneoxide,surface/grapheneoxide,hamaker/Graphene.dat,1
 redgrapheneoxide,surface/redgrapheneoxide,hamaker/Graphene.dat,1
 graphene,surface/graphene,hamaker/Graphene.dat,1
@@ -30,4 +41,3 @@ redgrapheneoxide-hollow,surface/redgrapheneoxide,hamaker/Null.dat,1
 graphene-hollow,surface/graphene,hamaker/Null.dat,1
 bi-graphene-hollow,surface/bi-graphene,hamaker/Null.dat,1
 tri-graphene-hollow,surface/tri-graphene,hamaker/Null.dat,1
-peg-pmfp,surface_pmfp/Au-001-PEG-pmfp,hamaker/Null.dat,1

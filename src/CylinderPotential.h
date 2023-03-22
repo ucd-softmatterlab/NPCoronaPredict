@@ -173,9 +173,15 @@ double res = 0;
 if(d>0.01){
 
 res =  -(M_PI*(2*pow(d,6) + 16*pow(d,5)*RC + 48*pow(d,4)*pow(RC,2) + 64*pow(d,3)*pow(RC,3) + 32*pow(d,2)*pow(RC,4) + 2*pow(d,4)*pow(zc,2) + 12*pow(d,3)*RC*pow(zc,2) +      28*pow(d,2)*pow(RC,2)*pow(zc,2) + 32*d*pow(RC,3)*pow(zc,2) + 16*pow(RC,4)*pow(zc,2) + pow(d,2)*pow(zc,4) + 4*d*RC*pow(zc,4) + 24*pow(RC,2)*pow(zc,4) +   (40*pow(RC,3)*pow(zc,4))/d + (32*pow(RC,4)*pow(zc,4))/pow(d,2) + pow(zc,6) + (2*RC*pow(zc,6))/d + (8*pow(RC,2)*pow(zc,6))/pow(d,2) -        2*pow(d,4)*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))) -  12*pow(d,3)*RC*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))) -   24*pow(d,2)*pow(RC,2)*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))) -   16*d*pow(RC,3)*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))) -   (pow(d + 2*RC,2)*(pow(d,2) + 2*d*RC + 8*pow(RC,2))*pow(zc,4)*sqrt((pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))/pow(d + 2*RC,2))*    sqrt((pow(d,2)*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2)))/(pow(d + 2*RC,2)*(pow(d,2) + pow(zc,2))))*sqrt(1 + pow(zc,2)/pow(d,2)))/pow(d,2)))/  (24.*d*pow(d + 2*RC,3)*pow(zc,3)*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2)))) -   (sqrt(pow(d,-2))*M_PI*(pow(d,2) + 2*d*RC + 8*pow(RC,2))*sqrt((pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))/pow(d + 2*RC,2))*sqrt(1 + pow(zc,2)/pow(d,2))*   EllipticIncompleteE2(atan(sqrt(pow(d,-2))*zc),1 - pow(d,2)/pow(d + 2*RC,2)))/(24.*d*(d + 2*RC)*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2)))) +  (sqrt(pow(d,-2))*d*M_PI*sqrt((pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))/pow(d + 2*RC,2))*sqrt(1 + pow(zc,2)/pow(d,2))*  EllipticIncompleteF2(atan(sqrt(pow(d,-2))*zc),1 - pow(d,2)/pow(d + 2*RC,2)))/(24.*(d + 2*RC)*sqrt((pow(d,2) + pow(zc,2))*(pow(d,2) + 4*d*RC + 4*pow(RC,2) + pow(zc,2))));
+
+if(std::isnan(res)){
+std::cout <<"Detected nan during analytical cylinder segment at distance " << d << " cylinder point: " << zc << "\n";
+}
+
+
 }
 else{
-res = HamakerAtomCylinderUnitSegmentIntegrandNE(RC, 0.01, zc); //at this close range we just set it to use a limiting value to avoid the numerical errors caused in the limit d->0.
+res = HamakerAtomCylinderUnitSegmentIntegrandNE(RC, 0.0101, zc); //at this close range we just set it to use a limiting value to avoid the numerical errors caused in the limit d->0.
 }
 return res;
 }
@@ -207,6 +213,7 @@ zcMax = sqrt(zcMaxSq);
 double zc = 0;
 double deltazc = zcMax/100.0;
 while(zc < zcMax-deltazc){
+//std::cout << zc << " " << zcMax - deltazc << "\n";
 res += HamakerAtomDiskUnit( RC, d, re,   zc+deltazc/2.0 )*deltazc;
  
 zc+=deltazc;
@@ -228,9 +235,10 @@ if(std::isinf(res)){
 std::cout << "found inf at " << d << " " << RC << " during integration over exclusion\n";
 }
 //next we use the analytical expression for the exclusion-free region spanning zcMax to the end of the cylinder
+//std::cout << "Getting remainder: \n" ;
 res += HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength) -HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d , zcMax+0.0001);
 
-
+//std::cout <<"Added remainder \n ";
 if(res < -500){
 std::cout << "large value in calculation of cylinder after analytical: " << d << " " << res << " "  << " " << re << " "  << zcMax<<"\n";
 std::cout << HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength) <<"\n";

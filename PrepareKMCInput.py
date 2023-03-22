@@ -22,7 +22,7 @@ parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",defa
 parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
 parser.add_argument('-m','--material',type=str,help="Material",default="anatase101")
 parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
-parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of other proteins to include in format ID,concentration" , default="")
+parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, disables auto-finding structures (all proteins wanted must be included)" , default="")
 parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable)", default=1)
 args = parser.parse_args()
 
@@ -38,40 +38,51 @@ isCylinder = False
 
 availableMaterials = []
 materialDefs = {}
-materialFile = open("MaterialSet.csv","r") 
-for line in materialFile:
-    if line[0] == "#":
+#targetMaterialFile = "MaterialSet.csv"
+
+
+for targetMaterialFile in ["MaterialSet.csv", "surface-pmfp/MaterialSetPMFP.csv"]:
+    if not os.path.exists(targetMaterialFile):
         continue
-    lineTerms = line.split(",")
-    if len(lineTerms)<4:
-        print("Problem reading material line: ", line)
-        continue
-    availableMaterials.append(lineTerms[0])
-    materialDefs[ lineTerms[0] ] = lineTerms
-    #materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
+    materialFile = open(targetMaterialFile ,"r") 
+    for line in materialFile:
+        if line[0] == "#":
+            continue
+        lineTerms = line.split(",")
+        if len(lineTerms)<4:
+            print("Problem reading material line: ", line)
+            continue
+        availableMaterials.append(lineTerms[0])
+        materialDefs[ lineTerms[0] ] = lineTerms
+        #materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
+    
 #print(materialSet)
 print(availableMaterials)
 
-#availableMaterials = ["silicaquartz","silicaamorph","anatase100","anatase101","rutile110","rutile100","fe2o3","CdSe","gold","carbonblack"]
 if NPMaterial not in availableMaterials:
     print("Could not find material ", NPMaterial, " check the spelling. ")
     raise ValueError("End")
+
+if NPMaterial[-5:] == "-pmfp":
+    print("Auto-detected PMFPredictor output material, changing to extended bead set")
+    CGBeadFile = "pmfp-beadsetdef/PMFP-BeadSet.csv"
 
 npShape=int(materialDefs[NPMaterial][3])
 if npShape == 2 or  npShape == 4 or npShape == 5:
     isCylinder = True
     print("Enabling cylinder mode")
+BaseStorageFolder = "CoronaPredictionProjects"
 ProjectName = args.projectname
 ProteinStorageFolder = "all_proteins"
-ProteinWorkingFolder = "proteins_"+ProjectName
-UAResultsFolderBase = "results_"+ProjectName
+ProteinWorkingFolder = BaseStorageFolder+"/"+ProjectName+"/proteins"
+UAResultsFolderBase =  BaseStorageFolder+"/"+ProjectName+"/results"
 UAResultsFolder = UAResultsFolderBase+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZeta))
 
-allFolders = [ProteinStorageFolder,ProteinWorkingFolder,UAResultsFolderBase,UAResultsFolder,"cg_corona_data"]
+allFolders = [BaseStorageFolder,ProteinStorageFolder,ProteinWorkingFolder,UAResultsFolderBase,UAResultsFolder,"cg_corona_data"]
 for folderName in allFolders:
     if not os.path.isdir(folderName):
         print("Making folder ",folderName)
-        os.mkdir(folderName)
+        os.makedirs(folderName,exist_ok=True)
 
 
     
@@ -107,6 +118,8 @@ loadSerumFile = ""
 if args.otherproteins != "":
     loadSerumFile = args.otherproteins # "daphnia_serum/daphnia_serum_mass1.0_fixedmassfrac.csv"
 if loadSerumFile!= "":
+    PDBProteinSet = [  ]
+    UniProtProteinSet = [ ]
     serumFile = open(loadSerumFile,"r")
     for line in serumFile:
         if line[0]=="#":
@@ -174,7 +187,10 @@ for proteinLine in AllProteins:
 
 if len(successfulProteins) == 0:
      raise ValueError("No proteins were found. Please check again")
-serumOutputFile = open(ProjectName+"_serum.csv","w")
+serumFileLocation = BaseStorageFolder+"/"+ProjectName+"/serum.csv"
+
+
+serumOutputFile = open(serumFileLocation,"w")
 serumOutputFile.write("#ProteinID, NumberConcentration\n")
 for protein in successfulProteins:
     serumOutputFile.write(protein[0]+"-"+protein[3]+","+str(protein[1])+"\n")
@@ -183,11 +199,11 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)
 print(UACommandString)
-
-BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ProjectName+"_serum.csv -c "+ProteinWorkingFolder
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p cg_corona_data/"+UAResultsFolder+".csv -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
+kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
+BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
+KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
 
 if isCylinder == True:
     print("Adding cylinder argument")

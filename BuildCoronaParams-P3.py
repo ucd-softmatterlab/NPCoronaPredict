@@ -57,28 +57,32 @@ def CalculateBoltz(filename,pdbFile):
     boltz    = np.sum(energy * sinTheta * np.exp(-1.0 * energy)) / np.sum(sinTheta * np.exp(-1.0 * energy))
     return boltz
 
-def getAtomCoords(filename):
+def getAtomCoords(filename, caOnly=False):
     fileIn = open(filename,"r")
     coordList = []
+    moleculeBeadLabels = []
+    moleculeBeadRadiusSet = []
     for line in fileIn:
         lineData = line.split()
-        if lineData[0] == "ATOM":
-            coordList.append([ float(line[30:38]) , float(line[38:46]) , float(line[46:54])])
+        if lineData[0] == "ATOM" and (  lineData[13:15]=="CA" or caOnly == False  ):
+            coordList.append([ float(line[30:38]) , float(line[38:46]) , float(line[46:54])])   #x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
+            moleculeBeadLabelIn =  line[17:20]
+            moleculeBeadLabels.append( moleculeBeadLabelIn ) # 17, 3
+            moleculeBeadRadiusSet.append( beadRadiusSet.get(  moleculeBeadLabelIn, 0.5 ) ) 
     fileIn.close()
     # return np.array(coordList)
     coordData = np.array(coordList)
     coordData[:,0] = coordData[:,0] - np.mean(coordData[:,0])
     coordData[:,1] = coordData[:,1] - np.mean(coordData[:,1])
     coordData[:,2] = coordData[:,2] - np.mean(coordData[:,2])
-    return coordData
+    return coordData, moleculeBeadLabels, np.array(moleculeBeadRadiusSet)
 
-def pointsToBeads(coords):
+def pointsToBeads(coords,beadRadius):
     if(len(coords)>2):
         projectedConvexHull = scispat.ConvexHull( coords[:,(0,1) ] )
         edgeCoords = coords[projectedConvexHull.vertices ]
     else:
         edgeCoords = coords[:,(0,1)]
-    beadRadius = 0.5
     numPoints = 8
     thetaSet = np.arange(0,numPoints)/(1.0*numPoints)  * np.pi*2
     circlex = beadRadius*np.cos(thetaSet)
@@ -144,10 +148,10 @@ def CalculateBoltzArea(filename,pdbFile):
 
 
 
-def projectOntoSphere(coords,npRadius,beadRadius = 0.5):
+def projectOntoSphere(coords,npRadius,beadRadius):
     coords[:,0] = coords[:,0] - np.mean(coords[:,0])
     coords[:,1] = coords[:,1] - np.mean(coords[:,1])
-    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius #after this transformation the proteins centre is at x=0,y=0 and z such that the protein is just touching the NP
+    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ] #after this transformation the proteins centre is at x=0,y=0 and z such that the protein is just touching the NP
     beadDist = np.sqrt( coords[:,0]**2 + coords[:,1]**2 + coords[:,2]**2)
     phiProjections = np.arctan2( coords[:,1], coords[:,0]) 
     thetaProjections = np.arctan2( np.sqrt(coords[:,1]**2 + coords[:,0]**2), coords[:,2]) + np.arcsin( beadRadius/beadDist) #projected theta, corrected for non-zero bead radius
@@ -165,7 +169,7 @@ def projectOntoSphere(coords,npRadius,beadRadius = 0.5):
 def projectOntoCylinder(coords,npRadius,beadRadius = 0.5):
     coords[:,0] = coords[:,0] - np.mean(coords[:,0])
     coords[:,1] = coords[:,1] - np.mean(coords[:,1])
-    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius
+    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ]
     angleCoord = np.arctan2(coords[:,2] , coords[:,1])
     beadOffsetAngle = np.arcsin( beadRadius/ np.sqrt( coords[:,1]**2 + coords[:,2]**2))
     beadSet1 =   np.column_stack(( coords[:,0] + beadRadius, angleCoord + beadOffsetAngle   ))
@@ -196,6 +200,9 @@ parser.add_argument('-p','--proteins',type=str,help="protein definition file",de
 parser.add_argument('-c','--coordfolder',type=str,help="location of PDB files",default="pdbs/All")
 parser.add_argument('-v','--verbose',type=int,help="verbose",default=0)
 parser.add_argument('-n','--nullfile',type=int,default=0,help="Write out the null corona input (planar projection, zero binding energy)")
+parser.add_argument('-b','--beadset',type=str,help="Bead definition file", default="beadsets/StandardAABeadSet.csv" )
+parser.add_argument('-o','--outputname',type=str,help="Name for the output file", default="buildcoronaparams-demo.csv")
+
 args = parser.parse_args()
 
 
@@ -254,6 +261,19 @@ diffusionCoeff = 1e-11
 outputSet = []
 averageValSet = []
 
+#load in radii for single-bead models
+beadRadiusSet = {}
+try:
+    beadRadiusFile = open(args.beadset,"r")
+    for line in beadRadiusFile:
+        if line[0]=="#":
+            continue
+        lineTerms = line.strip().split(",")
+        beadRadiusSet[ lineTerms[0] ] = float(lineTerms[2])
+    beadRadiusFile.close()
+except:
+    print("Bead definition file could not be found, using default radius for all beads")
+
 for proteinData in concentrationData:
     #print(proteinData[0] )
     if npShape==1:
@@ -276,12 +296,22 @@ for proteinData in concentrationData:
             alldatafiles.append(newdata)
         data = np.concatenate(alldatafiles,axis=0)
     #print(data[0:2])
-    rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
+    singleBeadMode = False
+    rawCoords, beadLabels, moleculeBeadRadiusSet =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")
+    rawCoords = rawCoords*0.1
+
     thetaOffset = (np.amax(data[1:,1] - data[0:-1,1]))/2.0 #UA output gives the left-edge of the bin containing the angular orientations, this corrects for that
     phiOffset = (np.amax(data[1:,0] - data[0:-1,0]))/2.0 #UA output gives the left-edge of the bin containing the angular orientations, this corrects for that
     #print thetaOffset
     data[:,1] +=thetaOffset
     data[:,0] += phiOffset
+    
+    
+    if len(rawCoords)  == 1:
+        print("Using single bead mode")
+        singleBeadMode = True
+        data = np.array( [  data[0] ] ) #a single bead has no orientation dependency, so discard everything but the first entry.
+        data[0,1] = 90.0 * np.pi / 180.0 #manually set the single bead theta value to 90 degrees to avoid the inevitable confusing division by zero
     sinThetaNorm = 1.0/np.sum( np.sin(data[:,1] *np.pi/180.0   ))
     affinityList = []
     radiusList = []
@@ -299,11 +329,11 @@ for proteinData in concentrationData:
         sinTheta = np.sin(theta * np.pi / 180.0)
         rotatedCoords = rotatePDB3(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0, omega*np.pi/180.0)
         if npShape == 1:
-            projectedArea = projectOntoSphere(rotatedCoords, npRadius) #gets the projected area of the protein
+            projectedArea = projectOntoSphere(rotatedCoords, npRadius,moleculeBeadRadiusSet) #gets the projected area of the protein
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the sph$
         elif npShape == 2:
-            projectedArea = projectOntoCylinder(rotatedCoords,npRadius)
+            projectedArea = projectOntoCylinder(rotatedCoords,npRadius,moleculeBeadRadiusSet)
             radiusApprox = np.sqrt(projectedArea/np.pi)
             #print scopt.root(  cylinderRadiusWrapperFunc, radiusApprox, args=(projectedArea,npRadius) )
             optRes= scopt.minimize(  cylinderRadiusWrapperFunc, np.sqrt( projectedArea/np.pi), args=(projectedArea, npRadius),tol=0.01 )
@@ -313,7 +343,7 @@ for proteinData in concentrationData:
             #print("First approx: ", radiusApprox, " second approx: ", effectiveRadius3D)
             #effectiveRadius = np.sqrt(projectedArea/np.pi) #figure out how to do this for the cylindrical projection!
         else:
-            projectedArea = projectOntoSphere(rotatedCoords,npRadius)
+            projectedArea = projectOntoSphere(rotatedCoords,npRadius,moleculeBeadRadiusSet)
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the spherical protein which has a shadow with radius effectiveRadius
         #print effectiveRadius, effectiveRadius3D,SphereProjectedRadius(npRadius,effectiveRadius3D)
@@ -333,9 +363,13 @@ for proteinData in concentrationData:
             projectedAreaPlane = projectOntoSphere(rotatedCoords,npRadius+500.0)
             effectiveRadiusPlane = np.sqrt(projectedAreaPlane/np.pi)
             outputSetNull.append([proteinData[0], proteinData[0]+":"+str(theta)+"-"+str(phi), float(proteinData[1])*sinTheta * sinThetaNorm, effectiveRadiusPlane, konApprox, konApprox, 0, projectedAreaPlane])
-os.makedirs("cg_corona_data/"+"/".join(energyMapFolder.split("/")[:-1]),exist_ok=True)
+            
+            
+outputPathFull = args.outputname
+outputBasePath = "/".join(  outputPathFull.split("/")[:-1]  )
+os.makedirs(outputBasePath,exist_ok=True)
 #"/".join(energyMapFolder.split("/")[:-1])
-np.savetxt("cg_corona_data/"+energyMapFolder+".csv", np.array(outputSet) , fmt="%s")
+np.savetxt(outputPathFull , np.array(outputSet) , fmt="%s")
 if doNullCorona == True:
     nullConcArray = np.array(outputSetNull)
     np.savetxt("cg_corona_data/"+energyMapFolder+"_nullcorona.csv", nullConcArray , fmt="%s")

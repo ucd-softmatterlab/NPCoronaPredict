@@ -401,10 +401,10 @@ void IntegrateCylinder(const int size, const double dz, const double init_energy
     for (int i = 0; i < size; ++i) {
 
 if(std::isnan(energy[i])){
-std::cout << "found nan at " << i << " " <<   "\n";
+std::cout << "Cylinder integration: found nan at " << i << " " <<   "\n";
 }
 if(std::isinf(energy[i])){
-std::cout << "found inf at " << i << " " <<   "\n";
+std::cout << "Cylinder integration: found inf at " << i << " " <<   "\n";
 }
 
         area += static_cast<long double>(ssd[i]  * dz) * std::exp(static_cast<long double>(-1.0 * (energy[i] - init_energy))); 
@@ -412,7 +412,7 @@ std::cout << "found inf at " << i << " " <<   "\n";
     const double factor = 2.0 / std::fabs(std::pow(ssd[0], 2.0) - std::pow(ssd[size - 1], 2.0));
 
     if(factor*area < 0){ 
- std::cout << "warning: factor*area < 0, unphysical result " << factor << " " << area << "\n";    
+ std::cout << "Cylinder integration:  warning: factor*area < 0, unphysical result " << factor << " " << area << "\n";    
 }
 
 
