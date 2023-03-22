@@ -454,7 +454,8 @@ if len(precoatData)>0:
     #print(proteinDataInput)
 
 
-
+if proteinDataInput.ndim == 1:
+    proteinDataInput = np.array([proteinDataInput])
 proteinData = proteinDataInput[:,1:].astype(float)
 
 proteinNamesAll = proteinDataInput[:,0]
