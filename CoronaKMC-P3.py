@@ -551,7 +551,7 @@ if meanFieldApprox == 1:
 else:
     mfTag = "hs"
 
-coronaSaveDir = "corona_results/"+args.projectname
+coronaSaveDir = "CoronaPredictionProjects/"+args.projectname+"/coronakmc_output"
 
 os.makedirs(coronaSaveDir,exist_ok=True)
 
@@ -823,7 +823,7 @@ print( "Number adsorbed: " , len(stateArray))
 print( outputTranspose.shape )
 
 
-coordFileOut = open(coronaSaveDir+"/"+outputTag+"_coords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
+coordFileOut = open(coronaSaveDir+"/"+outputTag+"_finalcoords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
 coordFileOut.write("#Protein type, x, y, z \n")
 for i in range(len(stateArray)):
     coordData = outputTranspose[i] 
