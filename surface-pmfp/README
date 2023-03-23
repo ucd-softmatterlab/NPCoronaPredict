@@ -1,0 +1,16 @@
+PMFs contained here were generated at 2023-03-15 21:16:05 using models: 
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble1
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble2
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble3
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble4
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble5
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble6
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble7
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble8
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble9
+PMFPredictor-oct13-simplesplit-bootstrapped-ensemble10
+Source matching has been applied to source =  SU-ions, SSD class 1, surface defined by U_C(h=0.2) = 35 convention. Recommended LJ cutoff 1.0 nm.
+Figures: Blue gives the simple average of contributing PMFs (black lines). Green, where existent, is the reference metadynamics PMF.
+
+HIS averaging: HID 0.14621171572600097 HIE 0.5848468629040039 HIP 0.2689414213699952
+It is recommended that HIS charge in UA is set to 0.2689414213699952 for consistency
