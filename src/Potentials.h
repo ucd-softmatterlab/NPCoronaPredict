@@ -99,7 +99,7 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
 
 
 
-std::cout << surfaceData.m_aminoAcid << " start: " << potentialStart << "\n";
+    //std::cout << surfaceData.m_aminoAcid << " start: " << potentialStart << "\n";
    for(int j = 0; j < npComponents.m_length; ++j){
    std::vector<string> aaName;
     aaName.push_back(surfaceData.m_aminoAcid); 

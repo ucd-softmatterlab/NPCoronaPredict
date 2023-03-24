@@ -187,9 +187,10 @@ def bindingAreaCylinder(rnp,ri):
     return ri*rnp* 4 * np.sqrt(  rnp*(2 + rnp/ri)/ri    ) * (  scspec.ellipe(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri) )) - scspec.ellipk(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri))  )  )
 
 def cylinderRadiusWrapperFunc(ri,area,rnp):
-    return (area - bindingAreaCylinder(np.sqrt(ri**2),rnp))**2
-
-
+    return (area - bindingAreaCylinder(rnp,np.sqrt(ri**2)))**2
+    
+    
+    
 parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
 parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",default=19)
 parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
@@ -338,9 +339,10 @@ for proteinData in concentrationData:
             #print scopt.root(  cylinderRadiusWrapperFunc, radiusApprox, args=(projectedArea,npRadius) )
             optRes= scopt.minimize(  cylinderRadiusWrapperFunc, np.sqrt( projectedArea/np.pi), args=(projectedArea, npRadius),tol=0.01 )
             effectiveRadius3D= np.abs( (optRes.x)[0])
-            if effectiveRadius3D > radiusApprox:
-                effectiveRadius3D = radiusApprox #cap the effective radius to the value computed from the projected area 
-            #print("First approx: ", radiusApprox, " second approx: ", effectiveRadius3D)
+            if effectiveRadius3D > 5*radiusApprox:
+                effectiveRadius3D = 5*radiusApprox #cap the effective radius to the value computed from the projected area 
+            projectedAreaFromCalc = bindingAreaCylinder(npRadius,effectiveRadius3D)
+            #print("First approx: ", radiusApprox, " second approx: ", effectiveRadius3D, "projected area:" , projectedArea, " re-projected area: ", projectedAreaFromCalc," num binding", (4*np.pi*npRadius**2)/projectedArea)
             #effectiveRadius = np.sqrt(projectedArea/np.pi) #figure out how to do this for the cylindrical projection!
         else:
             projectedArea = projectOntoSphere(rotatedCoords,npRadius,moleculeBeadRadiusSet)
