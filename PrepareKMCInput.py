@@ -23,7 +23,8 @@ parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]
 parser.add_argument('-m','--material',type=str,help="Material",default="anatase101")
 parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
 parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, disables auto-finding structures (all proteins wanted must be included)" , default="")
-parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable)", default=1)
+parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)", default=3)
+parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the live footage in CoronaKMC", default = 0)
 args = parser.parse_args()
 
 
@@ -35,6 +36,12 @@ NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
 CoronaSimTime = 1e-5
 isCylinder = False
+isPlane = False
+boundaryType = 1
+planarRadiusCutoff = 500 #if a spherical NP radius is set larger than this, then the corona tools approximate the NP as a plane. Note that UA will still treat the NP as whatever the MaterialSet shape is, e.g. a 501 nm sphere is a sphere for UA but a plane for BCP/CKMC.
+
+
+
 
 availableMaterials = []
 materialDefs = {}
@@ -71,6 +78,16 @@ npShape=int(materialDefs[NPMaterial][3])
 if npShape == 2 or  npShape == 4 or npShape == 5:
     isCylinder = True
     print("Enabling cylinder mode")
+    boundaryType = 1
+if npShape== 3:
+    isPlane = True
+    print("Enabling planar mode (UA+Corona, vacuum boundary)")
+    boundaryType = 0
+if NPRadius >= planarRadiusCutoff and npShape == 1:
+    isPlane = True
+    print("Enabling large-sphere planar mode (Corona only, periodic boundary)")
+    boundaryType = 1
+    
 BaseStorageFolder = "CoronaPredictionProjects"
 ProjectName = args.projectname
 ProteinStorageFolder = "all_proteins"
@@ -203,13 +220,17 @@ UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --demo 1 --timedelta 0.00001 -P "+ProjectName
+KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.00001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)
 
 if isCylinder == True:
     print("Adding cylinder argument")
     BCPCommandString = BCPCommandString+" -s 2"
     KMCCommandString = KMCCommandString+" -s 2"
-
+elif isPlane == True:
+    print("Adding plane argument")
+    BCPCommandString = BCPCommandString+" -s 3"
+    KMCCommandString = KMCCommandString+" -s 3"
+    
 
 print(BCPCommandString)
 print(KMCCommandString)
@@ -218,9 +239,11 @@ print("If python3 isn't installed, use python BuildCoronaParams.py, python Coron
 
 # In[15]:
 
-if args.autorun != 0:
+if args.autorun > 0:
     os.system(UACommandString)
+if args.autorun > 1:
     os.system(BCPCommandString)
+if args.autorun > 2:
     os.system(KMCCommandString)
 
 

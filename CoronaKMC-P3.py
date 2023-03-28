@@ -52,7 +52,19 @@ def adsorbCollisionDetect(state,newType,newC1,newC2):
     if npShape == 1:
         return SphereCollisionDetect(state,newType,newC1,newC2)
     elif npShape == 2:
-        return CylinderCollisionDetect(state,newType,newC1,newC2) + CylinderCollisionDetect(state,newType,newC1,newC2,2*cylinderHalfLength) + CylinderCollisionDetect(state,newType,newC1,newC2,-2*cylinderHalfLength)
+        if hasPBC == True:
+            return CylinderCollisionDetect(state,newType,newC1,newC2) + CylinderCollisionDetect(state,newType,newC1,newC2,2*cylinderHalfLength) + CylinderCollisionDetect(state,newType,newC1,newC2,-2*cylinderHalfLength)
+        else:
+            return CylinderCollisionDetect(state,newType,newC1,newC2)  
+    elif npShape == 3:
+        if hasPBC == True:
+            PlaneCollisionDetected = 0
+            for xo in [-2*planeHalfLength, 0, 2*planeHalfLength]:
+                for yo in [-2*planeHalfLength, 0, 2*planeHalfLength]:
+                    PlaneCollisionDetected += PlaneCollisionDetect(state,newType,newC1,newC2,xo,yo) 
+            return PlaneCollisionDetected
+        else:
+            return PlaneCollisionDetect(state,newType,newC1,newC2) 
     else:
         return SphereCollisionDetect(state,newType,newC1,newC2)
 
@@ -144,11 +156,32 @@ def CylinderCollisionDetect(state, newType,newPhi, newZ,zoffset=0):
     return 0
 
 
+def PlaneCollisionDetect(state, newType,newC1, newC2,xoffset=0,yoffset=0):
+    if(len(state))<1:
+        return 0
+    newr = proteinData[ newType,1 ]
+    radiusArray = proteinData[ state[:,0].astype(int), 1]
+    #first pass: detect physical overlap
+    allowedDists = radiusArray + newr
+    if np.any( np.sqrt(    (  state[:,1] + xoffset  -  newC1   )**2  +  (  state[:,2]  +yoffset-  newC2   )**2   +  (  radiusArray - newr )**2      )     < allowedDists):
+        return 1
+    #At this point in the code, no hard-sphere overlaps between proteins have been detected. so if we're enabling this mode we can now return 0
+    if hardSphereMode == 1:
+        return 0
+    #second pass: as before, except ignoring z such that all proteins have their centers on the same plane
+    minRD = np.where( radiusArray > newr, radiusArray, newr)
+    if np.any( np.sqrt(    (  state[:,1] + xoffset -  newC1   )**2  +  (  state[:,2]  +yoffset-  newC2   )**2       )     < allowedDists):
+        return 1
+    return 0
+
+
 def bindingArea(rnp,ri):
     if npShape == 1:
         area = bindingAreaSphere(rnp,ri)
     elif npShape == 2:
         area = bindingAreaCylinder(rnp,ri)
+    elif npShape == 3:
+        area = bindingAreaSphere(1000,ri)
     else:
         area = bindingAreaSphere(rnp,ri)
     return area
@@ -280,7 +313,7 @@ parser.add_argument('-r','--radius',type=float,help="Radius of the NP",default=3
 parser.add_argument('-p','--proteins',help="Protein file set",default="")
 parser.add_argument('-d','--diffuse',help="Enable surface diffusion",default=0)
 parser.add_argument('-c', '--coarse',help="Treat input as orientations of single protein, report only total numbers",default=0)
-parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder",default=1)
+parser.add_argument('-s','--shape',help="Shape of the NP, 1 = sphere, 2 = cylinder, 3 = plane, 4 = truncated sphere",default=1)
 parser.add_argument('-m','--meanfield',help="Enable mean field approximation",default=0,type=int)
 parser.add_argument('-t','--time',help="Number of hours of simulated time",default=1.0,type=float)
 parser.add_argument('-n','--numnp',help="Number of NPs to simulate simultaneously", default = 1, type=int)
@@ -291,7 +324,7 @@ parser.add_argument('--timedelta',help="Time step [s] between showing updates", 
 parser.add_argument('-l','--loadfile',help="KMC file for previous run (precoating)", default="")
 parser.add_argument('-P','--projectname',help="Name for project", default="testproject")
 parser.add_argument('-R','--runningfile',help="Save output snapshots", default=0, type=int)
-
+parser.add_argument('-b','--boundary',help="Boundary type: 0 = vacuum, 1 = periodic", default=1, type=int)
 doMovie = False
 args = parser.parse_args()
 endTime = args.time*3600
@@ -317,7 +350,13 @@ if args.demo==1:
 
 cylinderHalfLength = 10 #end-to-centre length of the cylinder
 
-
+hasPBC = False
+#If we're using periodic boundary conditions, set a finite size (to avoid issues with large spheres). Else use the size of the NP.
+if args.boundary == 1:
+    planeHalfLength = 20 
+    hasPBC = True
+else:
+    planeHalfLength = args.radius
 #define the molar concentration of NPs and the number to explicitly simulate
 #if you're using a vanishing concentration of NPs its best to simulate one at a time and post-average to get statistics
 #but simulating multiple NPs for non-zero concentrations helps suppress fluctuations in concentration.
@@ -333,6 +372,9 @@ elif npShape == 2:
     print("Cylindrical NP")
     npSurfaceArea = (2*cylinderHalfLength)*2*np.pi * args.radius
 elif npShape == 3:
+    print("Planar NP")
+    npSurfaceArea =    4 * (planeHalfLength**2)
+elif npShape == 4:
     print("Truncated sphere")
     surfaceFraction = 0.1 #must be between 0 and 1
     thetaMax =  np.arccos( 1 - 2* surfaceFraction) # np.pi/8
@@ -638,6 +680,8 @@ while t < endTime:
             shapeClass = "sphere"
             if npShape == 2:
                 shapeClass = "cylinder"
+            if npShape == 3:
+                shapeClass = "plane"
             resArray = np.array(resList)
             ax1.clear()
             for i in range(len(uniqueProteins)):
@@ -652,6 +696,7 @@ while t < endTime:
                 x = npRadius * np.outer(np.cos(u), np.sin(v))
                 y = npRadius * np.outer(np.sin(u), np.sin(v))
                 z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
+                plotBound = npRadius + largestProteinRadius
             elif shapeClass == "cylinder":
                 u = np.linspace(0,2*np.pi,20)
                 v = np.linspace(-1,1,20,endpoint=True)
@@ -661,9 +706,20 @@ while t < endTime:
                 #print(x)
                 #print(y)
                 z = cylinderHalfLength* np.outer(np.ones(np.size(u)), v)
+                plotBound = npRadius + largestProteinRadius
                 #print(z)
-            ax2.plot_surface(x, y, z,color='gray')            
-            plotBound = npRadius + largestProteinRadius
+            elif shapeClass == "plane":
+                u = np.linspace(-1,1,20,endpoint=True)
+                v = np.linspace(-1,1,20,endpoint=True)
+                x = planeHalfLength * np.outer(u, np.ones(np.size(v)))
+                y = planeHalfLength * np.outer(np.ones(np.size(u)), v)
+                #print("NP surface element coords")
+                #print(x)
+                #print(y)
+                z =  0.0 * np.outer(np.ones(np.size(u)), v)
+                plotBound = planeHalfLength
+            #ax2.plot_surface(x, y, z,color='gray')            
+            
             #print("setting plotBound: ", plotBound, " from ", npRadius, " and large protein: ", largestProteinRadius)
             ax2.set_xlim3d( -plotBound ,plotBound)
             ax2.set_ylim3d( -plotBound , plotBound)
@@ -672,18 +728,24 @@ while t < endTime:
             #ax3.set_xlim3d( -plotBound ,plotBound)
             #ax3.set_ylim3d( -plotBound , plotBound)
             #ax3.set_zlim3d( -plotBound , plotBound)
+            proteinOffset = 0.3
             for i in range(len(state)):
                 currentProtein = state[i]
                 proteinName = proteinNames[currentProtein[0]]
                 upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
                 proteinRadius = proteinData[ currentProtein[0] ,1]
                 if shapeClass == "sphere":
-                    proteinX = (proteinRadius + npRadius)*np.cos( currentProtein[1] ) * np.sin(currentProtein[2])
-                    proteinY = (proteinRadius + npRadius)*np.sin( currentProtein[1] ) * np.sin(currentProtein[2])
-                    proteinZ = (proteinRadius + npRadius)*np.cos(currentProtein[2] )
+                    proteinX = (proteinRadius + npRadius +proteinOffset)*np.cos( currentProtein[1] ) * np.sin(currentProtein[2])
+                    proteinY = (proteinRadius + npRadius+proteinOffset)*np.sin( currentProtein[1] ) * np.sin(currentProtein[2])
+                    proteinZ = (proteinRadius + npRadius+proteinOffset)*np.cos(currentProtein[2] )
+                    #print("Protein center: ", proteinX, proteinY, proteinZ, currentProtein[1] * 180.0/np.pi, currentProtein[2] * 180.0/np.pi)
+                elif shapeClass == "plane":
+                    proteinX = currentProtein[1]
+                    proteinY = currentProtein[2]
+                    proteinZ = (proteinRadius + proteinOffset)
                 else:
-                    proteinX = (proteinRadius + npRadius)*np.cos( currentProtein[1] ) 
-                    proteinY = (proteinRadius + npRadius)*np.sin( currentProtein[1] ) 
+                    proteinX = (proteinRadius + npRadius+proteinOffset)*np.cos( currentProtein[1] ) 
+                    proteinY = (proteinRadius + npRadius+proteinOffset)*np.sin( currentProtein[1] ) 
                     proteinZ = (currentProtein[2] )
                 u = np.linspace(0, 2 * np.pi, 20)
                 v = np.linspace(0, np.pi, 20)
@@ -751,6 +813,9 @@ while t < endTime:
         elif npShape == 2:
             newC2 =  2*(np.random.random()-0.5)*(cylinderHalfLength )
         elif npShape == 3:
+            newPhi =  2*(np.random.random()-0.5)*(planeHalfLength ) #for a plane we remap C1 to x and C2 to y. 2* (random - 0.5) gives -1 to +1 , so multiplying by the half length gives the full range
+            newC2 =  2*(np.random.random()-0.5)*(planeHalfLength )
+        elif npShape == 4:
             v = (vmax - vlower)*np.random.random() + vlower
             newC2 = np.arccos(2 * v - 1)
         else:
@@ -785,6 +850,9 @@ elif npShape == 2:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius)
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1])   , heightAboveSurface * np.sin(stateArray[:,1])  ,stateArray[:,2] ,radiusArray ))
 elif npShape == 3:
+    heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + 0)
+    outputArray =  np.vstack( (stateArray[:,0],  stateArray[:,1]   , stateArray[:,2]  ,0 ,radiusArray ))
+elif npShape == 4:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))
 else:

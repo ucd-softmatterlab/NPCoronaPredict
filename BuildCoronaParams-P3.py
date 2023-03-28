@@ -182,7 +182,8 @@ def projectOntoCylinder(coords,npRadius,beadRadius = 0.5):
     projectionHull = scispat.ConvexHull(allBeads)
     return npRadius * projectionHull.volume
 
-
+    
+    
 def bindingAreaCylinder(rnp,ri):
     return ri*rnp* 4 * np.sqrt(  rnp*(2 + rnp/ri)/ri    ) * (  scspec.ellipe(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri) )) - scspec.ellipk(-1.0/( 2*rnp/ri + rnp*rnp/(ri*ri))  )  )
 
@@ -196,7 +197,7 @@ parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",defa
 parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
 parser.add_argument('-a','--average',type=float,help="average over orientations (does nothing right now)",default=0)
 parser.add_argument('-f','--folder',type=str,help="folder containing UA heatmaps",default="results_anatase_alltargets_sphere")
-parser.add_argument('-s','--shape',type=int,help="NP shape: 1 = sphere 2 = cylinder", default=1)
+parser.add_argument('-s','--shape',type=int,help="NP shape: 1 = sphere 2 = cylinder 3 = plane", default=1)
 parser.add_argument('-p','--proteins',type=str,help="protein definition file",default="ProteinConcs.csv")
 parser.add_argument('-c','--coordfolder',type=str,help="location of PDB files",default="pdbs/All")
 parser.add_argument('-v','--verbose',type=int,help="verbose",default=0)
@@ -247,7 +248,7 @@ npZp = args.zeta
 orientationAverage = args.average
 
 npShape = args.shape
-if npShape !=1 and npShape !=2:
+if npShape !=1 and npShape !=2 and npShape !=3:
     npShape = 1
 
 doNullCorona = False
@@ -277,7 +278,7 @@ except:
 
 for proteinData in concentrationData:
     #print(proteinData[0] )
-    if npShape==1:
+    if npShape==1 or npShape == 3:
         filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
         print("looking for: ", filename)
         #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
@@ -344,6 +345,10 @@ for proteinData in concentrationData:
             projectedAreaFromCalc = bindingAreaCylinder(npRadius,effectiveRadius3D)
             #print("First approx: ", radiusApprox, " second approx: ", effectiveRadius3D, "projected area:" , projectedArea, " re-projected area: ", projectedAreaFromCalc," num binding", (4*np.pi*npRadius**2)/projectedArea)
             #effectiveRadius = np.sqrt(projectedArea/np.pi) #figure out how to do this for the cylindrical projection!
+        elif npShape == 3:
+            projectedArea = projectOntoSphere(rotatedCoords,1000,moleculeBeadRadiusSet)
+            effectiveRadius = np.sqrt(projectedArea/np.pi)
+            effectiveRadius3D = effectiveRadius 
         else:
             projectedArea = projectOntoSphere(rotatedCoords,npRadius,moleculeBeadRadiusSet)
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
