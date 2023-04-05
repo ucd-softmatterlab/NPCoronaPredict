@@ -17,30 +17,6 @@ import os
 import argparse
 
 
-parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
-parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",default=5)
-parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
-parser.add_argument('-m','--material',type=str,help="Material",default="anatase101")
-parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
-parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, disables auto-finding structures (all proteins wanted must be included)" , default="")
-parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)", default=3)
-parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the live footage in CoronaKMC", default = 0)
-args = parser.parse_args()
-
-
-#Define some naming conventions used throughout the setup.
-
-NPRadius = int(args.radius) #in nm
-NPZeta = int(args.zeta) #in mV
-NPMaterial = args.material
-CGBeadFile = "beadsets/StandardAABeadSet.csv"
-CoronaSimTime = 1e-5
-isCylinder = False
-isPlane = False
-boundaryType = 1
-planarRadiusCutoff = 500 #if a spherical NP radius is set larger than this, then the corona tools approximate the NP as a plane. Note that UA will still treat the NP as whatever the MaterialSet shape is, e.g. a 501 nm sphere is a sphere for UA but a plane for BCP/CKMC.
-
-
 
 
 availableMaterials = []
@@ -64,10 +40,40 @@ for targetMaterialFile in ["MaterialSet.csv", "surface-pmfp/MaterialSetPMFP.csv"
         #materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
     
 #print(materialSet)
-print(availableMaterials)
+#print(availableMaterials)
 
-if NPMaterial not in availableMaterials:
-    print("Could not find material ", NPMaterial, " check the spelling. ")
+parser = argparse.ArgumentParser(description = "Parameters for corona calculation")
+parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",default=5)
+parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
+parser.add_argument('-m','--material',type=str,help="Material",default="")
+parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
+parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, disables auto-finding structures (all proteins wanted must be included)" , default="")
+parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)", default=3)
+parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the live footage in CoronaKMC", default = 0)
+args = parser.parse_args()
+
+
+#Define some naming conventions used throughout the setup.
+
+NPRadius = int(args.radius) #in nm
+NPZeta = int(args.zeta) #in mV
+NPMaterial = args.material
+CGBeadFile = "beadsets/StandardAABeadSet.csv"
+CoronaSimTime = 1e-5
+isCylinder = False
+isPlane = False
+boundaryType = 1
+planarRadiusCutoff = 500 #if a spherical NP radius is set larger than this, then the corona tools approximate the NP as a plane. Note that UA will still treat the NP as whatever the MaterialSet shape is, e.g. a 501 nm sphere is a sphere for UA but a plane for BCP/CKMC.
+
+
+if NPMaterial == "":
+    print("Please set a material using the -m flag. Available materials are: ")
+    print(availableMaterials)
+    raise ValueError("End")
+
+if NPMaterial not in availableMaterials :
+    print("Could not find material ", NPMaterial, " check the spelling. Available materials are: ")
+    print(availableMaterials)
     raise ValueError("End")
 
 if NPMaterial[-5:] == "-pmfp":
