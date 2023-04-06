@@ -1,6 +1,6 @@
 import os
 import argparse
-
+import numpy as np
 
 #Load in all known materials
 materialSet = {}
@@ -22,7 +22,7 @@ if len( materialSet.keys() ) == 0:
     print("No materials found. Please try again")
     quit()        
         
-print(materialSet)
+#print(materialSet)
 parser = argparse.ArgumentParser(description="Parameters for UA Config File Generation")
 parser.add_argument('--operation-type', required = True, choices = ['pdb' , 'pdb-folder'], type = str, help = 'Currently only \'pdb\' or pdb-folder are valid')
 parser.add_argument("-p","--input-file",  required=True, help="Path to protein PDB file")
@@ -33,6 +33,8 @@ parser.add_argument("-m","--material", required=True, choices =  materialSet.key
 parser.add_argument("-P", "--postprocess",default = 1, help="Post-process results")
 parser.add_argument("-b","--beadset",default="beadsets/StandardAABeadSet.csv", help="Bead parameter file")
 parser.add_argument("-c","--configloc",default="", help="Location to save the generated configuration file")
+parser.add_argument("-T","--temperature", type=float, default=300.0, help="Nominal temperature")
+parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic strength in Mol (one-half * sum:conc*chargeSquared)")
 args = parser.parse_args()
 
 
@@ -77,6 +79,25 @@ beadRadiiString = ", ".join( [ str( round(float(a),3)) for a in beadRadii])
 
 configOutputName = "uaconfigautogen.config"
 
+inputTemp = args.temperature
+inputTempC = inputTemp - 273.15
+if inputTempC > 100.0:
+    print("Warning: temperature greater than 100 C, medium is likely to evaporate")
+if inputTempC < 0.0:
+    print("Warning: temperature less than 0 C, medium is likely to freeze")
+
+chargeUnit = 1.6e-19
+epsRel = 87.740 - 0.4008*inputTempC + 9.398*(10**(-4))*(inputTempC**2)  - 1.410*(10**(-6))*(inputTempC**3)#malmberg and maryott, J. Res. National Bureau of Standards, 56, 1956, "Dielectric constant of water from 0 deg to 100 deg C
+print("Estimated eps rel at temperature T=", inputTempC, ": ", epsRel)
+epsZero = 8.854e-12
+nAvo = 6.02214076e23
+kb = 1.380649e-23;
+ionicStrengthNumber = args.ionicstrength * nAvo * 1000
+#calculate the Debye (useful) and Bjerrum (not useful but mandatory) lengths
+debyeLength = 1e9 * np.sqrt( epsRel * epsZero * kb * inputTemp/ (2 * (chargeUnit**2) * ionicStrengthNumber) )
+print("Calculated debye length:" ,  str(round(debyeLength,3)))
+bjerrumLength = 1e9*chargeUnit**2/(4 * np.pi * epsZero * epsRel * kb * inputTemp )
+print("Calculated Bjerrum length:" ,  str(round(bjerrumLength ,3)))
 
 def writeConfigFile(configOutputLoc):
     outputConfigFile = open(configOutputLoc,"w")
@@ -87,7 +108,8 @@ def writeConfigFile(configOutputLoc):
     outputConfigFile.write("np-type = " + str(shape)+"\n")
     outputConfigFile.write("pmf-directory = " + pmfFolder + "\n")
     outputConfigFile.write("hamaker-file = " + hamakerFile + "\n")
-    outputConfigFile.write("enable-surface \nenable-core \nenable-electrostatic \nsimulation-steps = 2000 \npotential-cutoff=5.0 \npotential-size = 1000 \nangle-delta = 5.0 \nbjerum-length=0.751 \ndebye-length=0.766 \n")
+    outputConfigFile.write("enable-surface \nenable-core \nenable-electrostatic \nsimulation-steps = 2000 \npotential-cutoff=5.0 \npotential-size = 1000 \nangle-delta = 5.0 \nbjerum-length="+str(round(bjerrumLength ,3))+" \ndebye-length="+str(round(debyeLength,3))+" \n")
+    outputConfigFile.write("temperature = "+str(round(inputTemp,2))+"\n")
     outputConfigFile.write("zeta-potential = [" + str(args.zeta) + "] \n")
     if useDefaultBeadSet == 1:
         outputConfigFile.write("amino-acids         = [ ALA, ARG, ASN, ASP, CYS, GLN, GLU, GLY, HIS, ILE, LEU, LYS, MET, PHE, PRO, SER, THR, TRP, TYR, VAL] \n")
