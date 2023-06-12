@@ -129,6 +129,10 @@ print("Generated config file, running UA")
 os.system("./UnitedAtom --config-file=uaconfigautogen.config")
 print("UA run complete")
 
+NPRadius = int(args.radius) #in nm
+NPZetaMV = int(1000*args.zeta) #in mV
+
+finalOutputFolder = args.outputfolder+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZetaMV))
 if args.postprocess == 1 and args.operation_type=="pdb":
     proteinTargetName = (args.input_file.split("/")[-1])[:-4]
     if shape==1:
@@ -136,11 +140,11 @@ if args.postprocess == 1 and args.operation_type=="pdb":
     else:
         uaResultFileNameOriginal = proteinTargetName+"_"+str(int(args.radius))+"_"+str(int(1000*args.zeta))+"_0.uam"
     uaResultFileName = proteinTargetName+"_"+args.material+"_"+str(args.radius)+"_"+str(args.zeta)+".uam"
-    os.system("mv "+args.outputfolder+"/"+uaResultFileNameOriginal+" "+ args.outputfolder+"/"+uaResultFileName)
+    os.system("mv "+finalOutputFolder+"/"+uaResultFileNameOriginal+" "+ finalOutputFolder+"/"+uaResultFileName)
     print("Generating heatmap")
-    os.system("python3 tools/plotmap "+ args.outputfolder+"/"+uaResultFileName)
+    os.system("python3 tools/plotmap "+ finalOutputFolder+"/"+uaResultFileName)
     print("Generating rotated PDB")
-    os.system("python3 tools/ApplyOptimumRotation.py -p " + args.input_file + " -u " + args.outputfolder+"/"+uaResultFileName + " -o "+args.outputfolder)
+    os.system("python3 tools/ApplyOptimumRotation.py -p " + args.input_file + " -u " + finalOutputFolder+"/"+uaResultFileName + " -o "+finalOutputFolder)
 
 
 
