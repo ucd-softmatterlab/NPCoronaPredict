@@ -1,6 +1,11 @@
 '''
 Given a list of protein (or other molecule) concentrations and binding energies runs an MC model to determine the coverage in the steady-state.
 
+The state is stored internally as a list of lists:
+
+[newProteinID,newPhi,newC2 ,collidingNP ]
+where proteinID associates an instance of a protein with its dataset entry, phi,C2 are the co-ordinates (C2=theta for sphere, z for cylinder) and NP is the ID number of the NP to which the protein is bound
+
 '''
 import os
 import numpy as np
@@ -35,57 +40,70 @@ def collisionDetect(state, entryID):
 
 enableMFSpaceTest = 1 #enables the second test in the meanfield model to see if this would bring the surface coverage above 1
 
-#This function returns 1 if an overlap is detected and 0 else. 
+#This function returns a variable denoting if any collision was found and a list of all proteins which would overlap with the new one
 def adsorbCollisionDetect(state,newType,newC1,newC2):
+    collisionDetected = 0
+    detectedOverlaps = []
     if meanFieldApprox == 1:
         if np.random.random() < 1 - surfaceCoverage :
             if enableMFSpaceTest == 1:
                 newCoverage = surfaceCoverage + 1.0/proteinBindingSites[newType]
                 if newCoverage < 1:
-                    return 0
+                    collisionDetected = 0
                 else:
-                    return 1
+                    collisionDetected = 1
             else:
-                return 0
+                collisionDetected = 0
         else:
             return 1
     if npShape == 1:
-        return SphereCollisionDetect(state,newType,newC1,newC2)
+        collisionDetected, detectedOverlaps =  SphereCollisionDetect(state,newType,newC1,newC2)
     elif npShape == 2:
         if hasPBC == True:
-            return CylinderCollisionDetect(state,newType,newC1,newC2) + CylinderCollisionDetect(state,newType,newC1,newC2,2*cylinderHalfLength) + CylinderCollisionDetect(state,newType,newC1,newC2,-2*cylinderHalfLength)
+            collisionDetected, detectedOverlaps = CylinderCollisionDetect(state,newType,newC1,newC2) 
+            collisionDetected2, detectedOverlaps2 = CylinderCollisionDetect(state,newType,newC1,newC2,2*cylinderHalfLength) 
+            collisionDetected3, detectedOverlaps3 =  CylinderCollisionDetect(state,newType,newC1,newC2,-2*cylinderHalfLength)
+            collisionDetected = max(collisionDetected , collisionDetected2 , collisionDetected3)
+            detectedOverlaps  = list(set( detectedOverlaps  + detectedOverlaps2 + detectedOverlaps3 ))
         else:
-            return CylinderCollisionDetect(state,newType,newC1,newC2)  
+            collisionDetected, detectedOverlaps = CylinderCollisionDetect(state,newType,newC1,newC2)  
     elif npShape == 3:
         if hasPBC == True:
             PlaneCollisionDetected = 0
             for xo in [-2*planeHalfLength, 0, 2*planeHalfLength]:
                 for yo in [-2*planeHalfLength, 0, 2*planeHalfLength]:
-                    PlaneCollisionDetected += PlaneCollisionDetect(state,newType,newC1,newC2,xo,yo) 
-            return PlaneCollisionDetected
+                    newcollisionDetected, newdetectedOverlaps = PlaneCollisionDetect(state,newType,newC1,newC2,xo,yo) 
+                    collisionDetected = max(collisionDetected , newcollisionDetected)
+                    detectedOverlaps = detectedOverlaps + newdetectedOverlaps
+            detectedOverlaps = list(set(detectedOverlaps))
         else:
-            return PlaneCollisionDetect(state,newType,newC1,newC2) 
+            collisionDetected, detectedOverlaps =  PlaneCollisionDetect(state,newType,newC1,newC2) 
     else:
-        return SphereCollisionDetect(state,newType,newC1,newC2)
+        collisionDetected, detectedOverlaps =  SphereCollisionDetect(state,newType,newC1,newC2)
+    return collisionDetected, detectedOverlaps
 
 def SphereCollisionDetect(state, newType,newPhi, newTheta):
+    collisionDetected = 0
+    detectedOverlaps = []
     if(len(state))<1:
-        return 0
+        return collisionDetected, detectedOverlaps
     newr = proteinData[ newType,1 ]
     radiusArray = proteinData[ state[:,0].astype(int), 1] 
     if hardSphereMode == 1:
         allowedDists = radiusArray + newr
         distSq = ((npRadius+radiusArray)*np.cos(state[:,1])*np.sin(state[:,2]) - (npRadius+newr)*np.cos(newPhi)*np.sin(newTheta) )**2 + ((npRadius+radiusArray)*np.sin(state[:,1])*np.sin(state[:,2]) - (npRadius+newr)*np.sin(newPhi)*np.sin(newTheta) )**2 + ((npRadius+radiusArray)*np.cos(state[:,2]) - (npRadius+newr)*np.cos(newTheta) )**2
         if np.any( np.sqrt(distSq)  < allowedDists):
-            return 1
-        else:
-            return 0
+            collisionDetected =  1
+            detectedOverlaps =  np.nonzero( np.sqrt(distSq)  < allowedDists )[0].tolist()
+        return collisionDetected, detectedOverlaps
+            
     #second test: surface projection detection
     minimumAngle = np.arcsin(radiusArray/(radiusArray+npRadius))  + np.arcsin(newr/(newr+npRadius))
     angleDist = np.arccos( np.cos(newTheta)*np.cos(state[:,2]) + np.sin(newTheta)*np.sin(state[:,2])*np.cos( np.abs(newPhi - state[:,1]) )    )
     if np.any(angleDist < minimumAngle):
-        return 1
-    return 0
+        collisionDetected =  1
+        detectedOverlaps =    np.nonzero(angleDist < minimumAngle)[0].tolist()
+    return collisionDetected, detectedOverlaps
 
 
 def shuffleCollisionDetect(state, shiftedNum ,newPhi, newTheta):
@@ -104,75 +122,55 @@ def shuffleCollisionDetect(state, shiftedNum ,newPhi, newTheta):
         return 1
     return 0
 
-'''
-def hardSphereCollisionDetect(state, newType,newPhi, newTheta):
-    if(len(state))<1:
-        return 0
-    newr = proteinData[ newType,1 ]
-    radiusArray = proteinData[ state[:,0].astype(int), 1]
-    xsq = (radiusArray+npRadius) * np.cos(state[:,1]) * np.sin(state[:,2]) 
-    minimumAngle = np.arcsin(radiusArray/(radiusArray+npRadius))  + np.arcsin(newr/(newr+npRadius))
-    angleDist = np.arccos( np.cos(newTheta)*np.cos(state[:,2]) + np.sin(newTheta)*np.sin(state[:,2])*np.cos( np.abs(newPhi - state[:,1]) )   $
-    if np.any(angleDist < minimumAngle):
-        return 1
-    return 0
-'''
-
-'''
-
-old version
-def CylinderCollisionDetect(state, newType,newPhi, newZ):
-    if(len(state))<1:
-        return 0
-    newr = proteinData[ newType,5 ]
-    radiusArray = proteinData[ state[:,0].astype(int), 5]
-    #first pass: detect physical overlap
-    allowedDists = radiusArray + newr
-    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2     
-        return 1
-    #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
-    minRD = np.where( radiusArray > newr, radiusArray, newr)
-    if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2     +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2]  - newZ  )**2      )     < a$
-        return 1
-    return 0
-'''
 
 def CylinderCollisionDetect(state, newType,newPhi, newZ,zoffset=0):
+    collisionDetected = 0
+    detectedOverlaps = []
     if(len(state))<1:
-        return 0
+        return collisionDetected,detectedOverlaps
     newr = proteinData[ newType,1 ]
     radiusArray = proteinData[ state[:,0].astype(int), 1]
     #first pass: detect physical overlap
     allowedDists = radiusArray + newr
-    if np.any( np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2   +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
-        return 1
+    overlapCondition = np.sqrt( ( (npRadius+radiusArray)*np.cos(state[:,1]) - (newr+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+radiusArray)*np.sin(state[:,1])  - (newr+npRadius)*np.sin(newPhi)  )**2   +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists
+    if np.any( overlapCondition):
+        collisionDetected = 1
+        detectedOverlaps = np.nonzero(overlapCondition)[0].tolist()
     #At this point in the code, no hard-sphere overlaps between proteins have been detected. so if we're enabling this mode we can now return 0
     if hardSphereMode == 1:
-        return 0
+        return collisionDetected,detectedOverlaps
     #second pass: project all sphere-pairs up to the same radial distance such that the larger is still touching the cylinder and check again for overlap
     minRD = np.where( radiusArray > newr, radiusArray, newr)
-    if np.any( np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists):
-        return 1
-    return 0
+    overlapCondition =  np.sqrt( ( (npRadius+minRD)*np.cos(state[:,1]) - (minRD+npRadius)*np.cos(newPhi)  )**2  +  ( (npRadius+minRD)*np.sin(state[:,1])  - (minRD+npRadius)*np.sin(newPhi)  )**2    +  (  state[:,2] + zoffset  - newZ  )**2      )     < allowedDists
+    if np.any(overlapCondition):
+        detectedOverlaps = np.nonzero(overlapCondition)[0].tolist()
+        collisionDetected  = 1
+    return collisionDetected,detectedOverlaps
 
 
 def PlaneCollisionDetect(state, newType,newC1, newC2,xoffset=0,yoffset=0):
+    collisionDetected = 0
+    detectedOverlaps = []
     if(len(state))<1:
-        return 0
+        return collisionDetected,detectedOverlaps
     newr = proteinData[ newType,1 ]
     radiusArray = proteinData[ state[:,0].astype(int), 1]
     #first pass: detect physical overlap
     allowedDists = radiusArray + newr
-    if np.any( np.sqrt(    (  state[:,1] + xoffset  -  newC1   )**2  +  (  state[:,2]  +yoffset-  newC2   )**2   +  (  radiusArray - newr )**2      )     < allowedDists):
-        return 1
+    overlapCondition = np.sqrt(    (  state[:,1] + xoffset  -  newC1   )**2  +  (  state[:,2]  +yoffset-  newC2   )**2   +  (  radiusArray - newr )**2      )     < allowedDists
+    if np.any( overlapCondition ):
+        detectedOverlaps = np.nonzero(overlapCondition)[0].tolist()
+        collisionDetected  = 1
     #At this point in the code, no hard-sphere overlaps between proteins have been detected. so if we're enabling this mode we can now return 0
     if hardSphereMode == 1:
-        return 0
+        return collisionDetected,detectedOverlaps
     #second pass: as before, except ignoring z such that all proteins have their centers on the same plane
     minRD = np.where( radiusArray > newr, radiusArray, newr)
-    if np.any( np.sqrt(    (  state[:,1] + xoffset -  newC1   )**2  +  (  state[:,2]  +yoffset-  newC2   )**2       )     < allowedDists):
-        return 1
-    return 0
+    overlapCondition = np.sqrt(    (  state[:,1] + xoffset -  newC1   )**2  +  (  state[:,2]  +yoffset-  newC2   )**2       )     < allowedDists
+    if np.any(overlapCondition ):
+        detectedOverlaps = np.nonzero(overlapCondition)[0].tolist()
+        collisionDetected  = 1
+    return collisionDetected,detectedOverlaps
 
 
 def bindingArea(rnp,ri):
@@ -231,7 +229,9 @@ def outputState():
     totalProteins = 0
     totalCoverage = 0
     uniqueProteinNums = np.zeros(len(uniqueProteins))
+    uniqueProteinCoverage = np.zeros(len(uniqueProteins))
     outString = str(lastUpdate)
+    outStringCoverage = str(lastUpdate)
     print(lastUpdate,end=' ' )
     for id in proteinIDList: #scan through all protein-orientations and sum up the total number of each protein
         proteinName = proteinNames[id]
@@ -239,12 +239,14 @@ def outputState():
         #print upIndex, uniqueProteins[upIndex]
         numProteins = len(stateArr[stateArr == id])
         uniqueProteinNums[upIndex] += numProteins
+        uniqueProteinCoverage[upIndex] += numProteins/proteinBindingSites[id]
         totalProteins += numProteins
         totalCoverage +=  numProteins/proteinBindingSites[id]
     for upIndex in range(len(uniqueProteins)):
         if coarseGrainAtEnd ==0:
             print(uniqueProteinNums[upIndex]/numNPs,end=' ' )
             outString = outString+" "+str(uniqueProteinNums[upIndex]/numNPs)
+            outStringCoverage = outStringCoverage+" "+str(uniqueProteinCoverage[upIndex]/numNPs)
         resEntry.append(uniqueProteinNums[upIndex]/numNPs )
     if doAnalytic == 1:
         analyticState =  steadyStateA -np.matmul( sp.linalg.expm(t * aCoeffMatrix), steadyStateA)
@@ -259,7 +261,9 @@ def outputState():
     print(totalProteins/numNPs, " ", totalCoverage/numNPs, deltaGValCoverage, deltaGValNumberAverage,end=' ' )
     print("")
     outString = outString+" "+str(totalProteins/numNPs)+" "+str(totalCoverage/numNPs)+"\n"
+    outStringCoverage = outStringCoverage+" "+str(totalProteins/numNPs)+" "+str(totalCoverage/numNPs)+"\n"
     runningFile.write(outString)
+    runningFileCoverage.write(outStringCoverage)
     resList.append(resEntry)
 
 
@@ -325,6 +329,8 @@ parser.add_argument('-l','--loadfile',help="KMC file for previous run (precoatin
 parser.add_argument('-P','--projectname',help="Name for project", default="testproject")
 parser.add_argument('-R','--runningfile',help="Save output snapshots", default=0, type=int)
 parser.add_argument('-b','--boundary',help="Boundary type: 0 = vacuum, 1 = periodic", default=1, type=int)
+parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
+
 doMovie = False
 args = parser.parse_args()
 endTime = args.time*3600
@@ -332,6 +338,11 @@ endTime = args.time*3600
 hardSphereMode = args.hardsphere
 if hardSphereMode == 1:
     print("Enabling actual hard spheres")
+
+allowDisplace = False
+if args.displace != 0:
+    allowDisplace = True
+    print("Enabling displacement, please make sure all binding energies are correct")
 
     
 updateInterval = args.timedelta
@@ -457,7 +468,11 @@ proteinDataOneLarge = np.array([
 ["HDL","1.5e-5","20","3e4","3e-5", "-20.7233",str(np.pi*20**2)]
 
 ])
+proteinDataOne = np.array([
 
+["HDL","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)]
+
+])
 
 #kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
 
@@ -602,11 +617,16 @@ if doMovie==True:
 
 finalName = coronaSaveDir+"/kmc_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
 runningName = coronaSaveDir+"/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+".txt"
-
+runningNameCoverage = coronaSaveDir+"/kmc_running_"+outputTag+"_"+str(npRadius)+"_s"+str(doShuffle)+"_"+mfTag+"_"+args.fileid+"_coverage.txt"
 
 runningFile = open(runningName, "w")
 runningFileHeader = ",".join( [a for a in uniqueProteins])
 runningFile.write("t/s,"+runningFileHeader+",total,total_coverage\n")
+
+runningFileCoverage = open(runningNameCoverage, "w")
+runningFileCoverageHeader = ",".join( ["s_"+a for a in uniqueProteins])
+runningFileCoverage.write("t/s,"+runningFileCoverageHeader+",total,total_coverage\n")
+
 
 print("t/s",end=' ')
 for proteinName in uniqueProteins:
@@ -693,37 +713,40 @@ while t < endTime:
             if shapeClass == "sphere":
                 u = np.linspace(0, 2 * np.pi, 20)
                 v = np.linspace(0, thetaMax, 20)
-                x = npRadius * np.outer(np.cos(u), np.sin(v))
-                y = npRadius * np.outer(np.sin(u), np.sin(v))
-                z = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
+                npx = npRadius * np.outer(np.cos(u), np.sin(v))
+                npy = npRadius * np.outer(np.sin(u), np.sin(v))
+                npz = npRadius * np.outer(np.ones(np.size(u)), np.cos(v))
                 plotBound = npRadius + largestProteinRadius
             elif shapeClass == "cylinder":
                 u = np.linspace(0,2*np.pi,20)
                 v = np.linspace(-1,1,20,endpoint=True)
-                x = npRadius * np.outer(np.cos(u), np.ones(np.size(v)))
-                y = npRadius * np.outer(np.sin(u), np.ones(np.size(v)))
+                npx = npRadius * np.outer(np.cos(u), np.ones(np.size(v)))
+                npy = npRadius * np.outer(np.sin(u), np.ones(np.size(v)))
                 #print("NP surface element coords")
                 #print(x)
                 #print(y)
-                z = cylinderHalfLength* np.outer(np.ones(np.size(u)), v)
+                npz = cylinderHalfLength* np.outer(np.ones(np.size(u)), v)
                 plotBound = npRadius + largestProteinRadius
                 #print(z)
             elif shapeClass == "plane":
                 u = np.linspace(-1,1,20,endpoint=True)
                 v = np.linspace(-1,1,20,endpoint=True)
-                x = planeHalfLength * np.outer(u, np.ones(np.size(v)))
-                y = planeHalfLength * np.outer(np.ones(np.size(u)), v)
+                npx = planeHalfLength * np.outer(u, np.ones(np.size(v)))
+                npy = planeHalfLength * np.outer(np.ones(np.size(u)), v)
                 #print("NP surface element coords")
                 #print(x)
                 #print(y)
-                z =  0.0 * np.outer(np.ones(np.size(u)), v)
+                npz =  0.0 * np.outer(np.ones(np.size(u)), v)
                 plotBound = planeHalfLength
             #ax2.plot_surface(x, y, z,color='gray')            
-            
+            #ax2.scatter(npx,npy,npz,color='gray')
             #print("setting plotBound: ", plotBound, " from ", npRadius, " and large protein: ", largestProteinRadius)
             ax2.set_xlim3d( -plotBound ,plotBound)
             ax2.set_ylim3d( -plotBound , plotBound)
-            ax2.set_zlim3d( -plotBound , plotBound)
+            if shapeClass == "plane":
+                ax2.set_zlim3d(0 , plotBound)
+            else:
+                ax2.set_zlim3d( -plotBound , plotBound)
             #ax3.plot_surface(x, y, z,color='gray')
             #ax3.set_xlim3d( -plotBound ,plotBound)
             #ax3.set_ylim3d( -plotBound , plotBound)
@@ -755,12 +778,13 @@ while t < endTime:
                 ax2.plot_surface(x, y, z,color="C"+str(upIndex))
                 #thetaProject =np.arctan2(  np.sqrt(x**2 + y**2) ,z  )
                 #phiProject = np.arctan2(  y, x )
-                shadowOffset = 0.1
-                pointRadius = np.sqrt(x**2+y**2+z**2)
-                xp = (shadowOffset+npRadius)*x/(pointRadius)
-                yp = (shadowOffset+npRadius )* y/(pointRadius)
-                zp = (shadowOffset+npRadius) * z /(pointRadius)
+                #shadowOffset = 0.1
+                #pointRadius = np.sqrt(x**2+y**2+z**2)
+                #xp = (shadowOffset+npRadius)*x/(pointRadius)
+                #yp = (shadowOffset+npRadius )* y/(pointRadius)
+                #zp = (shadowOffset+npRadius) * z /(pointRadius)
                 #ax3.plot_surface(xp,yp,zp, color="C"+str(upIndex)) 
+            #ax2.scatter(npx,npy,npz,color='gray')
             plt.pause(0.05)
             if doMovie == True:
                 plt.savefig(coronaSaveDir+"/movie/frame_"+str(updateNum)+".png")
@@ -825,12 +849,34 @@ while t < endTime:
         if len(state) < 1:
             isOvercrowded = 0
         else:
-            isOvercrowded =  adsorbCollisionDetect(stateArr[ stateArr[:,3] == collidingNP  ], newProteinID, newPhi, newC2)
+            isOvercrowded, blockingProteinStateIDs =  adsorbCollisionDetect(stateArr[ stateArr[:,3] == collidingNP  ], newProteinID, newPhi, newC2)
         if isOvercrowded == 0:
             state.append([newProteinID,newPhi,newC2 ,collidingNP ])
             surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
             boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
             #print "accepted protein ", newProteinID
+        else:
+            #print("Proteins in the way state IDs: ", blockingProteinStateIDs)
+            blockingProteinTypes = stateArr[ blockingProteinStateIDs ,0 ].astype(int)
+            #print("Blocking protein types:", blockingProteinTypes)
+            blockingProteinEnergies = proteinData[ blockingProteinTypes, 4]
+            #print("Blocking protein energies: ", blockingProteinEnergies)
+            erep = np.sum(blockingProteinEnergies)
+            enew = proteinData[newProteinID,4]
+            #acceptanceProbability = np.exp( - (proteinData[ newProteinID, 4] - np.sum(blockingProteinEnergies))) 
+            acceptanceProbability = np.exp( -(enew - erep))/( np.exp( -(enew-erep)) + 1.0) #calculate the acceptance probability such that the two states are canonically distributed
+            #print("Total energy:", erep, " new protein energy ", enew , "acceptance probability", acceptanceProbability)
+            if allowDisplace == True and  np.random.random() < acceptanceProbability:
+                #print("Replacement occured")
+                blockingProteinStateIDs.sort()
+                blockingProteinStateIDs.reverse()
+                for bpid in blockingProteinStateIDs:
+                    removedProtein = state.pop( bpid)
+                    surfaceCoverage -= 1.0/(numNPs*proteinBindingSites[ removedProtein[0]])
+                    boundProteinAll[  proteinNames == proteinNames[ removedProtein[0]]   ]  -= 1
+                state.append([newProteinID,newPhi,newC2 ,collidingNP ])
+                surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
+                boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
     else:
         #remove the protein 
         removedProtein = state.pop( chosenProcess - len(collisionRates)   )
@@ -920,4 +966,4 @@ for i in range(len(stateArray)):
     kmcFileOut.write(outputLine+"\n")
 kmcFileOut.close()
 runningFile.close()
-
+runningFileCoverage.close()

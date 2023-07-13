@@ -50,6 +50,9 @@ parser.add_argument('-p','--projectname', type=str,help="Name of project", defau
 parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, disables auto-finding structures (all proteins wanted must be included)" , default="")
 parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)", default=3)
 parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the live footage in CoronaKMC", default = 0)
+parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in seconds", default = 5e-4)
+parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
+
 args = parser.parse_args()
 
 
@@ -59,7 +62,7 @@ NPRadius = int(args.radius) #in nm
 NPZeta = int(args.zeta) #in mV
 NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
-CoronaSimTime = 1e-5
+CoronaSimTime = args.time/3600 #1 second in hours
 isCylinder = False
 isPlane = False
 boundaryType = 1
@@ -222,11 +225,11 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.00001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)
+KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)
 
 if isCylinder == True:
     print("Adding cylinder argument")

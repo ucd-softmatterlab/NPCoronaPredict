@@ -35,6 +35,7 @@ parser.add_argument("-b","--beadset",default="beadsets/StandardAABeadSet.csv", h
 parser.add_argument("-c","--configloc",default="", help="Location to save the generated configuration file")
 parser.add_argument("-T","--temperature", type=float, default=300.0, help="Nominal temperature")
 parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic strength in Mol (one-half * sum:conc*chargeSquared)")
+parser.add_argument("-n","--name",type=str,default="uaautorun",help="Output file name")
 args = parser.parse_args()
 
 
@@ -77,7 +78,7 @@ beadNameString = ", ".join(beadNames)
 beadChargeString = ", ".join( [ str(round(float(a),3)) for a in beadCharges])
 beadRadiiString = ", ".join( [ str( round(float(a),3)) for a in beadRadii])
 
-configOutputName = "uaconfigautogen.config"
+configOutputName = args.name+"_configautogen.config"
 
 inputTemp = args.temperature
 inputTempC = inputTemp - 273.15
@@ -126,7 +127,7 @@ if args.configloc != "":
 
 
 print("Generated config file, running UA")
-os.system("./UnitedAtom --config-file=uaconfigautogen.config")
+os.system("./UnitedAtom --config-file="+configOutputName)
 print("UA run complete")
 
 if args.postprocess == 1 and args.operation_type=="pdb":
