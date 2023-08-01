@@ -144,7 +144,7 @@ The above general-purpose configuration file should be fine for most cases, but 
 \item pmf-prefix : String used to differentiate between different surface potentials for the same bead as in "prefix-XXX.dat". Exists only for historical reasons. 
 \item imaginary-radius : Used in testing of hollow NPs, can be ignored.
 \item bounding-radius : Used primarily for multicomponent NPs, sets the radius at which the NP is taken to be solid and infinitely repulsive. Might be useful to edit if you're doing weird things and the auto-generated radius isn't working.
-\item overlap-penalty : Value in kbT (?) to penalise configurations in which a protein-bead overlaps an NP-bead. Used to mitigate problems with the multicomponent model.
+\item overlap-penalty : Value in kbT to penalise configurations in which a protein-bead overlaps an NP-bead. Used to mitigate problems with the multicomponent model by enforcing some anisotropy.
 \item overlap-radiusfactor : Number $> 0$ , Used to resize AA beads for determining overlap with multicomponent models. Just leave it at 1 unless you have a really good reason not to. 
 \item recalculate-zp : If non-zero, automatically adjust input zeta potentials to take into account the size of the NP and solution conditions, assuming that the input ZP corresponds to bjerrum length = 1 nm, debye length = 1nm, NP radius = 1nm. This is the only time the Bjerrum length matters and in practice you should just set the zeta potentials to whatever they actually are and not enable this option. 
 \item save-potentials : If nonzero saves out the protein-NP potentials. Note that AA-NP potentials are automatically saved out to the pot-dat folder if this exists regardless of this option.
@@ -169,6 +169,7 @@ where the first column contains the three-letter tag associated with a given AA 
 \section{Input data - Surface potential/PMFs}
 The surface potential defines the short-range interaction between the NP and the AAs and is, typically, a potential of mean force including solvent effects, although any tabulated potential with a short-range repulsion will suffice. All beads defined in the configuration file with name XXX must have a corresponding XXX.dat file in the relevant directory. These files are defined in Surface.h and must be either comma-separated in the form distance(nm),energy(kj/mol) or with the distance stored in the columns 1--8 and the energy in columns 9--20, again in nm and kJ/mol. Empty lines and those starting with a \# are ignored. If the surface potential does not match this formatting you will probably get inconsistent results or an error. Comma formatting is strongly recommended! 
 
+Important: UnitedAtom internally assumes that the PMFs used for input are either an infinite plane or an infinite cylinder (of radius 0.75 nm, to be specific). These are then corrected to the actual NP radius. If you've created PMFs for a small repeat unit, then UA will not give meaningful results because it will be trying to apply a correction to something that's already been corrected. You can either manually de-correct your PMFs to map from single bead to the equivalent of a plane or use multicomponent UA (discussed later) to build a raspberry model of your NP made from the individual beads. 
 
 \section{Input structures - PDB}
 The biomolecule to be scanned over is defined using a structure in the pdb format. The input file is read and each line is scanned in turn as implemented in PDBFile.h, with scanning continuing until the end of file or the first ``ENDMDL'' line is reached. Briefly, if columns 1 -- 4 contain the text "ATOM" and columns 14--15 the text "CA" then a bead is added to the internal structure for that molecule, else, the line is discarded.  The bead is defined based on the following entries:
@@ -326,12 +327,11 @@ Complexes can be built using the GenerateNP.py script or other such tools, or th
 
 Caveats:
 
-1) The surface of a complex NP is not well defined. Interpret binding energies with caution.
+1) The surface of a complex NP is not well defined. Interpret binding energies with caution and try varying the bounding radius. 
 
 2) In the default mode, the potentials are generated for single bead AAs at the north pole of the NP-complex and summation is done over this . This means that if there is a large enough gap for a single bead to sneak through, the entire protein will behave as if it can sneak into this space and dramatically overestimate the achievable binding energy. A hard-sphere repulsion can be switched on to reduce this effect.
 
-
-
+Polymeric NPs (those for which the PMFs represent a small repeat unit rather than an entire slab) can be built using a raspberry model, check GenerateNP.py for examples, or as beads decorating the surface of a homogenous inner bead. For reasons of speed it's best to replace small inner beads by larger ones if you can, especially if they're at a distance of $> 1$ nm from the surface of the NP (and so only interact through the Hamaker potential) - summation of the potentials over all beads in an NP can be very slow, especially for larger radii. 
 
 
 \section{PMFP}
@@ -466,8 +466,55 @@ Some optional ones are listed below - these tend to be for debugging or more spe
 \item -b or --boundary - defaults to 1 to enable periodic boundary conditions for planar and cylindrical NPs. Set to 0 to disable these. 
 \end{itemize}
 
+\section{Adsorbate input file}
+In general the most important input is the list of potential adsorbates, which is a file with the following structure
+\begin{lstlisting}
+CAFF-AC-P1:1.5707-2.5 0.0011 0.429782 40223088.95 92160.946 -6.07866 0.4928
+DGL-AC-P2:1.57079-2.5 0.126 0.40580 37973099.80 410581.0240 -4.52706 0.4432
+THRSCA-AC-P3:1.57079-2.5 1.95 0.2893 27060588.72 15066871.28 -0.58558 0.2352
+CASEIN-P4:2.5-2.5 8.258e-09 2.64137 254665682.08 78662113.41 -1.17479 9.68
+CASEIN-P4:2.5-7.5 8.258e-09 2.65634 256171091.41 77399130.53 -1.19687 9.75
+CASEIN-P4:2.5-12.5 8.258e-09 2.68301 258856223.61 73540978.86 -1.25843 9.88
+CASEIN-P4:2.5-17.5 8.258e-09 2.72020 262602959.93 70165254.15 -1.31979 10.07
+\end{lstlisting}
+Note that unlike almost every other input file, these are space-delimited and not comma-delimited - this should probably be updated at some point. The columns are:
+\begin{itemize}
+\item Protein ID
+\item Concentration
+\item Effective radius
+\item KAds (per-site)
+\item KDesorb
+\item EAds = log(kads/kdesorb)
+\item Effective binding area 
+\end{itemize}
+The protein ID has the format ``name:theta-phi'', with this convention allowing for different orientations of the same protein to be handled separately internally but summed together for output. That is, in the above example, the simulation prints out counts of adsorbed CAFF-AC, DGL-AC, THRSCA-AC and CASEIN, but CASEIN has every orientation treated separately and the simulation stores data about which orientations are actually bound. 
+
+
+
+\section{Output}
+The most immediate output is seen when running the simulation 
+\begin{lstlisting}
+abc
+\end{lstlisting}
+where the first column is the time, the next N columns are N adsorbates (each summed over orientations if necessary), followed by a total count and the total surface coverage. 
+
+
+A number of files are created in the target output folder, either during the simulation (Running) or at the end of the run (Final):
+\begin{itemize}
+\item (Running) kmc\_running\_INPUTFILENAME\_X.txt - protein counts
+\item (Running) kmc\_running\_INPUTFILENAME\_X\_coverage.txt - surface coverages
+\item (Final) FILENAME.kmc - adsorbed proteins at the end of the simulation
+\item (Final) FILENAME\_finalcoords\_X - adsorbed proteins, real-space coordinates
+\item (Final) kmc\_FILENAME\_X.txt - protein counts, saved at end
+\end{itemize}
+
+If the Boolean flag ``doMovie'' in the script is set to True then an extra folder "movie" will be created. This will be empty unless the --demo command line option is also enabled, in which case it will contain the figures generated by demonstration mode.
+
+The .kmc file can be used as a precoating file for further simulations if needed via the -l option. This allows the simulation of a corona in one environment followed by transfer to another.  This file can also be used with the tools/CoronaKMCtoVMD.py script to generate a simple .tcl script which can be run in VMD for visualisation.
+
+
 \section{Connection to UA}
-The most straightforward way is to use the BuildCoronaParams-P3.py script, which takes the following input:
+A frequent use case is the adsorption of proteins to NPs, with the protein-NP adsorption affinity characterised using UA. This requires a method to convert the static binding energies output from UA to dynamic rate constants, together with estimations of the binding area and ideally accounting for multiple protein orientations. The most straightforward way to achieve this is to use the BuildCoronaParams-P3.py script, which takes the following input:
 
 \begin{itemize}
 \item -f or --folder - folder containing UA output .uam files
