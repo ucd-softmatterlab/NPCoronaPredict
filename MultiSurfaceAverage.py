@@ -66,9 +66,61 @@ def pointsToBeads(coords):
     return np.reshape(np.array(newCoordList),(-1,2))
 
 
-def averageEnergy( surfaceSet, uaMapFile, pdbFile="", weightArea = False, areaEpsilon = 0.1):
+def averageEnergy( surfaceSet, uaMapFile, pdbFile="", weightArea = False, areaEpsilon = 0.1, resample=False):
     ''' Calculate simple and canonical averages for a set of protein binding states.  '''
     allStates = []
+    #allStatesErrors = [] 
+    gotAreaWeights = False
+    if weightArea == True:
+        try:
+            pdbStructure = getAtomCoords(pdbFile)*0.1
+        except:
+            print("Failed to find PDB file for current target, attempted ", pdbFile)
+            weightArea = False
+        areaWeightList = []
+    for surface in surfaceSet:
+        data = np.genfromtxt( surface[0]+"/"+uaMapFile )
+        data[:,3] = data[:,3] / np.sqrt(128)
+        weights = np.sin( ( data[:,1]+2.5) * np.pi / 180.0 ) * surface[1] 
+        if weightArea == True:
+            if gotAreaWeights == False:
+                areaWeightList = []
+                for dataLine in data:
+                    crossSectionalArea =  getPDBAreaXY( pointsToBeads(  rotatePDB(pdbStructure, dataLine[0]*np.pi/180, dataLine[1]*np.pi/180)[:,(0,1)]     ))
+                    areaWeightList.append(crossSectionalArea + areaEpsilon)
+                gotAreaWeights = True
+                areaWeights = 1.0/np.array(areaWeightList)
+            weights = weights * areaWeights
+        if resample == False:
+            allStates.append( np.stack( [data[:,2] , weights ,data[:,3]] ,axis=-1))
+        else:
+            resampledEnergies = np.random.normal( data[:,2] , data[:,3] )
+            print(resampledEnergies)
+            allStates.append( np.stack( [resampledEnergies , weights ,data[:,3]] ,axis=-1))
+        #allStatesErrors.append( np.stack( [data[:,3] , weights ] ,axis=-1))
+    allStateArr = np.concatenate( allStates,axis=0)
+    #allStateErrorArr = np.concatenate(allStatesErrors,axis=0) 
+    simpleAverage = np.sum( allStateArr[:,0] * allStateArr[:,1] )/np.sum(  allStateArr[:,1] )
+    boltzAverage = np.sum( allStateArr[:,0] * allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]) )/np.sum(  allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]))
+    kbtVal = 1.0
+    energyNumerator = np.sum( allStateArr[:,0] * allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]) )
+    partitionFunc = np.sum(  allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]))
+    #error propagation: contribution to sum from term i is e^-ei/kbt( numerator - ei partition + kbt partition)*weighti/(kbt partition**2)
+    boltzTermDeriv = allStateArr[:,1]*np.exp(-kbtVal * allStateArr[:,0])*(energyNumerator - allStateArr[:,0]*partitionFunc + kbtVal*partitionFunc)/(kbtVal * partitionFunc**2)
+    #square error is then sum of these derivs**2 * error**2
+    boltzErrApprox = np.sqrt( np.sum((boltzTermDeriv**2)*( allStateArr[:,2]**2)))
+    #freeEAverage = -1.0 * np.log(  np.sum(  allStateArr[:,1] *  np.exp(-1.0 * allStateArr[:,0])    )/np.sum(allStateArr[:,1] )   )
+    #print("Boltz energy: ", boltzAverage, "+-", boltzErrApprox, "maxerr", np.amax(allStateArr[:,2]))
+    return (simpleAverage, boltzAverage, np.amin( allStateArr[:,0]), boltzErrApprox)
+         
+
+def averageEnergyResampling( surfaceSet, uaMapFile, pdbFile="", weightArea = False, areaEpsilon = 0.1,  resampleNum=100):
+    ''' Calculate simple and canonical averages for a set of protein binding states.  '''
+    allStates = []
+    for i in range(resampleNum):
+        allStates.append( [] )
+    #print(allStates)
+    #allStatesErrors = [] 
     gotAreaWeights = False
     if weightArea == True:
         try:
@@ -89,18 +141,32 @@ def averageEnergy( surfaceSet, uaMapFile, pdbFile="", weightArea = False, areaEp
                 gotAreaWeights = True
                 areaWeights = 1.0/np.array(areaWeightList)
             weights = weights * areaWeights
-        allStates.append( np.stack( [data[:,2] , weights ] ,axis=-1))
-    allStateArr = np.concatenate( allStates,axis=0) 
-    simpleAverage = np.sum( allStateArr[:,0] * allStateArr[:,1] )/np.sum(  allStateArr[:,1] )
-    boltzAverage = np.sum( allStateArr[:,0] * allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]) )/np.sum(  allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]))
-    #freeEAverage = -1.0 * np.log(  np.sum(  allStateArr[:,1] *  np.exp(-1.0 * allStateArr[:,0])    )/np.sum(allStateArr[:,1] )   )
-    return (simpleAverage, boltzAverage, np.amin( allStateArr[:,0]))
-         
+        for i in range(resampleNum):
+            resampledEnergies = np.random.normal( data[:,2] , data[:,3]  )
+            currentState = allStates[i]
+            currentState.append( np.stack( [resampledEnergies , weights ,data[:,3]] ,axis=-1))
+            allStates[i] = currentState
+        #allStatesErrors.append( np.stack( [data[:,3] , weights ] ,axis=-1))
+    boltzSet = []
+    for i in range(resampleNum):
+        allStateArr = np.concatenate( allStates[i],axis=0)
+        #allStateErrorArr = np.concatenate(allStatesErrors,axis=0) 
+        simpleAverage = np.sum( allStateArr[:,0] * allStateArr[:,1] )/np.sum(  allStateArr[:,1] )
+        boltzAverage = np.sum( allStateArr[:,0] * allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]) )/np.sum(  allStateArr[:,1] * np.exp(-1.0 * allStateArr[:,0]))
+        boltzSet.append(boltzAverage)
+    print(boltzSet)
+    print(np.quantile(boltzSet,0.05), np.mean(boltzSet), np.quantile(boltzSet,0.95) )
+    return (np.quantile(boltzSet,0.05), np.mean(boltzSet), np.quantile(boltzSet,0.95) )
+
 
 #Define the set of surfaces to be averaged within. The first entry is the results folder containing UA output and the second is the weight (e.g. Wulff weight) for the surface. These are normalised such that they sum to unity in case some surfaces are omitted. 
 goldSurfaceSet = [
 ["results_testproject-anatase-oct/np1R_5_ZP_0", 1.0],
 ["results_testproject-gold-oct/np1R_5_ZP_0", 0.001]
+]
+
+goldSurfaceSet =[
+["results_testproject-anatase-oct/np1R_5_ZP_0", 1.0]
 ]
 
 allSurfaceSets = [goldSurfaceSet]
@@ -125,7 +191,10 @@ for surfaceSet in allSurfaceSets:
     uniqueTargets.sort()
     for target in uniqueTargets:
         pdbNameGuess = "all_proteins/"+target.split("-")[0]+".pdb"
-        simple,boltz,maxEnergy = averageEnergy(surfaceSet, target,pdbNameGuess,weightArea=True)
-        print(target, simple, boltz,maxEnergy)
+        print("Initial calculation:")
+        simple,boltz,maxEnergy,boltzErr = averageEnergy(surfaceSet, target,pdbNameGuess,weightArea=True)
+        print(target, simple, boltz,"+-",boltzErr, maxEnergy)
+        print("Resampling:")
+        averageEnergyResampling(surfaceSet,target,pdbNameGuess,weightArea=True)
 # Main
 

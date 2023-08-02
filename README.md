@@ -76,8 +76,8 @@ The PMFCutoff value is also used for calculating the Hamaker lens potential so m
 ###BuildCoronaParams.py###
 Converts UA output to a file suitable for loading into CoronaKMC.
 
-How to run: (requires python 2.7)
-python BuildCoronaParams.py -r [RADIUS] -z [ZETA potential] -f [folder containing UA heatmaps] -s [1 or 2 for sphere or cylinder] -p [protein definition file] -c [coordinate (in PDB form) folder)
+How to run: (requires python 3)
+python BuildCoronaParams-P3.py -r [RADIUS] -z [ZETA potential] -f [folder containing UA heatmaps] -s [1 or 2 for sphere or cylinder] -p [protein definition file] -c [coordinate (in PDB form) folder)
 
 This requires a file named ProteinConcs.csv (or whatever you pass using the -p argument)  of the format
 protein1name,protein1conc
@@ -116,8 +116,8 @@ area is the projected area.
 ####CoronaKMC####
 Coarse-grained Kinetic Monte Carlo simulation of corona evolution.
 
-How to run: (requires python 2.7)
-python CoronaKMC.py  -r [RADIUS] -p [protein file] -f [File ID - number to add to filename of output]
+How to run: (requires python 3)
+python CoronaKMC-P3.py  -r [RADIUS] -p [protein file] -f [File ID - number to add to filename of output]
 
 The input specified by the -p argument is a file with one entry per line of the form:
 proteinname concentration radius kon koff ebind area
@@ -125,7 +125,7 @@ proteinname concentration radius kon koff ebind area
 This output is produced by BuildCoronaParams.py. The radius given as input must be set to match whatever is specified when calculating the protein input file.
 There are a number of further optional parameters:
 -s: Defaults to 1 for a spherical NP. If set to 2 this produces a cylinder instead.
--d: If set to 1 then proteins on the surface of the NP are allowed to diffuse. This is very slow, but necessary for irreversible adsorption.
+-d: If set to 1 then proteins on the surface of the NP are allowed to diffuse. This is very slow, but necessary for irreversible adsorption to ensure surface restructuring.
 -c: If set to 1 then all the output is suppressed apart from the total surface coverage and total number of proteins. At the end these are used to calculate a protein with radius and binding energy that would produce these values.
 -m: If set to 1 then the meanfield approximation is enabled. 
 

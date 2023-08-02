@@ -132,6 +132,30 @@ aaData = [
 ["TYR", "TYR", "TYR"],
 ["VAL", "VAL", "VAL"]
 ]
+
+
+aaDataExtra =  [
+["ALA", "ALA", "ALA"],
+["ARG", "ARN", "ARG"],
+["ASN", "ASN", "ASN"],
+["ASP", "ASP", "AAN"],
+["CYS", "CYM", "CYS"],
+["GLN", "GLN", "GLN"],
+["GLU", "GLU", "GAN"],
+["HIS", "HIE", "HIP"],
+["ILE", "ILE", "ILE"],
+["LEU", "LEU", "LEU"],
+["LYS", "LYN", "LYS"],
+["MET", "MET", "MET"],
+["PHE", "PHE", "PHE"],
+["SER", "SER", "SER"],
+["THR", "THR", "THR"],
+["TRP", "TRP", "TRQ"],
+["TYR", "TYM", "TYR"],
+["VAL", "VAL", "VAL"]
+]
+
+aaData = aaDataExtra
 aaDataIndexDict = {}
 for i in range(len(aaData)):
     aaDataIndexDict[aaData[i][0]] = i

@@ -37,7 +37,7 @@ which will require a C++ compiler and the Boost libraries to be installed.
 The current version of CoronaKMC is implemented in Python 3 and is the CoronaKMC-P3.py script. An older version (CoronaKMC.py) is provided for Python 2.7 users but is no longer maintained and is lacking a significant amount of functionality compared to more recent versions. 
  
 \section{High-level pipelines}
-A frequent use case is the prediction of the corona for a simple nanoparticle (e.g. a sphere of a predefined material) in a medium consisting of proteins. In this case, the provided PrepareKMCInput.py script is designed to automate the process and can be run using a command such as:
+A frequent use case is the prediction of the corona for a simple nanoparticle (e.g. a sphere of a predefined material) in a medium consisting of proteins of known concentration. In this case, the provided PrepareKMCInput.py script is designed to automate the process and can be run using a command such as:
 
 \begin{lstlisting}
 python3 PrepareKMCInput.py -r [NPRadius] -z [ZETA] \\
@@ -55,6 +55,9 @@ Each line in this file is required to have a matching structure stored in the al
 \begin{lstlisting}
 python3 PrepareKMCInput.py --help
 \end{lstlisting}
+which lists all the available commands and details about what they do. 
+ 
+ 
  
 \chapter{UnitedAtom}
  \section{Introduction}
@@ -82,6 +85,52 @@ A run of UA works briefly as follows:
 
  The orientation $\theta,\phi$ is defined such that the input co-ordinates are rotated by an angle of $-\phi$ around the z-axis, followed by a rotation of $\pi - \theta$ around the y axis. Note that because 3D rotations are non-commutative, you do not get the same results if you apply these in the opposite order and, moreover, the rotation around $z$ still has an effect even for a spherical NP because it alters which residues are moved by the second rotation step.  For cylinders and NP-complexes, a final rotation of $\omega$ is applied around the z axis after the $\theta$ rotation. This rotation is currently stored in the filename rather than the table of output for backwards compatability with post-processing scripts. This step is redundant for spherical NPs and is omitted for these. 
 
+\section{Theory}
+The theory is covered in many other places, so here is just a quick overview. The basic, one-NP version of UA constructs a potential for each AA bead species $S$
+\begin{equation}
+U_S(r) =   U_{surf}(S,r) + U_{el}(S,r) +  U_H(S,r)
+\end{equation} 
+ where $r$ is the distance between the centre of the NP and the centre of the bead, $U_{surf}$ is a short-range potential, $U_{el}$ is an electrostatic potential, and  $U_H$ is a Hamaker-like potential. $U_{surf}$ is a tabulated potential extracted from metadynamics simulations to include the very close range repulsion, some electrostatic terms, solvent effects, mid-range vdW attraction, etc. A correction factor is applied to map these from the tabulated form generally computed for a plane to an NP of finite radius of curvature. The electrostatic term is evaluated in the Debye-Huckel approximation and has simple forms for the spherical,
+ \begin{equation}
+ U_el = ...
+ \end{equation}
+  cylindrical,
+ \begin{equation}
+ U_{el} = ...
+ \end{equation}
+and planar
+  \begin{equation}
+ U_{el} = ...
+ \end{equation}
+
+ cases. Finite cubes are evaluated using an expansion in spherical harmonics but are generally very well approximated by the planar expression, especially if the cube is large compared to the Debye length. 
+
+ 
+ 
+  The Hamaker-like potential is an integral of the $1/r^6$ vdW potential over the volumes of the NP and bead, neglecting elements with a distance less than the exclusion distance $r_e$
+ \begin{equation}
+ U_H(S,r) \propto \int \int \frac{1}{r'^6} \Theta_H( r' - r_e)dV_{NP} dV_{AA}
+ \end{equation}
+ where $r'$ is the distance between two elements $dV_{NP}, dV_{AA}$ and $\Theta_H$ is the Heaviside theta function which is zero for $r_e > r'$. This integral has a complex analytical solution for spherical NPs which is implemented into UA, and can be solved numerically for cylinders (also implemented). The result is a smooth function (see Figure \ref{fig:hamaker-exclusion}) which avoids introducing a discontinuity into the potential which would be caused if this potential was only switched on if the bead centre is at a certain distance from the NP.
+ 
+ 
+\begin{figure} \label{fig:hamaker-exclusion}
+    \centering
+    \includegraphics[width=0.6\textwidth]{figures/hamaker_magnitude_perresidue.pdf}
+    \caption{Plots of the Hamaker-like potential used in UnitedAtom for an infinite planar NP and a residue of radius $0.5$ nm with surface-surface distance $d$, shown for multiple values of the exclusion distance $r_e$.}
+\end{figure}
+ 
+ 
+ 
+ 
+ 
+For a given protein consisting of a set of beads $j$ with species $S_j$ and NP-AA distances $r_j$, the total NP-protein potential is given by summation,
+\begin{equation}
+U_{AA-NP}(r_s)
+\end{equation}
+ where $r_s$ is a measure of the NP-protein distance, generally the closest approach or COM. 
+ 
+ 
  
 \section{The configuration file}
  
@@ -266,13 +315,13 @@ GLN,0.0,0.386
 
 
 \section{Extending UA}
-The golden rule: document everything you add! For beads include a SMILES code, for surfaces ideally provide a link to the input structure and details about metadynamics settings. Storage is cheap and metadata is invaluable, especially when it comes to trying to interface results from multiple groups.
+The golden rule: document everything you add! For beads include a SMILES code, for surfaces ideally provide a link to the input structure and details about metadynamics settings. Storage is cheap and metadata is invaluable, especially when it comes to trying to mix results from multiple groups.
 
 \subsection{New materials}
-Computing PMFs and Hamaker constants for a brand-new material is outside the scope of this guide, so here we simply assume you have a set of short-range potentials, plus Hamaker constants for this material with each of the 20 AAs (or a willingness to use Null.dat for these Hamakers). Make a folder for your material in the surface folder with a short but descriptive name, e.g. ``Au-100-FCC'' to denote gold, miller index 100, FCC crystal structure. Place all the computed PMFs in this folder with names ALA.dat, ARG.dat etc (one per bead). Add a file with the computed Hamaker constants and ideally the same or at least a similar name. For bonus points, update MaterialSets.csv so the material works with the wrapper scripts.  
+Computing PMFs and Hamaker constants for a brand-new material is outside the scope of this guide, so here we simply assume you have a set of short-range potentials, plus Hamaker constants for this material with each of the 20 AAs (or a willingness to use Null.dat for these Hamakers). Make a folder for your material in the surface folder with a short but descriptive name, e.g. ``Au-100-FCC'' to denote gold, miller index 100, FCC crystal structure. Place all the computed PMFs in this folder with names ALA.dat, ARG.dat etc (one per bead). Add a file with the computed Hamaker constants and ideally the same or at least a similar name. For bonus points, update MaterialSets.csv so the material works with the wrapper scripts and also put a readme file in the folder describing what exactly the material represents, what forcefield was used, metadynamics settings, the solvent/pH/ionic strength, definition used for SSD, and convention used for amino acids (full vs side chain, convention for glycine and proline, histidine variants, any charge variants, etc). 
 
 \subsection{New adsorbate beads}
-UA will throw an exception if it tries to load a bead for a material without that bead defined, but otherwise as long as you have the XXX.dat file in the surface folder and an entry in the Hamaker file for a material, this should go ok and you should be able to include new beads just by including these in the configuration file with their name, radius and charge. Remember to only use three letters for the ID tag and to make this match what you use in the PDB input file. To save headaches, try to avoid starting the tag with an X (Y is probably also a bad idea) and make sure you remember what code is what bead.
+UA will throw an exception if it tries to load a bead for a material without that bead defined, but otherwise as long as you have the XXX.dat file in the surface folder and an entry in the Hamaker file for a material, this should go ok and you should be able to include new beads just by including these in the configuration file with their name, radius and charge. Remember to only use three letters for the ID tag and to make this match what you use in the PDB input file. To save headaches, try to avoid starting the tag with an X (Y is probably also a bad idea) and make sure you remember what code is what bead. It's probably a good idea to make a .pdb file using a template similar to the one shown in Section \ref{section:pmfp} as this provides a record of the chosen tag, SMILES code, full molecule name and gives you something you can immediately use to test the molecule in UA. 
 
 \section{Multicomponent mode}
 For a reasonably isotropic NP the above operation mode suffices, with core-shell NPs approximated via custom materials with one set of surface potentials and a different set of Hamaker potentials. In general, though, a more flexible approach may be needed. This is achieved through adding an extra line to the configuration file:
@@ -334,7 +383,7 @@ Caveats:
 Polymeric NPs (those for which the PMFs represent a small repeat unit rather than an entire slab) can be built using a raspberry model, check GenerateNP.py for examples, or as beads decorating the surface of a homogenous inner bead. For reasons of speed it's best to replace small inner beads by larger ones if you can, especially if they're at a distance of $> 1$ nm from the surface of the NP (and so only interact through the Hamaker potential) - summation of the potentials over all beads in an NP can be very slow, especially for larger radii. 
 
 
-\section{PMFP}
+\section{PMFP} \label{section:pmfp}
 If you've looked at the material sets (or read this guide) you might have noticed some files are tagged with ``pmfp'' or ``PMFP''. This refers to surface and Hamaker data predicted using the PMFPredictor repository, which uses machine learning methods to significantly increase the amount of materials and small molecules available for input to UA. A script in that repository produces bindings for UA to make use of the predictions, but as they are less rigorously tested and to distinguish them from metadynamics results they are assigned a different namespace. In brief, the PMFP datasets include a ``-pmfp'' tag in material names where appropriate. The generated beads are assigned an auto-generated 3 letter code starting with an X (unless they correspond to a standard bead, in which they use the same code). This results in a folder called ``hamaker-pmfp'' containing Hamaker files, ``surface-pmfp'' containing subdirectories with individual surfaces, a folder ``pmfp-beadsetdef'' containing a bead definition file ``PMFP-BeadSet.csv'' (three-letter code, radius, charge) and ``PMFP-BeadNames.txt'' which contains a lookup table for three-letter codes to the full name used in PMFPredictor. A folder ``pmfp-singlebead-pdbs'' is also supplied containing example PDBs for all the small molecules produced using PMFP, e.g.:
 \begin{lstlisting}
 HEADER CAFF-AC                                 23-Mar-23    XX4D
@@ -422,6 +471,7 @@ Some common problems:
 \item Boost is complaining about file copying: this means you've renabled the code for saving config files (generally a good idea!) but you're using an older version of boost (generally a less good idea!) and one of their arbitrary breaking changes to do with how it handles overwriting files is breaking. Uncomment the alternative line or use the RunUA.py/PrepareKMCInput.py interfaces to save the config file automaticallly. 
 \item The present version of UA won't automatically overwrite result files, so make sure your workflows save results to new folders as appropriate.
 \end{itemize}
+
 
 \chapter{CoronaKMC}
  \section{Introduction}

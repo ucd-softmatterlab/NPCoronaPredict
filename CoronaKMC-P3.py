@@ -258,6 +258,13 @@ def outputState():
     else:
         deltaGValCoverage = ""
         deltaGValNumberAverage = ""
+        
+    #print( (np.abs( np.sum(proteinAdsorptionEvents,axis=1) )/dybeckNE )[:3] , end = ' ' )   
+    #print( (dybeckNF*2*dybeckrs/( dybeckRateForwards + dybeckRateBackwards)), end = ' ' )  
+    #print( quasiEquil[:3],end = ' ')
+    #print( sufficientlyExecuted[:3],end = ' ')
+    #print( empiricalAcceptance[:3],end = ' ')
+    #print( lastSBEscape, end = ' ')
     print(totalProteins/numNPs, " ", totalCoverage/numNPs, deltaGValCoverage, deltaGValNumberAverage,end=' ' )
     print("")
     outString = outString+" "+str(totalProteins/numNPs)+" "+str(totalCoverage/numNPs)+"\n"
@@ -329,7 +336,9 @@ parser.add_argument('-l','--loadfile',help="KMC file for previous run (precoatin
 parser.add_argument('-P','--projectname',help="Name for project", default="testproject")
 parser.add_argument('-R','--runningfile',help="Save output snapshots", default=0, type=int)
 parser.add_argument('-b','--boundary',help="Boundary type: 0 = vacuum, 1 = periodic", default=1, type=int)
-parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
+parser.add_argument('-D','--displace',help="Allow incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
+parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
+
 
 doMovie = False
 args = parser.parse_args()
@@ -344,6 +353,18 @@ if args.displace != 0:
     allowDisplace = True
     print("Enabling displacement, please make sure all binding energies are correct")
 
+
+
+useDybeckAcceleration = False
+useDybeckUltra = False
+if args.accelerate > 0:
+    useDybeckAcceleration = True
+    print("Using Dybeck acceleration")
+    if args.accelerate > 1:
+        useDybeckUltra = True
+        print("And then accelerating further with scaling freezing")
+    
+    
     
 updateInterval = args.timedelta
     
@@ -544,6 +565,8 @@ if doAnalytic!=0:
 collisionRates = (proteinData[:,0] * proteinData[:,2]) * proteinBindingSites * numNPs
 additionProb = np.cumsum(collisionRates)
 
+slowestAdsorber = min(10,np.amin(collisionRates) )
+
 state = [] #list containing the protein ID and xyz coordinates
 
 
@@ -556,6 +579,56 @@ proteinIDList = np.arange(len(proteinData))
 
 #for id in proteinIDList:
 proteinTotalConcs = np.zeros_like(proteinData[:,0] )
+
+
+
+dybeckDelta  = 1.0 #factor for the error tolerance for determining quasi-equilibriation
+
+
+
+#estimate the length of the event
+
+
+dybeckNE = 40#np.amax(np.round(0.25*proteinBindingSites).astype(int)) #number of events to record for determining QE
+
+dybeckExecutionNumber = 20
+
+#if dybeckNE < 20:
+#    dybeckNE = 20
+print("Event queue size: ", dybeckNE)
+
+dybeckNF = 5  #target number of events per superbasin
+
+dybeckAutoNF = True
+
+dybeckMinAlpha = 0.01
+
+
+timeInSuperbasin = 1e-20
+proteinAdsorptionEvents = np.zeros( (len(proteinData[:,0]), dybeckNE)) #Nprot x dybeckNE matrix for tracking events, 1 = adsorb, -1 = desorb
+proteinCollisionEvents = np.zeros( (len(proteinData[:,0]), 2)) #Nprot x 2 matrix for tracking collisions, c1 = successful c2 = total
+proteinCollisionEvents[:,:] = 0.0
+proteinCollisionMemory = 0.8
+empiricalAcceptance = proteinCollisionEvents[:,0]/(1e-6 + proteinCollisionEvents[:,1])
+
+proteinSBExecutions= np.zeros_like(proteinData[:,0])
+proteinSBExecutionsFormer= np.zeros_like(proteinData[:,0])
+lastSBEscape = ""
+
+
+dybeckRateForwards = np.zeros_like(proteinData[:,0]) + 1e-10
+dybeckRateBackwards = np.zeros_like(proteinData[:,0]) + 1e-10
+dybeckRateBackwardsTerm = np.zeros_like(proteinData[:,0])
+#dybeckDelta = np.zeros_like(proteinData[:,0]) + dybeckDeltaMin
+
+dybeckAlpha = np.ones_like(proteinData[:,0])
+dybeckAlphaFrozen = np.ones_like(proteinData[:,0])
+dybeckIsFrozen = False
+
+quasiEquil = np.logical_and(  np.abs( np.sum(proteinAdsorptionEvents,axis=1) )/dybeckNE < dybeckDelta   , np.sum(np.abs(proteinAdsorptionEvents),axis=1) >= dybeckNE ) 
+
+
+sufficientlyExecuted = np.logical_and(  proteinSBExecutions >=dybeckExecutionNumber, quasiEquil)
 
 for id in proteinIDList:
     proteinName = proteinNames[id]
@@ -638,14 +711,69 @@ else:
     print("")
 #Kinetic Monte Carlo approach
 while t < endTime:
+
+    #dybeck acceleration https://doi.org/10.1021/acs.jctc.6b00859
+    resetSuperbasin = False
+    
+    
+
+    
+    #get the quasi-equilibriated states for all protein-orientations: those which are current approximately equal in terms of adsorption and desorption and which have had a sufficient number of events
+    #quasiEquil = np.logical_and(  np.abs( np.sum(proteinAdsorptionEvents,axis=1) )/dybeckNE < dybeckDelta   , np.sum(np.abs(proteinAdsorptionEvents),axis=1) >= dybeckNE ) 
+    quasiEquil = np.logical_and(  np.abs( np.sum(proteinAdsorptionEvents,axis=1) )  < dybeckDelta*np.sqrt(dybeckNE)   , np.sum(np.abs(proteinAdsorptionEvents),axis=1) >= dybeckExecutionNumber ) 
+    
+    
+    #print(proteinAdsorptionEvents[2])
+    #select those which are "sufficiently executed" to be rescaled
+    sufficientlyExecuted = np.logical_and(  proteinSBExecutions >= dybeckExecutionNumber, quasiEquil)
+    
+    dybeckrs = 0.5*np.sum(   (dybeckRateForwards + dybeckRateBackwards) * np.where(sufficientlyExecuted, 0, 1) )
+    #get the scaling factor for processes to decelerate fast ones
+    if timeInSuperbasin > 1e-19 and dybeckIsFrozen == False:
+        #dybeckAlphaUnscaled = 2*dybeckrs/( dybeckRateForwards + dybeckRateBackwards)
+        dybeckNFVal = dybeckNF
+        dybeckAlpha = dybeckNFVal*2*dybeckrs/( dybeckRateForwards + dybeckRateBackwards)
+        
+        #dybeckAlpha = dybeckAlpha*dybeckMinAlpha/np.amin(dybeckAlpha)
+        dybeckAlpha = np.clip(dybeckAlpha,dybeckMinAlpha,1)
+    elif timeInSuperbasin > 1e-19 and dybeckIsFrozen == True:
+        dybeckAlpha = dybeckAlphaFrozen
+    else:
+        dybeckAlpha = np.ones_like( proteinData[:,0])
+        #dybeckAlphaUnscaled = np.ones_like( proteinData[:,0])
+    #print(dybeckAlpha)
+    #main code
     leavingRates = []
+    dybeckRateBackwardsTerm[:] = 0
+    
+    
+    stateArr = np.array(state)
+    '''
+    if len(state) > 0:
+        stateIDs = stateArr[:,0].astype(int)
+        desorbRates = proteinData[stateIDs ,3]
+        dybeckRateBackwardsTerm[ stateIDs ] += desorbRates
+        if useDybeckAcceleration == True:
+            desorbRates = desorbRates * dybeckAlpha[ stateIDs ]
+        
+    else:
+        desorbRates = []
+    '''
+    
     for i in range(len(state)):
         currentProtein = state[i]
-        leavingRates.append( proteinData[ currentProtein[0] ,3]  )
-
-    stateArr = np.array(state)
+        
+        desorbRate = proteinData[ currentProtein[0],3]
+        if useDybeckAcceleration == True:
+            desorbRate = desorbRate * dybeckAlpha[ currentProtein[0] ] 
+        leavingRates.append( desorbRate  )
+        dybeckRateBackwardsTerm[ currentProtein[0] ] += desorbRate
+    #print(leavingRates, desorbRates)
+    
+    #leavingRates = desorbRates
     if len(stateArr) < 1:
         collisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
+        #originalCollisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
     else:
         #boundProteinAll = np.zeros(len(proteinData[:,0]))
         #allBoundForOrientation = np.zeros( len(proteinIDList))
@@ -656,6 +784,7 @@ while t < endTime:
         adjustedConc = (proteinTotalConcs - npConc * boundProteinAll / numNPs)*orientationFactors
         adjustedConc = np.where(adjustedConc > 0, adjustedConc, 0)
         collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
+        #originalCollisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
     #print boundProteinAll[::600]
     '''
     uniqueProteinNums = np.zeros(len(uniqueProteins))
@@ -667,6 +796,12 @@ while t < endTime:
 
 
     '''
+    
+    
+    if useDybeckAcceleration == True:
+        collisionRates = collisionRates * dybeckAlpha
+    
+    
     #base concentration - estimated bound concentration
     #for a given protein, each orientation has concentration C0 * factor , where C0 is sum of all orientation-specific concentrations
     # C[theta,phi] = C0*f[ theta,phi] => f[theta,phi] = C[theta,phi]/C0
@@ -675,25 +810,43 @@ while t < endTime:
     #                  = max(C0 - npConc*proteinsPerNP[t],0) * C[t=0,theta,phi ]/C0
 
     #collisionRates = (proteinData[:,0] - npConc*numProteinsBound/numNPs   ) * proteinData[:,2] * proteinBindingSites * numNPs 
-    additionProb = np.cumsum(collisionRates)
+    #additionProb = np.cumsum(collisionRates)
     allProcesses = np.concatenate((collisionRates, leavingRates))
     processCS = np.cumsum(allProcesses)
     chosenProcess= np.argmax( processCS > processCS[-1] * np.random.random() )
+    
+
+
+    
     deltat= 1.0/(processCS[-1]) * np.log( 1.0 / np.random.random() )
     deltatTotal = deltat
     # print deltatTotal
-    #print out the state of the system at the specified updating interval.
-
+    #print out the state of the system at the specified updating interval, using an empirical correction for the current acceptance rate of each protein type so that Dybeck rates are adsorption and not collision
+    
+    empiricalAcceptance = proteinCollisionEvents[:,0]/(1e-6 + proteinCollisionEvents[:,1])
+    dybeckRateForwards += ( (collisionRates*deltatTotal * empiricalAcceptance)/dybeckAlpha) 
+    dybeckRateBackwards += ((dybeckRateBackwardsTerm*deltatTotal)/dybeckAlpha) 
+    
     while deltat > updateInterval:
         deltat = deltat - updateInterval
         t += updateInterval
         if t > lastUpdate:
             outputState()
             lastUpdate += updateInterval
+        print 
+        
     #we then (if required) print out the state at the specified update time before making the most recent change, since this change by definition takes place after this update time.
     t += deltat
+    timeInSuperbasin += deltatTotal
+    
+    
+    
+    
     if t > lastUpdate:
         outputState()
+        #print( np.nonzero(sufficientlyExecuted) , np.nonzero(quasiEquil)  )
+        #if len(np.nonzero(quasiEquil) ) > 0:
+        #    print( proteinSBExecutions[ np.nonzero(quasiEquil)  ] ,  dybeckAlpha[ np.nonzero(quasiEquil)  ] , dybeckAlphaUnscaled[ np.nonzero(quasiEquil)  ]  )
         #print state
         lastUpdate += updateInterval
         if args.demo==1:
@@ -830,6 +983,7 @@ while t < endTime:
     if chosenProcess < len(collisionRates):
         #attempt to add a protein but reject if this would cause an overlap (i.e. the incoming protein sticks with prob 1 to bare NP, reflected otherwise)
         newProteinID = chosenProcess
+        proteinCollisionEvents[newProteinID,1] = 1 + proteinCollisionMemory*proteinCollisionEvents[newProteinID,1]
         newPhi = 2*np.pi * np.random.random()
         collidingNP = np.random.randint(0,numNPs)
         if npShape == 1:
@@ -846,6 +1000,7 @@ while t < endTime:
             newC2 = np.arccos( 2*np.random.random() - 1) #coordinate 2 is theta for a sphere, z for a cylinder
         stateArr = np.array(state)
         #stateArr[ stateArr[:,3] == collidingNP  ]
+        
         if len(state) < 1:
             isOvercrowded = 0
         else:
@@ -854,6 +1009,12 @@ while t < endTime:
             state.append([newProteinID,newPhi,newC2 ,collidingNP ])
             surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
             boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
+            proteinAdsorptionEvents[newProteinID] = np.roll( proteinAdsorptionEvents[newProteinID],-1 )
+            proteinAdsorptionEvents[newProteinID,-1] = 1
+            proteinCollisionEvents[newProteinID,0] = 1 + proteinCollisionMemory*proteinCollisionEvents[newProteinID,0]
+            proteinSBExecutions[newProteinID] +=1
+            if quasiEquil[newProteinID] == False:
+                resetSuperbasin = True
             #print "accepted protein ", newProteinID
         else:
             #print("Proteins in the way state IDs: ", blockingProteinStateIDs)
@@ -874,16 +1035,48 @@ while t < endTime:
                     removedProtein = state.pop( bpid)
                     surfaceCoverage -= 1.0/(numNPs*proteinBindingSites[ removedProtein[0]])
                     boundProteinAll[  proteinNames == proteinNames[ removedProtein[0]]   ]  -= 1
+                    proteinAdsorptionEvents[removedProtein[0] ] = np.roll( proteinAdsorptionEvents[removedProtein[0]],-1 )
+                    proteinAdsorptionEvents[removedProtein[0],-1] = -1
+                    proteinSBExecutions[removedProtein[0]] +=1
+                    #if quasiEquil[removedProtein[0] ] == False:
+                    #    resetSuperbasin = True
                 state.append([newProteinID,newPhi,newC2 ,collidingNP ])
                 surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
                 boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
+                proteinAdsorptionEvents[newProteinID] = np.roll( proteinAdsorptionEvents[newProteinID],-1 )
+                proteinAdsorptionEvents[newProteinID,-1] = 1
+                proteinCollisionEvents[newProteinID,0] = 1 + proteinCollisionMemory*proteinCollisionEvents[newProteinID,0]
+                proteinSBExecutions[newProteinID] +=1
+                if quasiEquil[newProteinID] == False:
+                    resetSuperbasin = True
+            else:
+                proteinCollisionEvents[newProteinID,0] = proteinCollisionMemory*proteinCollisionEvents[newProteinID,0]
     else:
         #remove the protein 
         removedProtein = state.pop( chosenProcess - len(collisionRates)   )
         surfaceCoverage -= 1.0/(numNPs*proteinBindingSites[ removedProtein[0]])
         boundProteinAll[  proteinNames == proteinNames[ removedProtein[0]]   ]  -= 1
+        proteinAdsorptionEvents[removedProtein[0] ] = np.roll( proteinAdsorptionEvents[removedProtein[0]],-1 )
+        proteinAdsorptionEvents[removedProtein[0],-1] = -1
+        proteinSBExecutions[removedProtein[0]] +=1
+        #if quasiEquil[removedProtein[0] ] == False:
+        #    resetSuperbasin = True
         #print "removed protein"
-
+    if resetSuperbasin == True:
+       if useDybeckUltra == True and lastSBEscape == proteinNames[newProteinID] :  #freeze scaling rates if that option is on and the same protein escapes twice in a row
+           proteinSBExecutionsFormer = np.copy(proteinSBExecutions)
+           dybeckAlphaFrozen = np.copy(dybeckAlpha)
+           dybeckIsFrozen = True
+       proteinSBExecutions[:] = 0
+       dybeckRateForwards = np.zeros_like(proteinData[:,0]) + 1e-10
+       dybeckRateBackwards = np.zeros_like(proteinData[:,0]) + 1e-10
+       timeInSuperbasin = 1e-20
+       lastSBEscape = proteinNames[newProteinID] 
+       #print("Resetting superbasin due to: ", proteinNames[newProteinID])
+    if useDybeckUltra == True and dybeckIsFrozen == True:
+        previousMask = proteinSBExecutionsFormer > dybeckExecutionNumber #get all that were previously sufficiently executed, test if these are now sufficiently executed
+        if np.all( proteinSBExecutions[previousMask] > dybeckExecutionNumber):
+            dybeckIsFrozen = False
 
 stateArray = np.array(state)
 radiusArray = np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ])
