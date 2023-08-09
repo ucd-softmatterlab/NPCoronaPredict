@@ -349,10 +349,11 @@ if hardSphereMode == 1:
     print("Enabling actual hard spheres")
 
 allowDisplace = False
+displaceWater = False
 if args.displace != 0:
     allowDisplace = True
     print("Enabling displacement, please make sure all binding energies are correct")
-
+    displaceWater = True
 
 
 useDybeckAcceleration = False
@@ -495,6 +496,14 @@ proteinDataOne = np.array([
 
 ])
 
+
+proteinDataOneWeak = np.array([
+
+["HDL","1.5e-2","5","3e4","3e4", "0",str(np.pi*5**2)]
+
+])
+
+
 #kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
 
 precoatNames = []
@@ -520,7 +529,7 @@ if args.loadfile != "":
     precoatFile.close()
 
 if proteinInput == "":
-    proteinDataInput = proteinDataOriginal
+    proteinDataInput = proteinDataOneWeak
 else:
     print("loading from file ", proteinInput)
     proteinDataInput = np.genfromtxt(proteinInput, dtype=str)
@@ -535,6 +544,10 @@ if len(precoatData)>0:
 if proteinDataInput.ndim == 1:
     proteinDataInput = np.array([proteinDataInput])
 proteinData = proteinDataInput[:,1:].astype(float)
+
+#If displacement is allowed then we need to apply a correction to the desorption rates to maintain the same equilibrium constant, since kads is effectively decreased
+if allowDisplace == True and displaceWater == True:
+    proteinData[:,3] = proteinData[:,3] * scspec.expit(  -(proteinData[:,4]) )
 
 proteinNamesAll = proteinDataInput[:,0]
 #print(proteinNamesAll)
@@ -1005,7 +1018,20 @@ while t < endTime:
             isOvercrowded = 0
         else:
             isOvercrowded, blockingProteinStateIDs =  adsorbCollisionDetect(stateArr[ stateArr[:,3] == collidingNP  ], newProteinID, newPhi, newC2)
+
+        directAccept = False
+        
         if isOvercrowded == 0:
+            if displaceWater == False:   #if displacement of water isn't necessary, an unblocked adsorbate is automatically accepted
+                directAccept = True
+            else: #
+                enew = proteinData[newProteinID,4] # test to see if the adsorbate can displace water
+                #acceptanceProbability = np.exp( -(enew ))/( np.exp( -(enew)) + 1.0)
+                acceptanceProbability = scspec.expit( -enew)
+                if np.random.random() < acceptanceProbability:
+                    directAccept = True
+        
+        if directAccept == True:
             state.append([newProteinID,newPhi,newC2 ,collidingNP ])
             surfaceCoverage += 1.0/(  numNPs*  proteinBindingSites[newProteinID])
             boundProteinAll[  proteinNames == proteinNames[newProteinID]   ]  += 1
@@ -1016,18 +1042,19 @@ while t < endTime:
             if quasiEquil[newProteinID] == False:
                 resetSuperbasin = True
             #print "accepted protein ", newProteinID
-        else:
+        elif allowDisplace == True and isOvercrowded == True: #if the adsorbate is blocked but displacement is possible test for this
             #print("Proteins in the way state IDs: ", blockingProteinStateIDs)
-            blockingProteinTypes = stateArr[ blockingProteinStateIDs ,0 ].astype(int)
+            blockingProteinTypes =   stateArr[ blockingProteinStateIDs ,0 ].astype(int)  
             #print("Blocking protein types:", blockingProteinTypes)
             blockingProteinEnergies = proteinData[ blockingProteinTypes, 4]
             #print("Blocking protein energies: ", blockingProteinEnergies)
             erep = np.sum(blockingProteinEnergies)
             enew = proteinData[newProteinID,4]
             #acceptanceProbability = np.exp( - (proteinData[ newProteinID, 4] - np.sum(blockingProteinEnergies))) 
-            acceptanceProbability = np.exp( -(enew - erep))/( np.exp( -(enew-erep)) + 1.0) #calculate the acceptance probability such that the two states are canonically distributed
+            #acceptanceProbability = np.exp( -(enew - erep))/( np.exp( -(enew-erep)) + 1.0) #calculate the acceptance probability such that the two states are canonically distributed
+            acceptanceProbability = scspec.expit(  -(enew-erep) )
             #print("Total energy:", erep, " new protein energy ", enew , "acceptance probability", acceptanceProbability)
-            if allowDisplace == True and  np.random.random() < acceptanceProbability:
+            if   np.random.random() < acceptanceProbability:
                 #print("Replacement occured")
                 blockingProteinStateIDs.sort()
                 blockingProteinStateIDs.reverse()
