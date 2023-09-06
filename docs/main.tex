@@ -92,7 +92,7 @@ U_S(r) =   U_{surf}(S,r) + U_{el}(S,r) +  U_H(S,r)
 \end{equation} 
  where $r$ is the distance between the centre of the NP and the centre of the bead, $U_{surf}$ is a short-range potential, $U_{el}$ is an electrostatic potential, and  $U_H$ is a Hamaker-like potential. $U_{surf}$ is a tabulated potential extracted from metadynamics simulations to include the very close range repulsion, some electrostatic terms, solvent effects, mid-range vdW attraction, etc. A correction factor is applied to map these from the tabulated form generally computed for a plane to an NP of finite radius of curvature. The electrostatic term is evaluated in the Debye-Huckel approximation and has simple forms for the spherical,
  \begin{equation}
- U_el = ...
+ U_{el} = ...
  \end{equation}
   cylindrical,
  \begin{equation}
@@ -111,15 +111,14 @@ and planar
  \begin{equation}
  U_H(S,r) \propto \int \int \frac{1}{r'^6} \Theta_H( r' - r_e)dV_{NP} dV_{AA}
  \end{equation}
- where $r'$ is the distance between two elements $dV_{NP}, dV_{AA}$ and $\Theta_H$ is the Heaviside theta function which is zero for $r_e > r'$. This integral has a complex analytical solution for spherical NPs which is implemented into UA, and can be solved numerically for cylinders (also implemented). The result is a smooth function (see Figure \ref{fig:hamaker-exclusion}) which avoids introducing a discontinuity into the potential which would be caused if this potential was only switched on if the bead centre is at a certain distance from the NP.
+ where $r'$ is the distance between two elements $dV_{NP}, dV_{AA}$ and $\Theta_H$ is the Heaviside theta function which is zero for $r_e > r'$. This integral has a complex analytical solution for spherical NPs which is implemented into UA, and can be solved numerically for cylinders (also implemented). The result is a smooth function (see Figure \ref{fig:hamaker-exclusion}) which avoids introducing a discontinuity into the potential which would be caused if this potential was only switched on if the bead centre is at a certain distance from the NP. Note that the Hamaker potential is generally quite small even without this exclusion effect, generally reaching only the order of a Hamaker constant for a typical residue size almost touching an NP of infinite extent, and the short-range repulsion inherent in the PMFs prevents the beads from reaching this close. 
  
  
 \begin{figure} \label{fig:hamaker-exclusion}
     \centering
     \includegraphics[width=0.6\textwidth]{figures/hamaker_magnitude_perresidue.pdf}
-    \caption{Plots of the Hamaker-like potential used in UnitedAtom for an infinite planar NP and a residue of radius $0.5$ nm with surface-surface distance $d$, shown for multiple values of the exclusion distance $r_e$.}
+    \caption{Plots of the Hamaker-like potential (in units of the Hamaker constant) used in UnitedAtom for an infinite planar NP and a residue of radius $0.5$ nm with surface-surface distance $d$, shown for multiple values of the exclusion distance $r_e$.}
 \end{figure}
- 
  
  
  
@@ -254,7 +253,52 @@ In general, these input structures can be taken directly from the PDB repository
 
 Note that both of the above are combined in the PreprocessProteins.py script.
 
-For the purposes of UA, only lines with the ATOM and CA strings in the correct locations matter. It is strongly recommended that further metadata is included in the file where possible, since it's not a good idea to rely on filenames alone, especially when the same protein may have multiple structures.
+For the purposes of UA, only lines with the ATOM and CA strings in the correct locations matter. It is strongly recommended that further metadata is included in the file where possible, since it's not a good idea to rely on filenames alone, especially when the same protein may have multiple structures. Provided that all the required structure is in place, UA does not care whether or not the three-letter code corresponds to a traditional AA code (as can be guessed from the use of HIE/HID/HIP above) or even an amino acid at all and so this same format can be used for molecules other than proteins, provided that PMFs are available for all constituent beads. 
+
+Coarse-graining an arbitrary molecule is not straightforward, but approximate models can be constructed using the MolToFragments.py tool located in the tools folder. This is a command-line Python script which takes an input like:
+\begin{lstlisting}
+python3 MolToFragments.py -m NewMoleculeName -s "CCCCO" -M EqualParts
+\end{lstlisting}
+where ``NewMoleculeName'' is the name to give the output, the -s option takes in a SMILES code for the molecule in question and -M chooses the method to use. This script attempts to fragment the input molecule, match components to those listed in the associated FragmentLookup.csv file, and write out a .pdb file suitable for input to UA with the fragments found. For example, the input:
+\begin{lstlisting}
+python3 MolToFragments.py 
+-s "CCCCCCCCCCCCCCCC(=O)OCC(COP(=O)([O-])OCC[N+](C)(C)C)OC(=O)CCCCCCCCCCCCCCC" 
+-m DPPC-EP -M EqualParts
+\end{lstlisting}
+produces a file DPPC-EP.pdb with contents:
+\begin{lstlisting}
+HEADER DPPC-EP                                 06-Sep-23
+TITLE   DPPC-EP
+REMARK SMILES: CCCCCCCCCCCCCCCC(=O)OCC(COP(=O)([O-])OCC[N+](C)(C)C)OC(=O)CCCCCCCCCCCCCCC
+REMARK Generated: 2023-09-06 12:08:27
+REMARK Method: EqualParts
+REMARK 0:ILESCA-AC:ILE:CCCC
+REMARK 1:PENTANE:X4P:CCCCC
+REMARK 2:PENTANE:X4P:CCCCC
+REMARK 3:EST-AC:EST:COC(C)=O
+REMARK 4:CHOL-JS:X4L:C[N+](C)(C)CCO
+REMARK 5:DPPC-EPNew0:!!!:COC=O
+REMARK 6:DPPC-EPNew1:!!!:CO[PH](=O)[O-]
+REMARK 7:VALSCA-AC:VAL:CCC
+REMARK 8:ILESCA-AC:ILE:CCCC
+REMARK 9:ILESCA-AC:ILE:CCCC
+REMARK 10:ILESCA-AC:ILE:CCCC
+ATOM      0  CA  ILE A   1       -13.5    4.51   -1.76  1.00  0.00           C
+ATOM      1  CA  X4P A   2       -9.68    2.04  -0.672  1.00  0.00           C
+ATOM      2  CA  X4P A   3       -5.91   0.885    1.15  1.00  0.00           C
+ATOM      3  CA  EST A   4       -1.07   0.855   0.949  1.00  0.00           C
+ATOM      4  CA  X4L A   5       0.384   -8.21  -0.379  1.00  0.00           C
+ATOM      5  CA  !!! A   6         2.1  -0.714    2.42  1.00  0.00           C
+ATOM      6  CA  !!! A   7      -0.428   -3.87   0.802  1.00  0.00           C
+ATOM      7  CA  VAL A   8         5.3   -1.54    2.22  1.00  0.00           C
+ATOM      8  CA  ILE A   9        7.45   0.238   0.879  1.00  0.00           C
+ATOM      9  CA  ILE A  10        9.87    2.35  -0.838  1.00  0.00           C
+ATOM     10  CA  ILE A  11        11.6    5.59   -2.01  1.00  0.00           C
+END
+\end{lstlisting}
+In this output, the remark lines give the CG bead number, long name of the matched fragment, bead code, and the SMILES code for that bead. Bead codes marked with ``!!!'' do not have an already-defined PMF, which must be generated or an alternative method used (-M ForwardsMatching only produces known beads, if this is an issue). The default FragmentSet.csv file assumes that PMFs for a large set of beads are available. If it isn't, you should remove entries from this file to represent only the PMFs you have for the surface of interest (but be aware that ForwardsMatching may fail in this case).
+
+The allowed methods are BRICS (uses the standard BRICS) algorithm, EqualParts (attempts to produce fragments with relatively consistent sizes), ForwardsMatching (iteratively builds the molecule up from known beads, does not allow for the generation of new ones) and Exhaustive (considers many different templates, scores and chooses the best, very slow and not recommended). Of the three quick algorithms, BRICS and EqualParts should always produce a CG model but it may need PMFs to be generated. ForwardsMatching may not always work (especially if there are aromatic structures or you have a very limited fragment library) but when it does the result will only use pre-existing PMFs. The other methods may require the generation of new PMFs and provide output suitable for use in the PMFP software package, see Section \ref{section:pmfp}. Output from this package (assigned bead code and SMILES ID) can be added to FragmentSet.csv as needed to extend the range of molecules which can be parameterised.
  
 \section{Output: the .uam file}
 The main output of UA is a .uam file for each protein-NP pair, which has the following format:
@@ -321,7 +365,7 @@ The golden rule: document everything you add! For beads include a SMILES code, f
 Computing PMFs and Hamaker constants for a brand-new material is outside the scope of this guide, so here we simply assume you have a set of short-range potentials, plus Hamaker constants for this material with each of the 20 AAs (or a willingness to use Null.dat for these Hamakers). Make a folder for your material in the surface folder with a short but descriptive name, e.g. ``Au-100-FCC'' to denote gold, miller index 100, FCC crystal structure. Place all the computed PMFs in this folder with names ALA.dat, ARG.dat etc (one per bead). Add a file with the computed Hamaker constants and ideally the same or at least a similar name. For bonus points, update MaterialSets.csv so the material works with the wrapper scripts and also put a readme file in the folder describing what exactly the material represents, what forcefield was used, metadynamics settings, the solvent/pH/ionic strength, definition used for SSD, and convention used for amino acids (full vs side chain, convention for glycine and proline, histidine variants, any charge variants, etc). 
 
 \subsection{New adsorbate beads}
-UA will throw an exception if it tries to load a bead for a material without that bead defined, but otherwise as long as you have the XXX.dat file in the surface folder and an entry in the Hamaker file for a material, this should go ok and you should be able to include new beads just by including these in the configuration file with their name, radius and charge. Remember to only use three letters for the ID tag and to make this match what you use in the PDB input file. To save headaches, try to avoid starting the tag with an X (Y is probably also a bad idea) and make sure you remember what code is what bead. It's probably a good idea to make a .pdb file using a template similar to the one shown in Section \ref{section:pmfp} as this provides a record of the chosen tag, SMILES code, full molecule name and gives you something you can immediately use to test the molecule in UA. 
+UA will throw an exception if it tries to load a bead for a material without that bead defined, but otherwise as long as you have the XXX.dat file in the surface folder and an entry in the Hamaker file for a material, this should go ok and you should be able to include new beads just by including these in the configuration file with their name, radius and charge. Remember to only use three letters for the ID tag and to make this match what you use in the PDB input file. To save headaches, if you're manually adding beads try to avoid starting the tag with an X (Y is probably also a bad idea) and make sure you remember what code is what bead. It's probably a good idea to make a .pdb file using a template similar to the one shown in Section \ref{section:pmfp} as this provides a record of the chosen tag, SMILES code, full molecule name and gives you something you can immediately use to test the molecule in UA. 
 
 \section{Multicomponent mode}
 For a reasonably isotropic NP the above operation mode suffices, with core-shell NPs approximated via custom materials with one set of surface potentials and a different set of Hamaker potentials. In general, though, a more flexible approach may be needed. This is achieved through adding an extra line to the configuration file:
@@ -394,7 +438,7 @@ ATOM      1  CA  X4D A   1       0.000   0.000   0.000  1.00  0.00
 END
 \end{lstlisting}
 which may be used to generate binding energies for small molecules and contains sufficient metadata to identify the molecule used. 
-
+ 
 
 \section{Source files}
 In this section, the individual source files are discussed in more detail - if you need to modify UA or want to be sure how exactly something works, this is the place to start.
@@ -446,9 +490,21 @@ The next most common form of post-processing tends to be the evaluation of avera
 \langle E \rangle = \frac{ \sum_i w_i E_i}{\sum_i w_i}
 \end{equation}
 
-where $w_i$ has two common forms. For the ``simple average'', $w_i = \sin \theta$ while for the Boltzmann average, $w_i = \sin \theta e^{-E_i/kbT}$. The former weights all states equally, e.g. for early corona formation, while the latter weights more strongly adsorbing states more strongly and is closer to the thermodynamic equilibrium for an NP with infinite binding locations such that competition between orientations can be neglected. 
+where $w_i$ has two common forms. For the ``simple average'', $w_i = \sin \theta_i$ while for the Boltzmann average, $w_i = \sin \theta_i e^{-E_i/kbT}$. The former weights all states equally, e.g. for early corona formation, while the latter weights more strongly adsorbing states more strongly and is closer to the thermodynamic equilibrium for an NP with infinite binding locations such that competition between orientations can be neglected. 
 
-In certain circumstances, it may be necessary to average across multiple .uam files. Be careful to identify what other weights need to be assigned and include them in $w_i$ if this is physically required to make a sensible average, and don't just assume that you can ``average the averages'' afterwards - this won't always give physically meaningful results
+In certain circumstances, it may be necessary to average across multiple .uam files. Be careful to identify what other weights need to be assigned and include them in $w_i$ if this is physically required to make a sensible average, and don't just assume that you can ``average the averages'' afterwards - this won't always give physically meaningful results and it won't always be meaningful to take an average at all. For example, if you have an NP which is half strongly-binding on side $a$ and half non-binding on side $b$, e.g. $E_a = -50, E_b = 0$ , then the naive average is $-25$ which would suggest the NP is reasonably strongly binding everywhere. In this kind of complex case it can be better to average in a more sophisticated way depending on what exactly you want the binding affinity to represent. If, for example, you only want to think about a single instance of a single protein and you just want to know if it binds somewhere to the surface of an NP with $j$ surface types of proportions $\alpha_j$ at all, include the surface weights as an extra term e.g.:
+\begin{equation}
+\langle E \rangle = \frac{ \sum_i \sum_j \alpha_j \sin \theta_i e^{-E_{ij}/kbT} E_i}{\sum_i \sum_j \alpha_j \sin \theta_i e^{-E_{ij}/kbT}}
+\end{equation}
+noting that its included in the denominator too and where $E_{ij}$ is the adsorption energy of orientation $i$ to surface $j$. 
+
+Conversely, if you want something more representative of an experiment where you have a bunch of copies of a protein floating around and want to know how many are adsorbing, it'd be more appropriate to simulate the corona formation for each type of surface separately to get the total number and surface coverage to each type of NP-surface , $\langle N \rangle = \sum_j \alpha_j N_j$, $\langle s \rangle = \sum_j \alpha_j s_j$. With those and the input concentration you can estimate an effective binding energy defined such that an isotropic protein binding to an isotropic NP would produce the same numbers and coverages. For a spherical NP, the effective expression is given by:
+\begin{equation}
+\langle E_{ads} \rangle = -k_BT ln \left( \frac{s}{1-s} \mathrm{exp}[  3 \frac{s}{1-s} +\frac{ s^2}{  (1-s)^2} ]\right)/(C_{tot})
+\end{equation}
+where $C_{tot}$ is the input concentration summed over all orientations (which for simplicity should be the same in each input simulation). Even for a single isotropic NP surface this approach can be useful to produce a more realistic orientational average as a better match to experiment - remember that since experiments extract a binding energy from observed bound-to-unbound ratios, their binding energies implicitly include the effects of surface crowding unless they're at extremely low concentration.
+ 
+ 
 
 
 \section{Common issues and debugging tips}
@@ -499,7 +555,7 @@ CoronaKMC is controlled almost entirely through command-line arguments, unless y
 \item -P or --projectname - name for the output folder used. 
 \item -x or --npconc - concentration of NPs, leave zero for vanishing concentration. This is used to deplete proteins during simulation and so is appropriate for in vitro studies if the serum concentration is low. If proteins can be replenished from outside the NP concentration should be set to zero.
 \item  -n or --numnp - number of NPs to run simultaneously, defaults to 1 and should be left at 1 unless you want to simulate protein depletion using the --npconc option (in which case it should be increased to reduce fluctuations). If you have npconc = 0 then just run multiple KMC runs at the same time instead for speed reasons.
-\item  -D or --displace - activate the ``displacement mode'' if non-zero, where a protein can displace bound proteins if this is energetically favourable. 
+\item  -D or --displace - activate the ``displacement mode'' if non-zero, where a protein can displace bound proteins if this is energetically favourable.  See Section \ref{section:coronadisplacement} for more details.
 \item -A or --accelerate - activate Dybeck style acceleration if set non-zero, with 1 giving the classic mode and 2 giving the mode with freezing of rate constants. This may need some tweaking to the code to give sensible results. 
 \item -f or --fileid - optional string to append to output filenames to allow for multiple runs with similar configurations without overwriting each other (e.g. to get better averages).
 \end{itemize}
@@ -594,5 +650,44 @@ This script performs the following steps:
  \end{enumerate}
 If there is only a single atom present in the PDB file then only one orientation is used to simplify the output. The projected area is calculated from the input co-ordinates and the beadset file to assign a radius to each bead, then projecting these onto the surface of the NP, extracting the area of the convex hull of the projection. An equivalent radius is then found for a sphere which would project the same area. Note that the default operation is to assign a bead radius to all the atoms in an input structure, not only CA ones, but in most cases the overestimation is small because the size of a bead relative to the size of a protein is quite small. If this is really an issue the code can be altered to only use CA locations when placing beads or input structures can be pre-filtered to include only CA beads.
  
+The adsorption and desorption rate constants are calculated using the following procedure. Note that since the collision rate is undefined for planar and cylindrical surfaces due to their infinite surface area, we approximate these using the expression for a sphere. The collision rate between two spheres in solution is given using Smoluchowski theroy,
+\begin{equation}
+k_{s} = 4   \pi* \left(R_{NP} + R_{P} \right) N_a \frac{k_B T}{6 \pi \eta}\left[\frac{1}{R_{NP}} + \frac{1}{R_p} \right]
+\end{equation}
+ where $\eta$ is the viscosity of the medium and $N_a$ is Avogadro's constant. The per-site collision rate is then given by,
+ \begin{equation}
+ k_{coll} = \frac{1000 k_s A_p}{4 \pi R_{NP}^2}
+ \end{equation}
+ where $A_p$ is the projected area and the factor of $1000$ arises from the conversion from $m^{3}$ to $L$. This value is recorded as the adsorption rate constant under the assumption that adsorption occurs with unit probability following a collision. We then obtain the desorption rate constant by requiring that
+ \begin{equation}
+ \frac{k_a}{k_d} = e^{-E_{ads}/k_BT}
+ \end{equation}
+such that if collisions occur with unit probability the desorption rate is given by,
+\begin{equation} \label{eq:kdbcp}
+k_d = e^{E_{ads}/k_BT} k_{coll}
+\end{equation}
+ i.e. a strongly negative adsorption energy leads to a very low desorption rate. 
+ 
+\section{Displacement} \label{section:coronadisplacement}
+ In the standard form of CoronaKMC a single weakly-binding particle can block the adsorption of a large protein even if this would bind much more strongly. This can lead to the steady-state corona consisting almost entirely of these small molecules because large proteins never get a chance to bind. To counteract this, the -D switch enables a mode in which an incoming particle can displace a set of pre-bound proteins. The overlap detection works as before, but now instead of outright rejecting the incoming adsorbate the total change in binding energy $\Delta E$ is computed, $\Delta E = E_{new} - \sum_j E_{old,j}$ where $j$ is all overlapping adsorbates. The probability for replacement is then given by a Boltzmann probability,
+ \begin{equation}
+ p = \frac{ e^{-\Delta E/k_B T} }{1 +  e^{-\Delta E/k_B T} }
+ \end{equation}
+i.e. if the two states have nearly the same energy there's a fifty-fifty probability of selecting either rather than forcing the new state as the classic Metropolis algorithm would do. For consistency in the limit of a single small adsorbate with $E_{old,j} = 0$, we apply this same acceptance probability even if the NP is otherwise bare (since this is implicitly covered with water and adsorption energies are defined relative to this). This results in an effective decrease in the adsorption rate constant,
+\begin{equation}
+k_{a}^* = \frac{ e^{-\Delta E/k_B T} }{1 +  e^{-\Delta E/k_B T} } k_{coll}
+\end{equation}
+and so to maintain the same equilibrium constant $k_d$ must be scaled by this same factor (this is done automatically by CoronaKMC if displacement is enabled),
+\begin{equation}
+k_d^* = \frac{ e^{-\Delta E/k_B T} }{1 +  e^{-\Delta E/k_B T} } k_d .
+\end{equation}
+Note that if you're using BuildCoronaParams output, $k_d^*$ is then given by,
+ \begin{equation}
+k_d^* =\frac{ 1 }{1 +  e^{-\Delta E/k_B T} }   k_{coll}
+\end{equation}
+c.f. Eq.\eqref{eq:kdbcp}. The two values are essentially equivalent if $E_{ads} < -2 k_B T$, but this produces a change in the rates in the limit $E_{ads} \rightarrow \infty$: $k_d \rightarrow \infty$  while $k_d^* \rightarrow k_{coll}$, but because the equilibrium constant is fixed the steady-state behaviour should be the same. 
+ 
+\section{Tips and tricks}
+If you're trying to get a match to experimental, match the absolute experimental concentrations as best as you can -- it can be shown that an overall dilution factor changes the steady-state corona composition and high concentrations tend to lead to an increase in more weakly binding proteins (see Rouse and Lobaskin, Biophys J, 2021 for details). 
  
 \end{document}
