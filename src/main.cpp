@@ -18,6 +18,10 @@
 #include <random>
 #include <iomanip>
 #include <sys/stat.h>
+ 
+#include <chrono>
+#include <ctime>    
+
 
 //constexpr double        gds             = 0.22;
 constexpr double        gds             = 0.0;
@@ -38,15 +42,15 @@ std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 bool CheckForPrecalculated(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
-        const double zeta, const std::string& name, const std::string& directory, const std::string& npName, int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
+        const double zeta, const std::string& name, const std::string& directory, const std::string& npName, int isMFPT=0, int appendAngle = 0, double omegaAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
 
-if(isCylinder == 0){
+if(appendAngle == 0){
 cylinderFileNameAppend = "";
 } 
 else{
-cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
+cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(omegaAngle));
 }
 
 
@@ -65,21 +69,21 @@ return (stat (filename.c_str(), &buffer) == 0);
 }
 
 void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
-        const double zeta, const std::string& name, const std::string& directory,  const std::string& npName ,  double temperature=300.0,  int isMFPT=0, int isCylinder = 0, double cylinderAngle=0) {
+        const double zeta, const std::string& name, const std::string& directory,  const std::string& npName ,  double temperature=300.0,  int isMFPT=0, int appendAngle = 0, double omegaAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
 
 
-
-
+auto outputTimeStamp = std::chrono::system_clock::now();
+std::time_t end_time = std::chrono::system_clock::to_time_t(outputTimeStamp);
 //If directory doesn't exist, create it.
 //boost::filesystem::create_directory(directory);
 
-if(isCylinder == 0){
+if(appendAngle == 0){
 cylinderFileNameAppend = "";
 } 
 else{
-cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(cylinderAngle));
+cylinderFileNameAppend = "_"  + std::to_string(static_cast<int>(omegaAngle));
 }
 
 
@@ -94,7 +98,9 @@ else{
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
-    handle << "#phi theta EAds/kbT=300 Error(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm\n"; 
+    handle << "#Results generated at: " << std::ctime(&end_time)  ;
+    handle << "#" << npName << " - " << name << "\n";
+    handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega\n"; 
     for (int i = 0; i < iterations; ++i) { 
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
@@ -115,6 +121,8 @@ else{
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i] * 300.0 * kbConst * naConst / 1000.0;
         
                 handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i] + radius;
+
+        handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << omegaAngle;
 
         handle << "\n";
     }
@@ -471,15 +479,40 @@ double distance;
 return distance;
 }
 
+//get the distance between the centre of an AA bead and the surface of an NP
+double getDistance3D(double aaX, double aaY, double aaZ, double npX, double npY, double npZ, double npRadius, int npType){
+double distance = 0;
+
+                if(npType == 2 || npType == 4 || npType==5){
+                //for cylinder NPs we only take into consideration the radial distance with the cylinder aligned along the x-axis.
+                distance    = std::sqrt((aaY - npY)*(aaY-npY) +     (aaZ - npZ)*(aaZ-npZ) ) - npRadius; // AA Center To NP Surface Distance (originally stop, changed to start)
+                }
+                else if(npType == 3){
+                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
+                distance = std::sqrt( (aaZ - npZ)*(aaZ-npZ)   ) - npRadius;
+                }
+                else{
+                distance    = std::sqrt((aaX - npX)*(aaX-npX) + (aaY - npY)*(aaY-npY) +     (aaZ - npZ)*(aaZ-npZ)   ) - npRadius; // sphere surface to x,y,z distance
+ 
+
+                }
+
+return distance;
+
+}
+
+
+
 void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
 
     // Decleare all variables at the begining . Integration runs from the start at the largest value of r and proceeds inwards to the stop value, nominally R_{NP}.
     const int               size            = pdb.m_id.size();
-    const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds; //gds = 0 and imaginary radius is unused so this should always just return radius.
+    const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds; //gds = 0 and imaginary radius is unused so this should always just return radius (inner bounding radius)
     const double            start           =  outerRadius + delta;  //stop + delta;
 
     int                     i;
     int                     j;
+    int			k;
     double                  energy;
     double                  theta;
     double                  phi;
@@ -501,6 +534,18 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
     double sample_mfpt[samples];
     double sample_minloc[samples];
     double closestSCD[size]; //closest allowed NP_nominal_surface to aa_centre distance allowed for each AA
+   //NP component properties are looked up via e.g.: np.m_radius[m_npBeadType[j]]
+   //where j is the index of that bead
+   //get the number of NP components
+   int numNPBeads = np.m_npBeadType.size() ;
+   //decide how many NP beads to sum over. By default, only the isotropic-averaged NP is used unless the beads are explicitly treated separately, in which case we sum over all beads
+               int numNPBeadSummation = 1;
+            if(config.m_sumNPPotentials == false){
+            numNPBeadSummation = numNPBeads;
+            }
+   
+   
+
 
     // Iterate over angles
     for (int angle = 0; angle < n_angles; ++angle) {
@@ -532,20 +577,28 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
 
 
             // Convert to SSD except because this doesn't take into account the radius of the AA bead it's really the distance from the surface of the NP to the centre of the closest AA bead.
+            //After this, the minimum z-coordinate of the protein is equal to zero.
+            //the NP is also defined with its centre at 0,0,0 so make sure that all distance calculations properly offset the protein first by adding start or ssd as appropriate
             ShiftZ(size, z);
 
 
             //Find the closest approach
+            
+       
+            
             for( i = 0; i< size; ++i){ //loop over AA beads
              double closestAllowedSSD = 0;
             
              closestSCD[i] = 0;
+             
+                  if(config.m_sumNPPotentials == true){
+             
              if(  overlapPenalty > 0){
               double aaBeadRadius = config.m_aminoAcidRadii[ pdb.m_id[i] ] * config.m_overlapRadiusFactor ;
               //std::cout << pdb.m_id[i] <<  " " << config.m_aminoAcidRadii[ pdb.m_id[i] ]   <<"\n";
-                   for( j = 0; j < np.m_radius.size()  ; ++j){
+                   for( j = 0; j < numNPBeads  ; ++j){
                        //std::cout << i << ":" << j << "\n";
-                       double npBeadRadius = np.m_radius[j] * config.m_overlapRadiusFactor;
+                       double npBeadRadius = np.m_radius[np.m_npBeadType[j]] * config.m_overlapRadiusFactor;
 
                        double distTerm1 = pow( aaBeadRadius + npBeadRadius, 2) - pow( x[i] - np.m_x[j],2 ) - pow( y[i] - np.m_y[j],2 );
                       //std::cout << distTerm1 << "\n";
@@ -556,19 +609,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                              
                             if( ssdAtTouching1 > closestAllowedSSD){ 
                             closestAllowedSSD = ssdAtTouching1;
-                            //std::cout << "Protein bead " << i << "(" << x[i] << "," << y[i] << "," << z[i] << ") contacts NP bead " << j << "(" << np.m_x[j] << "," << np.m_y[j] << "," << np.m_z[j] << ") at SSD " << closestAllowedSSD << "\n";       
-                            // std::cout << " Bead centre will be at: " << x[i] << "," << y[i] << "," << z[i] + radius + aaBeadRadius + closestAllowedSSD << "\n";
-                             //  std::cout << "Distance between centres: " << sqrt( pow(x[i] - np.m_x[j],2) + pow(y[i] - np.m_y[j],2) + pow(z[i]  + radius + aaBeadRadius + closestAllowedSSD - np.m_z[j],2) ) << "\n";
-                            
+
                             }
 
-                            //if( ssdAtTouching2 > closestAllowedSSD){ 
-                            //closestAllowedSSD = ssdAtTouching2;
-                            //std::cout << "Protein bead " << i << "(" << x[i] << "," << y[i] << "," << z[i] << ") contacts NP bead " << j << "(" << np.m_x[j] << "," << np.m_y[j] << "," << np.m_z[j] << ") at SSD " << closestAllowedSSD << "\n";
-                            //}
-                            //if( ssdAtTouching2 > closestAllowedSSD){
-                            //closestAllowedSSD = ssdAtTouching2;
-                            //}
                        }
 
                     }
@@ -580,25 +623,31 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
 
             }
            }
-
-
-         //    if(closestSCD[i] > 0){
-         //   std::cout << "Closest allowed SCD: " << closestAllowedSCD << "\n";
-         //      }
-   //         std::cout << z[0] << " " << phi << " " << theta << "\n";
-            // Pre-square x and y
-            SquareXY (size, x, y);
-            // Get bulk energy at the STARTING point
+           
+           }
+              //x,y no longer squared
+            
             init_energy = 0.0;
 
             for (i = 0; i < size; ++i) {
-              distance = getDistance(x[i],y[i],z[i],start,radius,npType);
-                double energyAtDist = pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance))  ;
+            
+
+            
+            
+            for(k = 0; k<numNPBeadSummation; ++k) {
+            
+              if(config.m_sumNPPotentials == false){
+              distance = getDistance3D(x[i],y[i],z[i] + start,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              }
+              else{
+              distance = getDistance3D(x[i],y[i],z[i] + start,  0 , 0 , 0 , radius,npType);
+              }
+                double energyAtDist = pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance, np.m_npBeadType[k] ))  ;
                 if(energyAtDist > 1){
                 //std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
                 }
                 //std::cout << pdb.m_occupancy[i] << "\n";
-                init_energy +=  pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance));
+                init_energy +=  pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance, np.m_npBeadType[k] ));
 
 
 
@@ -609,7 +658,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
 
 
 
-
+         }             
             }
  
 
@@ -630,20 +679,39 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 //loop over each residue. loop variables: i = ssd index, j = residue index
                 for (j = 0; j < size; ++j) {
  
+ 
+               double appliedOverlapPenalty = 0.0;
+ 
+                   //loop over each NP component present
+                    for(k = 0; k<numNPBeadSummation; ++k) {
               //distance is AA centre to NP (Nominal) surface
-              distance = getDistance(x[j],y[j],z[j],ssd,radius,npType);
-              double appliedOverlapPenalty = 0.0;
-               if(distance < closestSCD[j]){
+                            if(config.m_sumNPPotentials == false){
+              distance = getDistance3D(x[j],y[j],z[j] + ssd,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              }
+              else{
+              distance = getDistance3D(x[j],y[j],z[j] + ssd,  0 , 0 , 0 , radius,npType);
+              
+              
+              
+                             if(distance < closestSCD[j]){
                 //std::cout <<"applying overlap penalty "<<overlapPenalty << " at scd " << distance << " due to restriciton " << closestSCD[j] << "\n";
                 appliedOverlapPenalty = overlapPenalty;
                 }
+              
+              
+              }
 
-                energy +=  pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance));
-                 if(std::isnan(pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance)))){
-                  std::cout << "NaN generated by res. " << j << " type: "  << pdb.m_id[j]  <<   " at " << distance << "\n";
+
+
+                energy +=  pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
+                 if(std::isnan(pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance, np.m_npBeadType[k] )))){
+                  std::cout << "NaN generated by res. " << j << " type: "  << pdb.m_id[j]  <<   " at " << distance << "with NP bead " << k << " of type " << np.m_npBeadType[k] << "\n";
                     }
 
                 }
+                
+                }
+                
                 SSD[i]          = ssd;
                 total_energy[i] = energy;
 
@@ -725,7 +793,7 @@ cylinderFileNameAppend = "";
     }
 }
 
-void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const double outerRadius,const Config& config, double cylinderAngle, const NP& np) {
+void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const double outerRadius,const Config& config, double omegaAngle, const NP& np) {
     std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
 
     const double imaginary_radius = config.m_imaginary_radius;
@@ -739,13 +807,15 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
    
    
    
-int isCylinder = 0;   
+int appendAngle = 0;   
  if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
- isCylinder = 1;
+ appendAngle = 1;
    }  
+   if(config.m_npType == 1 && omegaAngle > 0.1){
+   appendAngle = 1;
+   }
    
-   
-    bool checkPrecalc = CheckForPrecalculated(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, 0,isCylinder,cylinderAngle);
+    bool checkPrecalc = CheckForPrecalculated(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, 0,appendAngle,omegaAngle);
      //std::clog << checkPrecalc << "\n";
     if(checkPrecalc == true){
         std::clog << "Info: Target '" <<np.m_name << ":" << pdb.m_name << "' (R = " << radius << ") already calculated, skipping. \n";
@@ -790,7 +860,7 @@ int isCylinder = 0;
                     config.m_npType,
                     imaginary_radius,
                     config.m_calculateMFPT,
-                    cylinderAngle,
+                    omegaAngle,
                     zeta,
                     config.m_savePotentials,
                     config.m_temperature,
@@ -802,7 +872,7 @@ int isCylinder = 0;
     
 
   
-    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,isCylinder,cylinderAngle); 
+    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,appendAngle,omegaAngle); 
     //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
     
@@ -823,7 +893,7 @@ int main(const int argc, const char* argv[]) {
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
     PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  , config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound);
 
-    
+    std::vector<double>          omegaAngleSet;
     // config.m_npTargets is a list of strings - targets to look at for .np files 
     
     
@@ -831,6 +901,21 @@ int main(const int argc, const char* argv[]) {
     if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
     omegaDelta = 45;
      }
+     //if final rotation angles omega have been manually set in the config file, use these. Else generate them based on the NP type.
+     
+    if( config.m_omegaAngles.size() == 0){
+    for(int i = 0; i < 180; i = i + omegaDelta){
+    omegaAngleSet.push_back(i);
+    std::cout << "Adding automatic rotation angle: " << i << "\n";
+     }
+    }
+    else{
+    for( auto & omegaAngle : config.m_omegaAngles){
+    omegaAngleSet.push_back(  omegaAngle ) ;
+        std::cout << "Adding rotation angle: " << omegaAngle << "\n";
+    }
+    }
+     
     boost::filesystem::create_directory(config.m_outputDirectory);
     boost::filesystem::create_directory(config.m_outputDirectory+"/nps");
     
@@ -854,15 +939,20 @@ int main(const int argc, const char* argv[]) {
             
              //std::to_string(static_cast<int>(radius))    + "_" + std::to_string(static_cast<int>(1000 * zeta))
             //x,y,z,radius,zeta,coreFactor=1,surfFactor=1,shape, hamakerFile,pmfFile,pmfCutoff,correctionType
-            std::string npOutString = "0,0,0," + to_string(nanoparticleRadius)+"," + to_string(zetaPotential) + "," + "1,1," + to_string(config.m_npType) +","+ config.m_hamakerFile +","+ config.m_pmfDirectory+"," + to_string(config.m_PMFCutoff) + ","+to_string( config.m_npType )+"\n";
-            std::cout << npOutString;
+            std::string npTypeOutString = "TYPE," + to_string(nanoparticleRadius)+"," + to_string(zetaPotential) + "," + "1,1," + to_string(config.m_npType) +","+ config.m_hamakerFile +","+ config.m_pmfDirectory+"," + to_string(config.m_PMFCutoff) + ","+to_string( config.m_npType )+"\n";
+            std::cout << npTypeOutString;
+            
+           std::string npBeadOutString = "BEAD,0,0,0,0\n";
+            std::cout << npBeadOutString;
+            
             std::string npIDString = "np"+to_string(npID)+"R_"+to_string(static_cast<int>(nanoparticleRadius))+"_ZP_"+to_string(  static_cast<int>( zetaPotential*1000));
             std::string npOutLoc = npFileDir+"/"+npIDString+".np";
             npID++;
             
              std::ofstream handle(npOutLoc.c_str());
              handle<<"#NP file generated by UnitedAtom\n";
-             handle << npOutString;
+             handle << npTypeOutString;
+             handle << npBeadOutString;
              handle.close();
             
         }
@@ -889,11 +979,15 @@ int main(const int argc, const char* argv[]) {
     nanoparticleBoundingRadius = config.m_boundingRadius;
     nanoparticleOuterBoundingRadius = config.m_boundingRadius+0.01;
     }
+    std::cout << "Scanning from " << nanoparticleBoundingRadius << " to " << nanoparticleOuterBoundingRadius + 2.0 << "\n";
     Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleBoundingRadius, config,np);
     for (const auto& pdb : pdbs){
-    for(int i = 0; i < 180; i = i + omegaDelta){
-    SurfaceScan(pdb,potentials,zetaPotential,nanoparticleBoundingRadius,nanoparticleOuterBoundingRadius,config,i,np);
+    
+    for( auto & omegaAngle : omegaAngleSet){
+    SurfaceScan(pdb,potentials,zetaPotential,nanoparticleBoundingRadius,nanoparticleOuterBoundingRadius,config,omegaAngle,np);
     }
+    
+    
     }
     }
     

@@ -13,7 +13,7 @@ public: // Switches
     bool        m_enableSurface         = false;
     bool        m_enableCore            = false;
     bool        m_enableElectrostatic   = false;
-
+    bool	m_sumNPPotentials    = true;
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -23,6 +23,7 @@ public: // Key - vaules
     std::vector<double>         m_zetaPotential     = {};
     std::vector<double>         m_aminoAcidCharges  = {};
     std::vector<double>         m_testAngle         = {};
+    std::vector<double>         m_omegaAngles       = {};
     std::string m_configFile            = "ua.config";
     std::string m_pmfDirectory          = ".";
     std::string m_pmfPrefix             = "";
@@ -31,6 +32,7 @@ public: // Key - vaules
     int         m_simulationSteps       = 10000;
     int         m_potentialSize         = 2000;
     int         m_multiNP               = 0;
+
     double      m_potentialCutoff       = 10.0;
     double      m_angleDelta            = 5.0;
     double      m_bejerumLength         = 1.0;
@@ -67,6 +69,9 @@ public:
             else if (switches[i] == "enable-electrostatic") {
                 m_enableElectrostatic = true;
             }
+            else if(switches[i] == "disable-np-summation"){
+            m_sumNPPotentials = false;
+            }
             else {
                 std::cerr << "Error: Unknown switch statment '" << switches[i] << "\n'";
                 std::exit(1);
@@ -82,6 +87,14 @@ public:
             else if (keys[i] == "nanoparticle-radius") {
                 m_nanoparticleRadii = AsDoubleList(values[i]);
             }
+            
+            
+           else if (keys[i] == "omega-angles") {
+                m_omegaAngles = AsDoubleList(values[i]);
+            }
+            
+            
+            
             else if (keys[i] == "amino-acids") {
                 m_aminoAcids = AsStringList(values[i]);
             }

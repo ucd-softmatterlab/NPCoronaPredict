@@ -199,6 +199,7 @@ The above general-purpose configuration file should be fine for most cases, but 
 \item disorder-stategy : Enables extra options for dealing with disordered residues (those with b-factors between disorder-minbound and disorder-maxbound defined on the next two lines). If disorder-strategy = 0, these are treated as normal residues. If disorder-strategy = 1, these residues are moved to the centre of the protein.  disorder-strategy = 2 disables these residues entirely. These are most useful for dealing with AlphaFold structures with unphysical loops. 
 \item disorder-minbound
 \item disorder-maxbound
+\item omega-angles : Specify a list e.g.  $[0, 90, 180]$ of the third-step rotation angle $\omega$ to apply. If this option is omitted then no rotation is applied for spherical NPs and for cylindrical the rotation is done in steps of 45 degrees up to 180. This is only needed for NPs which are not symmetric with respect to rotation about the z axis, e.g. cylinders and brush-decorated NPs.
 \end{itemize}
 
 
@@ -413,18 +414,43 @@ The scaling factors can be arbitrary real values, with a typical use being the c
 0,0,0,5.0,0,-1,-1,1,hamaker/Metal.dat,surface/Au/FCC/100/sca,1.2,1
 0,0,0,6.0,0,1,1,1,hamaker/Metal.dat,surface/Au/FCC/100/sca,1.2,1
 \end{lstlisting}
-can be used to produce a 5nm anatase NP core with a 1nm coating of gold (i.e., a 6nm gold particle with scaling factors $+1$ and a 5nm gold particle with scaling factors $-1$. 
-
+can be used to produce a 5nm anatase NP core with a 1nm coating of gold (i.e., a 6nm gold particle with scaling factors $+1$ and a 5nm gold particle with scaling factors $-1$. It's also possible to pre-define bead types and use these as a short-hand (new feature as of September 2023)
+\begin{lstlisting}
+#bead type definitions:
+#TYPE,radius,zeta,corescale,surfacescale,shape,Hamaker,PMFSet,PMFCutoff,Correction
+TYPE,5.0,0,1,1,1,hamaker/TiO2_Anatase.dat,surface/anatase-101,1.0,1
+#bead instance definitions
+#type-index (starting from zero and corresponding to the above beads),x,y,z
+0,0,0,0
+0,5,0,0
+\end{lstlisting}
+would produce two beads of type $0$ at $(0,0,0)$ and $(5,0,0)$, where type $0$ has been pre-defined to be an anatase bead of radius $5$nm and zero zeta potential. 
 
 Complexes can be built using the GenerateNP.py script or other such tools, or through manual construction (not recommended, unless you have a lot of spare time). 
 
 Caveats:
 
-1) The surface of a complex NP is not well defined. Interpret binding energies with caution and try varying the bounding radius. 
+1) The surface of a complex NP is not well defined. Interpret binding energies with caution and try varying the bounding radius (that is, the region of space over which UA scans). By default, UA scans over an interval from an inner radius $R_{in} = \mathrm{max}(R_i)$, that is, the maximum radius of all existing NP beads centered at zero, to an outer radius $R_{out} = 2.0 + \mathrm{max}( |r_i| + R_i  )$, where $|r_i|$ is the distance of the NP bead from $(0,0,0)$ - this is designed so that it captures a brush region if it exists and stops at the outer solid shell. The inner radius can be overridden by the config file if needed with the ``bounding-radius'' option. 
 
-2) In the default mode, the potentials are generated for single bead AAs at the north pole of the NP-complex and summation is done over this . This means that if there is a large enough gap for a single bead to sneak through, the entire protein will behave as if it can sneak into this space and dramatically overestimate the achievable binding energy. A hard-sphere repulsion can be switched on to reduce this effect.
+2) In the default mode, the potentials are generated for single bead AAs at the north pole of the NP-complex and summation is done over this. In other words, if we have a bead ALA, then UA generates a potential for ALA of the form
+\begin{equation}
+U_{ALA}(z) = \sum_{NPs} U_{NP-ALA}(   \sqrt{ x_{NP}^2 + y_{NP}^2 + (z - z_{NP})^2} )
+\end{equation}
+which is valid for isotropic shells, but for bead-brush models this can lead to unexpected behaviour since it does not adequately model the interaction between off-axis NP/AA beads. This means that if there is a large enough gap for a single bead to sneak through, the entire protein will behave as if it can sneak into this space and dramatically overestimate the achievable binding energy. A hard-sphere repulsion can be switched on to reduce this effect, or you can disable the presummation of NPs by adding the switch ``disable-np-summation'' to your UA config file. With this mode enabled, the NP-AA potential is now calculated explicitly at each step of the simulation by summing over all AA and NP beads using their actual physical locations:
+\begin{equation}
+U_{NP-prot}(z) = \sum_i \sum_j U_{i,j}( r_i - r_j)
+\end{equation}
 
-Polymeric NPs (those for which the PMFs represent a small repeat unit rather than an entire slab) can be built using a raspberry model, check GenerateNP.py for examples, or as beads decorating the surface of a homogenous inner bead. For reasons of speed it's best to replace small inner beads by larger ones if you can, especially if they're at a distance of $> 1$ nm from the surface of the NP (and so only interact through the Hamaker potential) - summation of the potentials over all beads in an NP can be very slow, especially for larger radii. 
+This will significantly increase the time taken for UA to run, it is highly recommended that you optimise your NP to eliminate trivial beads before enabling this option. However, this gives a much more realistic model of the interaction between complex NPs and a protein.
+
+
+Polymeric NPs (those for which the PMFs represent a small repeat unit rather than an entire slab) can be built using a raspberry model, check GenerateNP.py for examples, or as beads decorating the surface of a homogenous inner bead. For reasons of speed it's best to replace small inner beads by larger ones if you can, especially if they're at a distance of $> 1$ nm from the surface of the NP (and so only interact through the Hamaker potential) - summation of the potentials over all beads in an NP can be very slow, especially for larger radii. The Hamaker potential is generally quite small (see Figure. \ref{fig:hamaker-exclusion} with $r_e = 0$ and Figure \ref{fig:hamaker-longrange}) - a typical Hamaker constant is on the order of $10 k_BT$ at most, so for an infinite large NP bead at a distance of $1.5$ nm from a residue bead (typical radius $0.5$ nm) the contribution is on the order of $0.05  k_BT$ per residue if the entire space below this distance is filled with NP material. From Figure \ref{fig:hamaker-longrange} it can be seen that even if $1000$ residues are laid out in a sheet and allowed to interact with an infinite mass of NP, the interaction is less than $1 k_B T$ after a distance of $7$ nm or so. 
+ 
+\begin{figure} \label{fig:hamaker-longrange}
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/hamaker_longrange.pdf}
+    \caption{Plots of the total Hamaker potential between an NP of infinite radius and three cases: single residue ($R = 0.5$ nm), globular protein ($R=5$ nm) and a ``stretched globule'' of 1000 residues of $0.5$ nm radius each, producing the same total volume as the $5$ nm protein, but all in the same plane. The dashed line indicates the point at which the potential is equal to $1 k_B T$ for a typical Hamaker constant of c.a. $10 k_B T$. }
+\end{figure}
 
 
 \section{PMFP} \label{section:pmfp}

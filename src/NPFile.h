@@ -14,11 +14,12 @@
 
 class NP {
 public:
+    const std::vector<int>      m_npBeadType;
     const std::vector<double>   m_x;
     const std::vector<double>   m_y;
     const std::vector<double>   m_z;
     const std::vector<int>      m_id;
-    const double                m_length;
+    const int                m_numBeadTypes;
     const std::string           m_name;
     const std::vector<double>   m_radius;
     const std::vector<double>   m_zeta;
@@ -33,11 +34,11 @@ public:
     const std::vector<double>   m_pmfCutoff;
     const std::vector<int>      m_correctionType;
  
-    NP(const std::vector<double>& x, const std::vector<double>& y, const std::vector<double>& z,
-    const std::vector<int>& id, const double length, const std::string& name, const std::vector<double>& radius,  
+    NP(const std::vector<int>& npBeadType, const std::vector<double>& x, const std::vector<double>& y, const std::vector<double>& z,
+    const std::vector<int>& id, const int numBeadTypes, const std::string& name, const std::vector<double>& radius,  
 const std::vector<double>& zeta,const std::vector<double>& coreFactor,const std::vector<double>& surfFactor   ,const std::vector<int>& shape,   
 const std::vector<string>& hamakerFile , const std::vector<string>& pmfFile , const double boundRadius, const double outerBoundRadius, const double zetaName, const std::vector<double>& pmfCutoff, std::vector<int>& correctionType )
-        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_radius(radius), m_zeta(zeta), 
+        : m_npBeadType(npBeadType) ,  m_x(x), m_y(y), m_z(z), m_id(id), m_numBeadTypes(numBeadTypes), m_name(name), m_radius(radius), m_zeta(zeta), 
 m_coreFactor(coreFactor), m_surfFactor(surfFactor), m_shape(shape), m_hamakerFile(hamakerFile), m_pmfFile(pmfFile), m_boundRadius(boundRadius), m_outerBoundRadius(outerBoundRadius),m_zetaName(zetaName),  m_pmfCutoff(pmfCutoff), m_correctionType(correctionType)
     {}
 };
@@ -64,10 +65,14 @@ NP ReadNPFile(const std::string& filename, const std::unordered_map<std::string,
 
     std::string line;
     std::string tag;
-
+    
+    //prepare the list of components, each of which is one of the bead types stored below
+    std::vector<int> npBeadType;
     std::vector<double> x;
     std::vector<double> y;
     std::vector<double> z;
+    
+    //list of NP bead types
     std::vector<int>    id;
     std::vector<double> radius;
     std::vector<double> zeta;
@@ -79,68 +84,178 @@ NP ReadNPFile(const std::string& filename, const std::unordered_map<std::string,
     std::vector<double>  pmfCutoff;
     std::vector<int>  correctionType;
 
+
+//Old:
 //NP definition: 1 line per NP, comma separated parameters in order:
 //x,y,z,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile
-double length = 0;
+
+//Updated:
+//First part of the NP file defines bead types, second defines individual beads
+//TYPE,radius,zeta,coreFactor,surfFactor,shape,hamaker,pmf,pmfcutoff,correctiontype
+//BEAD,typeIndex,x,y,z
+
+int numBeads = 0;
+int numBeadTypes = 0;
+
 double boundRadius = 0;
 double outerBoundRadius = 0;
 double zetaName = 0;
     while (std::getline(handle, line)) {
         if(line.size() > 3 && line.substr(0, 1) != "#") {
             try {
+                
+
+            
                std::vector<std::string> results;
                 boost::split(results, line, [](char c){return c == ',';});
 
-                //x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
-                //y.emplace_back(0.1 * std::stod(line.substr(38, 8)));
-                //z.emplace_back(0.1 * std::stod(line.substr(46, 8)));
-                //std::cout << line << "\n";
-                //std::cout << line.substr(56,4) << "\n";
-                //occupancy.emplace_back(  std::stod(line.substr(56,4)));
-                //tag = line.substr(16, 4); // When using lipids
-                //tag = line.substr(17, 3);
-                //StringFormat::Strip(tag);
+               if( results[0] == "TYPE"){
+               //register a new type
+                double radiusval = std::stod(results[1]);
+                double zetaval = std::stod(results[2]);
+                   radius.emplace_back(radiusval);
+          	   zeta.emplace_back(zetaval);
+         	   coreFactor.emplace_back(std::stod(results[3]));
+       		   surfFactor.emplace_back(std::stod(results[4]));
+         	   shape.emplace_back(std::stoi(results[5]));
+         	   hamakerFile.emplace_back(results[6]);
+         	   pmfFile.emplace_back(results[7]);
+       		   pmfCutoff.emplace_back(std::stod(results[8]));
+		   correctionType.emplace_back(std::stoi(results[9]));  
+                   numBeadTypes +=1;
 
-                //id.emplace_back(aminoAcidIdMap.at(tag));
-
-            double xval = std::stod(results[0]);
-            double yval = std::stod(results[1]);
-            double zval = std::stod(results[2]);
-            double radiusval = std::stod(results[3]);
-            double zetaval = std::stod(results[4]);
-//std::cout << "Adding component at " << xval << "," << yval << "," <<zval << " of radius " << radiusval << " with zeta " << std::stod(results[4]) << "\n";
-
-            x.emplace_back(xval);
-            y.emplace_back(yval);
-            z.emplace_back(zval);
-            radius.emplace_back(radiusval);
-            zeta.emplace_back(zetaval);
-            coreFactor.emplace_back(std::stod(results[5]));
-            surfFactor.emplace_back(std::stod(results[6]));
-            shape.emplace_back(std::stoi(results[7]));
-            hamakerFile.emplace_back(results[8]);
-            pmfFile.emplace_back(results[9]);
-            pmfCutoff.emplace_back(std::stod(results[10]));
-            correctionType.emplace_back(std::stoi(results[11]));
+                if( radiusval > boundRadius){
+            boundRadius =  radiusval;
+            }
+                 
+               if( pow(zetaval,2) > pow(zetaName,2) ){
+            zetaName = zetaval;
+            }                
+                   
+               
+               }
+               else if( results[0] == "BEAD"){
+               //place an NP bead 
+               int    npBeadTypeVal = std::stoi(results[1]);
+               double xval = std::stod(results[2]);
+               double yval = std::stod(results[3]);
+               double zval = std::stod(results[4]);
+               npBeadType.emplace_back(npBeadTypeVal);
+               x.emplace_back(xval);
+               y.emplace_back(yval);
+               z.emplace_back(zval);
+               numBeads +=1;
+               double beadRadius  = 0.0; //assign a default value
+               if( radius.size() > npBeadTypeVal    ){
+               beadRadius = radius[npBeadTypeVal];
+               }
+               else{
+               std::cout<<"NP bead of type " <<  npBeadTypeVal  << " not yet defined, ignoring for bounding radius. \n";
+               }
+               
+               double newOuterBoundRadius   = sqrt( xval*xval + yval*yval + zval*zval   ) + beadRadius;
+               
+                if(newOuterBoundRadius > outerBoundRadius){
+                outerBoundRadius = newOuterBoundRadius;
+                }
             
-            double newBoundRadius = 0;
-            double newOuterBoundRadius = 0;
-            newOuterBoundRadius = sqrt( xval*xval + yval*yval + zval*zval   ) + radiusval;
-            newBoundRadius =  radiusval; //count only beads at (0,0,0) for the purpose of estimating the bounding radius.
+            
+               }
+               else{
+               std::cout << "NP input line " << line << "not recognised, will attempt to parse using legacy system. WARNING: Mixing this with new-style will lead to misassigned beads. \n";
+               
+               double xval = std::stod(results[0]);
+               double yval = std::stod(results[1]);
+               double zval = std::stod(results[2]);
+               
+               double radiusval = std::stod(results[3]);
+                double zetaval = std::stod(results[4]);
+                double coreFactorVal = std::stod(results[5]);
+                double surfFactorVal = std::stod(results[6]);
+                int shapeVal = std::stoi(results[7]) ;
+                string hamakerFileS = results[8] ;
+                std::string pmfFileS = results[9];
+                double pmfCutoffVal = std::stod(results[10]) ;
+                int correctionTypeVal = std::stoi(results[11]) ;
+                int foundBeadType = 0;
+                int npBeadTypeVal = 0;
+                int j = 0;
+                //test to see if the bead matches any beads which have already been seen
+                for(j=0 ; j < radius.size(); ++j){
+                
+                 if( radius[j] == radiusval && zeta[j] == zetaval && coreFactor[j] == coreFactorVal && surfFactor[j] == surfFactorVal && shape[j] == shapeVal && hamakerFile[j] == hamakerFileS && pmfFile[j] == pmfFileS && pmfCutoff[j] == pmfCutoffVal && correctionType[j] == correctionTypeVal){
+                 foundBeadType = 1;
+                 npBeadTypeVal = j;
+                 } 
+                
+                }
+                
+                if(foundBeadType == 0){
+                
+
+                //register a new bead type
+
+                npBeadTypeVal = radius.size();
+                   radius.emplace_back(radiusval);
+          	   zeta.emplace_back(zetaval);
+         	   coreFactor.emplace_back(coreFactorVal);
+       		   surfFactor.emplace_back(surfFactorVal);
+         	   shape.emplace_back(shapeVal);
+         	   hamakerFile.emplace_back(results[8]);
+         	   pmfFile.emplace_back(results[9]);
+       		   pmfCutoff.emplace_back(pmfCutoffVal);
+		   correctionType.emplace_back(correctionTypeVal);  
+		   
+		   std::cout << "Legacy reader: Defining bead type " << npBeadTypeVal << " radius " << radius[npBeadTypeVal] << "\n";
+		   
+		   numBeadTypes += 1;
+		   
+		                   if( radiusval > boundRadius){
+            boundRadius =  radiusval;
+            }
+		   
+		   
+		   
+               }
+               
+               //then add the NP bead
+               std::cout<<"Legacy reader: Adding bead of type " << npBeadTypeVal << "\n";
+               npBeadType.emplace_back(npBeadTypeVal);
+               x.emplace_back(xval);
+               y.emplace_back(yval);
+               z.emplace_back(zval);
+               numBeads +=1;
+               double beadRadius  = 0.0; //assign a default value
+               if( radius.size() > npBeadTypeVal    ){
+               beadRadius = radius[npBeadTypeVal];
+               }
+               else{
+               std::cout<<"NP bead of type " <<  npBeadTypeVal  << " not yet defined, ignoring for bounding radius. \n";
+               }
+               
+               double newOuterBoundRadius   = sqrt( xval*xval + yval*yval + zval*zval   ) + beadRadius;
+               
+                if(newOuterBoundRadius > outerBoundRadius){
+                outerBoundRadius = newOuterBoundRadius;
+                }
+               
+               
+               
+               
+               }
+
+
+            
+
+            
+            
             //previous expression: sqrt( xval*xval + yval*yval + zval*zval   ) + radiusval;
             
-            if(newBoundRadius > boundRadius){
-            boundRadius = newBoundRadius;
-            }
-            if(newOuterBoundRadius > outerBoundRadius){
-                outerBoundRadius = newOuterBoundRadius;
-            }
-            if( pow(zetaval,2) > pow(zetaName,2) ){
-            zetaName = zetaval;
-            }
+
+
+
             
-            
-            length +=1;
+       
             }
             catch (const std::invalid_argument& ia) {
                 std::cerr << "Error: Failed to parse NP file '" << filename << "'\n";
@@ -159,59 +274,13 @@ double zetaName = 0;
     }
 
     handle.close();
-     /*
-    for (int i = 0; i < static_cast<int>(x.size()); ++i) {
-        std::cout << x[i] << " " <<  y[i] << " " << z[i] << "\n";
+
+    if(numBeadTypes > 64){
+    std::cout << "Warning: more than 64 NP bead types have been registered. This will likely lead to a segfault. \n";
     }
-   */
-    // Center protein
-
-/*
-    double mean_x = 0.0, mean_y = 0.0, mean_z = 0.0;
-    double totalOcc = 0;
-    double numRes = 0;
-    for (int i = 0; i < static_cast<int>(x.size()); ++i) {
-        mean_x += x[i];
-        mean_y += y[i];
-        mean_z += z[i];
-        totalOcc += occupancy[i];
-        numRes +=1;
-        //std::cout << numRes << " " << occupancy[i] << "\n";
-
-    }
-   
-    mean_x /= x.size();
-    mean_y /= y.size();
-    mean_z /= z.size();
-
-    for (int i = 0; i < static_cast<int>(x.size()); ++i) {
-        x[i] -= mean_x;
-        y[i] -= mean_y;
-        z[i] -= mean_z;
-    }
-   */ 
-    // Lenght
-
-   /*
-    double max_x = 0.0, max_y = 0.0, max_z = 0.0;
-
-    for (int i = 0; i < static_cast<int>(x.size()); ++i) {
-        if (std::fabs(x[i]) > max_x) {
-            max_x = std::fabs(x[i]);
-        }
-        if (std::fabs(y[i]) > max_y) {
-            max_y = std::fabs(y[i]);
-        }
-        if (std::fabs(z[i]) > max_z) {
-            max_z = std::fabs(z[i]);
-        }
-    }
-   */
-    //const double length = std::sqrt(max_x * max_x + max_y * max_y + max_z * max_z);
-  
     std::string name = NPTargetList::Filename(filename);
     std::cout << "NP filename: " << name << " generated with bounding radius " << boundRadius <<"\n";
-    return NP(x, y, z, id, length, name,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile,boundRadius,outerBoundRadius,zetaName,pmfCutoff,correctionType);
+    return NP(npBeadType, x, y, z, id, numBeadTypes, name,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile,boundRadius,outerBoundRadius,zetaName,pmfCutoff,correctionType);
 }
 
 #endif
