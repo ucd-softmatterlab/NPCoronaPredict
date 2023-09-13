@@ -53,6 +53,7 @@ parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the l
 parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in seconds", default = 5e-4)
 parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
 parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
+parser.add_argument('-H','--hamaker',help="Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no", default = 1, type = int)
 
 args = parser.parse_args()
 
@@ -69,6 +70,9 @@ isPlane = False
 boundaryType = 1
 planarRadiusCutoff = 500 #if a spherical NP radius is set larger than this, then the corona tools approximate the NP as a plane. Note that UA will still treat the NP as whatever the MaterialSet shape is, e.g. a 501 nm sphere is a sphere for UA but a plane for BCP/CKMC.
 
+enableHamaker = True
+if args.hamaker == 0:
+    enableHamaker = False
 
 if NPMaterial == "":
     print("Please set a material using the -m flag. Available materials are: ")
@@ -226,7 +230,8 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)
+
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation

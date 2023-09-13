@@ -36,6 +36,7 @@ parser.add_argument("-c","--configloc",default="", help="Location to save the ge
 parser.add_argument("-T","--temperature", type=float, default=300.0, help="Nominal temperature")
 parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic strength in Mol (one-half * sum:conc*chargeSquared)")
 parser.add_argument("-n","--name",type=str,default="uaautorun",help="Output file name")
+parser.add_argument("-H","--hamaker",type=int,default=1,help="Enable Hamaker interaction (0 to disable, enabled by default)")
 args = parser.parse_args()
 
 
@@ -50,6 +51,10 @@ else:
     print("Input material: ", args.material)
     print("Known materials: ", materialSet.keys)
     quit()
+
+enableHamaker = True
+if args.hamaker == 0:
+    enableHamaker = False
 
 beadSetFile = open(args.beadset,"r")
 beadNames = []
@@ -109,7 +114,10 @@ def writeConfigFile(configOutputLoc):
     outputConfigFile.write("np-type = " + str(shape)+"\n")
     outputConfigFile.write("pmf-directory = " + pmfFolder + "\n")
     outputConfigFile.write("hamaker-file = " + hamakerFile + "\n")
-    outputConfigFile.write("enable-surface \nenable-core \nenable-electrostatic \nsimulation-steps = 2000 \npotential-cutoff=5.0 \npotential-size = 1000 \nangle-delta = 5.0 \nbjerum-length="+str(round(bjerrumLength ,3))+" \ndebye-length="+str(round(debyeLength,3))+" \n")
+    outputConfigFile.write("enable-surface \n")
+    if enableHamaker == True:
+        outputConfigFile.write("enable-core \n")
+    outputConfigFile.write("enable-electrostatic \nsimulation-steps = 2000 \npotential-cutoff=5.0 \npotential-size = 1000 \nangle-delta = 5.0 \nbjerum-length="+str(round(bjerrumLength ,3))+" \ndebye-length="+str(round(debyeLength,3))+" \n")
     outputConfigFile.write("temperature = "+str(round(inputTemp,2))+"\n")
     outputConfigFile.write("zeta-potential = [" + str(args.zeta) + "] \n")
     if useDefaultBeadSet == 1:
