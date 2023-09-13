@@ -4,6 +4,11 @@
 import numpy as np
 import BrushGenerator as brushgen
 import RaspberryGenerator as raspgen
+import os
+
+
+targetDir = "../nps/NPGeneratorOutput"
+os.makedirs(targetDir, exist_ok=True)
 
 #parameters used to control the overall structure
 
@@ -102,7 +107,7 @@ for coreMaterial in coreMaterials:
                     if len(beadSet)>0:
                         npLayers.append(beadSet)
                     else:
-                        print "Warning: zero beads generated for core raspberry"
+                        print("Warning: zero beads generated for core raspberry")
                 else:
                     npLayers.append([[0,0,0,coreRadius,0,1,defaultSurfaceFactor,1,coreMaterial[0],coreMaterial[1],defaultCutoff]])
                     npName = coreMaterial[2]+"-"+str(coreRadius)
@@ -117,7 +122,7 @@ for coreMaterial in coreMaterials:
                        if len(beadSet)>0:
                            npLayers.append(beadSet)
                        else:
-                           print "Warning: zero beads generated for shell raspberry"
+                           print("Warning: zero beads generated for shell raspberry")
                        npName = npName+"_"+shell[3]+"-rasp-"+str(shell[0])
                    else:
                        #first add the anti-NP to subtract the unneeded potential, then the actual NP. together this produces a shell NP.
@@ -151,13 +156,13 @@ for coreMaterial in coreMaterials:
                     npLayers.append(materialBeads)
                     npName = npName+"_brush-"+brushBeadDefinition[3]
                 #write out the NP definition to a file
-                f = open("nps/AutoGen2/"+npName+".np","w")
+                f = open(targetDir+"/"+npName+".np","w")
                 f.write("#"+npName+"\n")
                 for npLayer in  npLayers:
                    for npComponent in npLayer:
                        f.write(",".join(str(w) for w in npComponent)+"\n"  )
                 f.close()
-                print "Generated: ", npName
+                print("Generated: ", npName)
 
 
 
