@@ -30,11 +30,11 @@ serumProteinConcs = np.array(serumProteinConcs)
 
 targetDescriptors = ["Mass (Da)", "Charge", 'AlaNumber',  'CysNumber',  'AspNumber', 'GluNumber',  'PheNumber',  'GlyNumber',  'HisNumber', 'IleNumber', 'LysNumber',  'LeuNumber','MetNumber', 'AsnNumber',  'ProNumber',  'GlnNumber', 'ArgNumber',  'SerNumber', 'ThrNumber',  'ValNumber',  'TrpNumber',  'TyrNumber',  'TinyNumber',  'SmallNumber',  'AliphaticNumber', 'AromaticNumber', 'NonPolarNumber', 'PolarNumber','ChargedNumber',  'BasicNumber','AcidicNumber']
 
-print("Material," + ",".join([ str(a) for a in targetDescriptors])  +"," +   ",".join([ "enrich_"+str(a) for a in targetDescriptors])     +"," +   ",".join([ "massenrich_"+str(a) for a in targetDescriptors])   )
+print("Material," + ",".join([ str(a) for a in targetDescriptors])    )
 
 materialSet = ["silicaquartz","silicaamorph","anatase101","rutile110","rutile100","fe2o3","CdSe","carbonblack","grapheneoxide","redgrapheneoxide","graphene","gold","cnt"]
 fingerprintOut = open("fingerprint_output.txt","w")
-fingerprintOut.write("Material," + ",".join([ str(a) for a in targetDescriptors])  +"," +   ",".join([ "enrich_"+str(a) for a in targetDescriptors])     +"," +   ",".join([ "massenrich_"+str(a) for a in targetDescriptors])+"\n"  )
+fingerprintOut.write("Material," + ",".join([ str(a) for a in targetDescriptors])  +"\n"  )
 
 for targetMaterial in materialSet:
     coronaStatsFile = open("corona_results/daphnia-fingerprint-"+targetMaterial+"/kmc_running_np1R_5_ZP_0.csv_5.0_s0_hs_0.txt","r")

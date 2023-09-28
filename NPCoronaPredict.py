@@ -193,7 +193,7 @@ for proteinLine in AllProteins:
         print("Found "+proteinID+" in storage folder, copied to working")
         foundProtein = 1
     else:
-        if proteinSource=="AF":
+        if proteinSource=="AF" or proteinSource=="Other":
             #download from AlphaFold
             try:
                 os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID+'-F1-model_v2.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
@@ -234,8 +234,8 @@ UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/
 
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
-BCPCommandString = "python3 BuildCoronaParams-P3.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
-KMCCommandString = "python3 CoronaKMC-P3.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)
+BCPCommandString = "python3 BuildCoronaParams.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
+KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)
 
 if isCylinder == True:
     print("Adding cylinder argument")
@@ -249,7 +249,7 @@ elif isPlane == True:
 
 print(BCPCommandString)
 print(KMCCommandString)
-print("If python3 isn't installed, use python BuildCoronaParams.py, python CoronaKMC.py instead")
+print("If python3 isn't installed, use python BuildCoronaParams-p2.py, python CoronaKMC-p2.py instead")
 
 
 # In[15]:
