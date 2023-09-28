@@ -2,9 +2,13 @@
 
 NPDesigner is a tool to make it easy to build spherical NPs for use in the NPCoronaPredict set of tools, particularly UnitedAtom. 
 
+Dependencies:
+NPDesigner needs a working qt5 installation. The quick and easy way to get this on Linux is:
+sudo apt install qtchooser qtbase5-dev qt5-qmake 
+
 Compiling NPDesigner:
 The source code is available as part of the NPCoronaPredict package and requires gcc and Qt5 for installation. To compile the program, go into the NPDesigner folder in a terminal window and run the commands:
-qmake
+qmake -qt=qt5
 make
 
 If all goes well there will be a few compiler warnings about unused variables, and then an NPDesigner executable will be generated in the NPDesigner folder. You should be able to run this like any other program.
