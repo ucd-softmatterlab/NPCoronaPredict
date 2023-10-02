@@ -51,11 +51,17 @@ protein1,1e-4
 protein2,0.003
 smallmolecule1,0.01
 \end{lstlisting}
-Each line in this file is required to have a matching structure stored in the allproteins folder, e.g. ``protein1.pdb'', ``protein2.pdb'', ``smallmolecule1.pdb''. The -t option defines how many seconds of simulated time to run the corona simulation for. Further options are available and can be found using 
+Each line in this file is required to have a matching structure stored in the all\textunderscore proteins folder, e.g. ``protein1.pdb'', ``protein2.pdb'', ``smallmolecule1.pdb''. The -t option defines how many seconds of simulated time to run the corona simulation for. Further options are available and can be found using 
 \begin{lstlisting}
 python3 PrepareKMCInput.py --help
 \end{lstlisting}
-which lists all the available commands and details about what they do. 
+which lists all the available commands and details about what they do. This script is designed to allow rapid simulation of coronas for well-defined, single-bead NPs as follows:
+\begin{enumerate}
+\item Get CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist)
+\item Create a medium file as described above. Remember that this is ``molecule,concentration[M]'' format and each molecule must have a matching molecule.pdb file in all\textunderscore proteins.
+\item Identify the material you want to use - the standard are all listed in MaterialSet.csv and the machine-learning extended set in surface-pmfp/MaterialSetPMFP.csv
+\item Run PrepareKMCInput.py with a command string as shown above. 
+\end{enumerate}
  
  
  
@@ -92,18 +98,18 @@ U_S(r) =   U_{surf}(S,r) + U_{el}(S,r) +  U_H(S,r)
 \end{equation} 
  where $r$ is the distance between the centre of the NP and the centre of the bead, $U_{surf}$ is a short-range potential, $U_{el}$ is an electrostatic potential, and  $U_H$ is a Hamaker-like potential. $U_{surf}$ is a tabulated potential extracted from metadynamics simulations to include the very close range repulsion, some electrostatic terms, solvent effects, mid-range vdW attraction, etc. A correction factor is applied to map these from the tabulated form generally computed for a plane to an NP of finite radius of curvature. The electrostatic term is evaluated in the Debye-Huckel approximation and has simple forms for the spherical,
  \begin{equation}
- U_{el} = ...
+ U_{el} = \psi_0 e^{-h/l}\frac{R}{h + R}
  \end{equation}
-  cylindrical,
+  cylindrical (using the Bessel K function $K_0(r)$),
  \begin{equation}
- U_{el} = ...
+ U_{el} = \psi_0  \frac{K_0( (R + h)/l)}{K_0(R/l)}
  \end{equation}
 and planar
   \begin{equation}
- U_{el} = ...
+ U_{el} = \psi_0 e^{-h/l}  
  \end{equation}
 
- cases. Finite cubes are evaluated using an expansion in spherical harmonics but are generally very well approximated by the planar expression, especially if the cube is large compared to the Debye length. 
+ cases, where $h$ is the distance from the surface, $l$ is the Debye length , $R$ is the radius of the NP and $\psi_0$ is the value of the potential at $h=0$, which is typically and inaccurately referred to as the zeta potential. Finite cubes are evaluated using an expansion in spherical harmonics but are generally very well approximated by the planar expression, especially if the cube is large compared to the Debye length. 
 
  
  
@@ -426,7 +432,7 @@ TYPE,5.0,0,1,1,1,hamaker/TiO2_Anatase.dat,surface/anatase-101,1.0,1
 \end{lstlisting}
 would produce two beads of type $0$ at $(0,0,0)$ and $(5,0,0)$, where type $0$ has been pre-defined to be an anatase bead of radius $5$nm and zero zeta potential. 
 
-Complexes can be built using the GenerateNP.py script or other such tools, or through manual construction (not recommended, unless you have a lot of spare time). 
+Complexes can be built using the GenerateNP.py script (check the NPGenerator folder) or other such tools, or through manual construction (not recommended, unless you have a lot of spare time). 
 
 Caveats:
 
@@ -444,7 +450,10 @@ U_{NP-prot}(z) = \sum_i \sum_j U_{i,j}( r_i - r_j)
 This will significantly increase the time taken for UA to run, it is highly recommended that you optimise your NP to eliminate trivial beads before enabling this option. However, this gives a much more realistic model of the interaction between complex NPs and a protein.
 
 
-Polymeric NPs (those for which the PMFs represent a small repeat unit rather than an entire slab) can be built using a raspberry model, check GenerateNP.py for examples, or as beads decorating the surface of a homogenous inner bead. For reasons of speed it's best to replace small inner beads by larger ones if you can, especially if they're at a distance of $> 1$ nm from the surface of the NP (and so only interact through the Hamaker potential) - summation of the potentials over all beads in an NP can be very slow, especially for larger radii. The Hamaker potential is generally quite small (see Figure. \ref{fig:hamaker-exclusion} with $r_e = 0$ and Figure \ref{fig:hamaker-longrange}) - a typical Hamaker constant is on the order of $10 k_BT$ at most, so for an infinite large NP bead at a distance of $1.5$ nm from a residue bead (typical radius $0.5$ nm) the contribution is on the order of $0.05  k_BT$ per residue if the entire space below this distance is filled with NP material. From Figure \ref{fig:hamaker-longrange} it can be seen that even if $1000$ residues are laid out in a sheet and allowed to interact with an infinite mass of NP, the interaction is less than $1 k_B T$ after a distance of $7$ nm or so. 
+Polymeric NPs (those for which the PMFs represent a small repeat unit rather than an entire slab) can be built using a raspberry model, check GenerateNP.py for examples, or as beads decorating the surface of a homogenous inner bead. For reasons of speed it's best to replace small inner beads by larger ones if you can, especially if they're at a distance of $> 1$ nm from the surface of the NP (and so only interact through the Hamaker potential) - summation of the potentials over all beads in an NP can be very slow, especially for larger radii. The Hamaker potential is generally quite small (see Figure. \ref{fig:hamaker-exclusion} with $r_e = 0$ and Figure \ref{fig:hamaker-longrange}) - a typical Hamaker constant is on the order of $10 k_BT$ at most, so for an infinite large NP bead at a distance of $1.5$ nm from a residue bead (typical radius $0.5$ nm) the contribution is on the order of $0.05  k_BT$ per residue if the entire space below this distance is filled with NP material. From Figure \ref{fig:hamaker-longrange} it can be seen that even if $1000$ residues are laid out in a sheet and allowed to interact with an infinite mass of NP, the interaction is less than $1 k_B T$ after a distance of $7$ nm or so. Consequently, all beads with a closest-approach distance greater than $10$ nm from the ``top'' of the NP (i.e., the plane defined by $z = R_{in}$ for a complex centered at $(0,0,0)$ ) are essentially negligible, since no matter how many there are the total contribution summed over all these beads is almost always less than $1 k_B T$. Thus, if your NP is taking too long to run, you can speed things up by removing any bead for which $z +   R_{in} - R_i > 10$ - even if you remove all such beads the interaction energy will change by far less than $1 k_B T$. 
+
+
+
  
 \begin{figure} \label{fig:hamaker-longrange}
     \centering
@@ -498,7 +507,7 @@ The main core of the program is contained in main.cpp, which handles the overall
 \section{Post-processing and extra tools}
 UnitedAtom output by itself typically requires some further processing to make it useful, since the raw data tends to be too much to directly analyse.
 
-Note: in all that follows, be very careful to remember that the UA file format stores LEFT HAND EDGES for angles in units degrees. You therefore need to shift and convert to degrees, e.g.
+Note: in all that follows, be very careful to remember that the UA file format stores LEFT HAND EDGES for angles in units degrees. You therefore need to shift and convert to radians, e.g.
 \begin{lstlisting}
 theta += 2.5
 theta = theta*pi/180.0

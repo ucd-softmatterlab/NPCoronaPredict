@@ -100,6 +100,10 @@ int numBeadTypes = 0;
 double boundRadius = 0;
 double outerBoundRadius = 0;
 double zetaName = 0;
+
+double fileInnerBound = -1;
+double fileOuterBound = -1;
+
     while (std::getline(handle, line)) {
         if(line.size() > 3 && line.substr(0, 1) != "#") {
             try {
@@ -134,6 +138,16 @@ double zetaName = 0;
                    
                
                }
+               else if( results[0] == "INNERBOUND"){
+               std::cout << "Inner bound manually set, will overwrite automatic and config-file options \n";
+               fileInnerBound = std::stod(results[1]);
+               }
+               else if( results[0] == "OUTERBOUND"){
+               std::cout << "Outer bound manually set, will overwrite automatic and config-file options \n";
+               fileOuterBound = std::stod(results[1]);
+               }
+                              
+               
                else if( results[0] == "BEAD"){
                //place an NP bead 
                int    npBeadTypeVal = std::stoi(results[1]);
@@ -162,7 +176,7 @@ double zetaName = 0;
             
                }
                else{
-               std::cout << "NP input line " << line << "not recognised, will attempt to parse using legacy system. WARNING: Mixing this with new-style will lead to misassigned beads. \n";
+               std::cout << "NP input line " << line << " \n not recognised, will attempt to parse using legacy system. WARNING: Mixing this with new-style will lead to misassigned beads. \n";
                
                double xval = std::stod(results[0]);
                double yval = std::stod(results[1]);
@@ -280,6 +294,13 @@ double zetaName = 0;
     }
     std::string name = NPTargetList::Filename(filename);
     std::cout << "NP filename: " << name << " generated with bounding radius " << boundRadius <<"\n";
+    
+    if(fileInnerBound > 0){
+    boundRadius = fileInnerBound;
+    }
+    if(fileOuterBound > 0){
+    outerBoundRadius = fileOuterBound;
+    }
     return NP(npBeadType, x, y, z, id, numBeadTypes, name,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile,boundRadius,outerBoundRadius,zetaName,pmfCutoff,correctionType);
 }
 
