@@ -24,6 +24,8 @@ private slots:
 
     void on_hamFindButton_clicked();
 
+    void on_materialTypeBox_currentIndexChanged(int index);
+
 private:
     Ui::AddBeadType *ui;
 };

@@ -26,6 +26,8 @@ private slots:
 
     void on_findSurf_clicked();
 
+    void on_materialTypeBox_currentIndexChanged(int index);
+
 private:
     Ui::AddShell *ui;
 };

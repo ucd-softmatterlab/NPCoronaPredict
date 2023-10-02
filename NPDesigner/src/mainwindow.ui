@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1262</width>
-    <height>842</height>
+    <width>1302</width>
+    <height>850</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,10 +24,110 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="0" colspan="4">
-       <widget class="QGraphicsView" name="graphicsView"/>
+      <item row="3" column="1">
+       <widget class="QPushButton" name="updateTables">
+        <property name="text">
+         <string>Update from tables</string>
+        </property>
+       </widget>
       </item>
-      <item row="4" column="0" colspan="6">
+      <item row="3" column="0">
+       <widget class="QPushButton" name="recenterNP">
+        <property name="text">
+         <string>Re-center</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="4">
+       <widget class="QTableWidget" name="beadTable">
+        <property name="alternatingRowColors">
+         <bool>true</bool>
+        </property>
+        <property name="columnCount">
+         <number>4</number>
+        </property>
+        <column>
+         <property name="text">
+          <string>BeadType</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>x [nm]</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>y [nm]</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>z [nm]</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+      <item row="2" column="3">
+       <widget class="QPushButton" name="newBrushButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Add Brush</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Orientations</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <item>
+         <widget class="QPushButton" name="saveNPButton">
+          <property name="text">
+           <string>Save NP(s)</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="5" column="2">
+       <widget class="QSpinBox" name="numNPOrients">
+        <property name="minimum">
+         <number>1</number>
+        </property>
+        <property name="maximum">
+         <number>999</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="4">
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>UA directory</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="uaPath"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="findUADir">
+          <property name="text">
+           <string>Find UA Dir</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="4" column="0" colspan="5">
        <widget class="QTableWidget" name="beadTypeTable">
         <property name="alternatingRowColors">
          <bool>true</bool>
@@ -79,71 +179,6 @@
         </column>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QPushButton" name="recenterNP">
-        <property name="text">
-         <string>Re-center</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="5">
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>UA directory</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="uaPath"/>
-        </item>
-        <item>
-         <widget class="QPushButton" name="findUADir">
-          <property name="text">
-           <string>Find UA Dir</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="2" column="0">
-       <widget class="QPushButton" name="newBeadButton">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Add NP Bead</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="2">
-       <widget class="QSpinBox" name="numNPOrients">
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>999</number>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="QPushButton" name="updateTables">
-        <property name="text">
-         <string>Update from tables</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="3">
-       <widget class="QPushButton" name="newBrushButton">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Add Brush</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="2">
        <widget class="QPushButton" name="newShellButton">
         <property name="text">
@@ -151,55 +186,7 @@
         </property>
        </widget>
       </item>
-      <item row="5" column="1">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Orientations</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="5">
-       <widget class="QTableWidget" name="beadTable">
-        <property name="alternatingRowColors">
-         <bool>true</bool>
-        </property>
-        <property name="columnCount">
-         <number>4</number>
-        </property>
-        <column>
-         <property name="text">
-          <string>BeadType</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>x [nm]</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>y [nm]</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>z [nm]</string>
-         </property>
-        </column>
-       </widget>
-      </item>
-      <item row="5" column="0">
-       <layout class="QVBoxLayout" name="verticalLayout">
-        <item>
-         <widget class="QPushButton" name="saveNPButton">
-          <property name="text">
-           <string>Save NP(s)</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="5" column="5">
+      <item row="5" column="4">
        <layout class="QHBoxLayout" name="horizontalLayout_6">
         <item>
          <widget class="QCheckBox" name="autoBounds">
@@ -273,6 +260,43 @@
         </item>
        </layout>
       </item>
+      <item row="0" column="0" colspan="4">
+       <widget class="QGraphicsView" name="graphicsView"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QPushButton" name="newBeadButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Add NP Bead</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="4">
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <widget class="QPushButton" name="loadMaterialSet">
+          <property name="text">
+           <string>Load Material Set</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_3">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
      </layout>
     </item>
    </layout>
@@ -282,7 +306,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1262</width>
+     <width>1302</width>
      <height>22</height>
     </rect>
    </property>

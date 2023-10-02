@@ -38,7 +38,9 @@ void AddShell::on_findHamaker_clicked()
 
       QString hamFile = QFileDialog::getOpenFileName(this, tr("Hamaker File"),  this->searchPath,  tr("Hamaker (*.dat)"));
     if(hamFile != ""){
-        this->findChild<QPlainTextEdit *>("hamakerIn")->setPlainText(hamFile);
+        QDir uaDir(this->searchPath);
+        QString localHamPath = uaDir.relativeFilePath(hamFile);
+        this->findChild<QPlainTextEdit *>("hamakerIn")->setPlainText(localHamPath);
     }
 }
 
@@ -48,7 +50,18 @@ void AddShell::on_findSurf_clicked()
 
     QString surfDir = QFileDialog::getExistingDirectory(this, tr("Surface Directory"),  this->searchPath, QFileDialog::ShowDirsOnly);
     if(surfDir != ""){
-        this->findChild<QPlainTextEdit *>("surfDirIn")->setPlainText(surfDir);
+        QDir uaDir(this->searchPath);
+        QString localSurfPath = uaDir.relativeFilePath(surfDir);
+        this->findChild<QPlainTextEdit *>("surfDirIn")->setPlainText(localSurfPath);
     }
+}
+
+
+void AddShell::on_materialTypeBox_currentIndexChanged(int index)
+{
+    auto currentData =this->findChild<QComboBox *>("materialTypeBox")->currentData().value<QList<QVariant>>();
+ //   qDebug() << currentData[0].toString() << " " << currentData[1].toString() << "\n";
+     this->findChild<QPlainTextEdit *>("surfDirIn")->setPlainText(currentData[0].toString());
+     this->findChild<QPlainTextEdit *>("hamakerIn")->setPlainText(currentData[1].toString());
 }
 

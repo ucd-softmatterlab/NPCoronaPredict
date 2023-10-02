@@ -15,6 +15,7 @@
 #include <boost/math/special_functions/ellint_2.hpp>
 #include <boost/math/special_functions/ellint_1.hpp>
 #include <boost/algorithm/string.hpp>
+#include <QString>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -40,8 +41,17 @@ connect(addBeadType, &AddBeadType::sendNewNPBeadType,this , &MainWindow::recieve
 connect(addShell, &AddShell::sendNewShell,this , &MainWindow::recieveNewShell);
 connect(addBrush, &AddBrush::sendNewBrush,this , &MainWindow::recieveNewBrush);
 QString currentPath = QDir::currentPath() ;
-this->findChild<QLineEdit *>("uaPath")->setText(currentPath);
+currentPath = QDir::cleanPath(currentPath+"/../");
+
 this->uaGlobalPath = currentPath;
+this->findChild<QLineEdit *>("uaPath")->setText(this->uaGlobalPath);
+
+
+
+this->materialTypes.emplace_back( MaterialType( "Custom"   , "",""     ) ) ;
+addBeadType->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
+addShell->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
+
  }
 
 MainWindow::~MainWindow()
@@ -54,6 +64,9 @@ void MainWindow::on_newBeadTypeButton_clicked()
 {
     //open newBeadType dialogue
     addBeadType->searchPath = uaGlobalPath;
+
+
+
     addBeadType->exec();
 }
 
@@ -122,9 +135,14 @@ void MainWindow::recieveNewNPBead( double x, double y, double z, int beadTypeID,
 void MainWindow::recieveNewNPBeadType( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn){
     int newBeadID = beadTypes.size();
     QDir uaDir(uaGlobalPath);
+    /*
     std::string surfaceRelPath  = uaDir.relativeFilePath(QString::fromStdString(surfaceDirIn)).toStdString()  ;
-
     std::string hamakerRelPath = uaDir.relativeFilePath(QString::fromStdString(hamakerFileIn)).toStdString()  ;
+
+    */
+    std::string surfaceRelPath  =  surfaceDirIn  ;
+    std::string hamakerRelPath = hamakerFileIn  ;
+
     BeadType newNPBead(newBeadID  , hamakerRelPath, surfaceRelPath, radiusIn,  surfacePotentialIn, surfFactorIn, coreFactorIn, ljCutoffIn, correctionOverrideIn   );
     beadTypes.emplace_back(newNPBead);
     updateBeadTypeTable( ) ;
@@ -360,7 +378,7 @@ void MainWindow::on_findUADir_clicked()
 }
 
 
-void MainWindow::saveNP( QString filename, bool doRotate = false){
+void MainWindow::saveNP( QString filename, bool doRotate = false, bool isPDBFile = false){
 
     double rotateMatrix[3][3];
     if(doRotate==true){
@@ -399,13 +417,18 @@ void MainWindow::saveNP( QString filename, bool doRotate = false){
         rotateMatrix[2][2] = 1;
     }
 
+
     //open file
+
    QFile file(filename);
+
+
+
    if(file.open(QIODevice::WriteOnly | QIODevice::Text)) {
        QTextStream fileOut(&file);
 
+       if(isPDBFile == false){
        fileOut <<  "#NPDesigner NP file \n" ;
-
        fileOut << "#NP-parameters \n";
        fileOut << "INNERBOUND," << npInnerRadius << "\n";
        fileOut << "OUTERBOUND," << npOuterRadius << "\n";
@@ -438,31 +461,68 @@ void MainWindow::saveNP( QString filename, bool doRotate = false){
 
        }
 
+       }
+       else{
+           fileOut << "TITLE NPDesigner NP file\n";
+            int beadTypesSeen = 0;
+           //write out NP bead types
+           for( const auto& bt: beadTypes){
+               QString beadTypeBaseStr="%1,%2,%3";
+              // beadTypeBaseStr = beadTypeBaseStr.arg(bt.radius).arg(bt.surfacePotential).arg(bt.coreFactor).arg(bt.surfFactor).arg(1).arg(bt.hamakerFile).arg(bt.surfaceDir).arg(bt.ljCutoffVal).arg( bt.correctionOverride)  ;
+            fileOut << "REMARK TYPE " << beadTypesSeen << " " << bt.radius<<"," << bt.surfacePotential << "," << bt.coreFactor << "," << bt.surfFactor << ",1,";
+            beadTypesSeen++;
+            fileOut <<      QString::fromStdString(bt.hamakerFile ) << "," << QString::fromStdString(bt.surfaceDir) << "," << bt.ljCutoffVal << "," << bt.correctionOverride << "\n";
+           }
+
+           int npBeadsSeen = 0;
+           //1 = serial number = right justified three digits
+           //ATOM  SSSSS  N   RRR ASSSS    XXXXXXXXYYYYYYYYZZZZZZZZOOOOOOBBBBBB           N
+           QString PDBOutLine = "ATOM  %1  N   N%2 A%3    %4%5%6%7%8           N\n";
+           for(const auto& np: npBeads){
+
+               double xOut = rotateMatrix[0][0] * np.x + rotateMatrix[0][1] * np.y + rotateMatrix[0][2] * np.z;
+               double yOut = rotateMatrix[1][0] * np.x + rotateMatrix[1][1] * np.y + rotateMatrix[1][2] * np.z;
+               double zOut = rotateMatrix[2][0] * np.x + rotateMatrix[2][1] * np.y + rotateMatrix[2][2] * np.z;
+
+
+          npBeadsSeen++;
+          //fileOut << "ATOM" <<  np.beadTypeID << "," << xOut*10 << "," << yOut*10 <<  "," << zOut*10  <<  "\n"  ;
+          fileOut<< PDBOutLine.arg(npBeadsSeen,  5).arg(np.beadTypeID,2,10,QLatin1Char('0')).arg(npBeadsSeen,4).arg( xOut*10, 8,  'f', 3).arg(yOut*10, 8,   'f', 3).arg(zOut*10, 8,   'f', 3).arg(1.00,  6, 'f', 2).arg(0.00,  6, 'f', 2) ;
+
+       }
+
 
    }
    //close file
    file.close();
 
-
+}
 
 
 }
 
 void MainWindow::on_saveNPButton_clicked()
 {
-    QString baseFileName = QFileDialog::getSaveFileName(this, tr("NP File"),uaGlobalPath ,  tr("NP-File (*.np)"));
+    QString baseFileName = QFileDialog::getSaveFileName(this, tr("NP File"),uaGlobalPath ,  tr("NP-File (*.np);;PDB (*.pdb)"));
 
 
 
     //qDebug() << " Saving to " << baseFileName << "\n";
-
+    bool isPDB = false;
+    int chopChars = 3;
     QString outFileName = baseFileName;
     if( !outFileName.endsWith(".np")){
 
+     if(outFileName.endsWith(".pdb")){
+         isPDB = true;
+         chopChars = 4;
+     }
+    else{
      outFileName.append(".np");
+ }
     }
 
-    saveNP( outFileName , false);
+    saveNP( outFileName , false, isPDB);
 
     int numOrientations = this->findChild<QSpinBox *>("numNPOrients")->value();
     if(numOrientations > 1){
@@ -470,16 +530,20 @@ void MainWindow::on_saveNPButton_clicked()
 
 
          QString rotFileName = baseFileName;
-          if( rotFileName.endsWith(".np")){
-               rotFileName.chop(3);
+          if( rotFileName.endsWith(".np") ||  rotFileName.endsWith(".pdb")){
+               rotFileName.chop(chopChars);
 
           }
               rotFileName.append("_");
               rotFileName.append(QString::number(i) );
+              if(isPDB){
+                  rotFileName.append(".pdb");
+              }
+              else{
               rotFileName.append(".np");
+}
 
-
-         saveNP(rotFileName,true );
+         saveNP(rotFileName,true , isPDB);
      }
     }
 
@@ -936,3 +1000,48 @@ void MainWindow::on_actionLoad_triggered()
 
 }
 
+
+void MainWindow::on_pushButton_clicked()
+{
+
+}
+
+
+void MainWindow::on_loadMaterialSet_clicked()
+{
+    QString targetMaterialFile = QFileDialog::getOpenFileName(this, tr("Material File"),  this->uaGlobalPath,  tr("CSV (*.csv)"));
+    //Load in the file, iterate over contents, update the material set
+
+    QFile file(targetMaterialFile);
+    if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QTextStream fileIn(&file);
+    int numFound = 0;
+    QComboBox *addBeadTypeMaterialBox = addBeadType->findChild<QComboBox *>("materialTypeBox") ;
+    QComboBox *addShellMaterialBox = addShell->findChild<QComboBox *>("materialTypeBox") ;
+
+    while(!fileIn.atEnd()){
+        std::string lineIn = fileIn.readLine().toStdString();
+
+
+        if(lineIn.substr(0, 1) != "#") {
+            std::vector<std::string> results;
+             boost::split(results, lineIn, [](char c){return c == ',';});
+             //silicaquartz,surface/SiO2-Quartz,hamaker/SiO2_Quartz.dat,1
+             qDebug() << QString::fromStdString(results[0]) << " " << QString::fromStdString(results[1]) << " " <<  QString::fromStdString(results[2] )<< "\n";
+             if(results.size()==4){
+             materialTypes.emplace_back( MaterialType( QString::fromStdString(results[0])   , QString::fromStdString(results[1]) ,QString::fromStdString(results[2])     ) ) ;
+             addBeadTypeMaterialBox->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2])) ;
+             addShellMaterialBox->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2])) ;
+
+             numFound += 1;
+             }
+
+        }
+    }
+
+    QMessageBox msgBox;
+    msgBox.setText("Loaded " + QString::number(numFound));
+       msgBox.exec();
+
+}
+}

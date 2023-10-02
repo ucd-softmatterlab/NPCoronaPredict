@@ -50,6 +50,18 @@ public:
     }
 };
 
+class MaterialType{
+public:
+    QString name;
+    QString surfaceDir;
+    QString hamakerFile;
+    MaterialType( QString nameIn, QString surfaceDirIn, QString hamakerFileIn ){
+        name = nameIn;
+        surfaceDir = surfaceDirIn;
+        hamakerFile = hamakerFileIn;
+    }
+};
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -64,6 +76,7 @@ public:
     ~MainWindow();
     std::vector<BeadType> beadTypes;
     std::vector<NPBead> npBeads;
+    std::vector<MaterialType> materialTypes;
     QString uaGlobalPath;
     std::default_random_engine generator;
     QGraphicsScene scene;
@@ -110,6 +123,10 @@ private slots:
 
     void on_actionLoad_triggered();
 
+    void on_pushButton_clicked();
+
+    void on_loadMaterialSet_clicked();
+
 private:
     Ui::MainWindow *ui;
     AddBead *addBead;
@@ -117,6 +134,6 @@ private:
     AddBrush *addBrush;
     AddShell *addShell;
     tipsWindow *tipsWindowI;
-    void saveNP(QString filename, bool doRotate);
+    void saveNP(QString filename, bool doRotate, bool isPDBFile);
 };
 #endif // MAINWINDOW_H

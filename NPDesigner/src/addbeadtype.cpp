@@ -1,7 +1,10 @@
+//Define activities for the AddBeadType window interface for adding bead types
+
 #include "addbeadtype.h"
 #include "ui_addbeadtype.h"
 #include <QtDebug>
 #include <QFileDialog>
+#include <QComboBox>
 AddBeadType::AddBeadType(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::AddBeadType)
@@ -39,7 +42,10 @@ void AddBeadType::on_surfFindDirButton_clicked()
 
     QString surfDir = QFileDialog::getExistingDirectory(this, tr("Surface Directory"), this->searchPath, QFileDialog::ShowDirsOnly);
     if(surfDir != ""){
-        this->findChild<QPlainTextEdit *>("surfDir")->setPlainText(surfDir);
+         QDir uaDir(this->searchPath);
+        QString localSurfPath = uaDir.relativeFilePath(surfDir);
+
+        this->findChild<QPlainTextEdit *>("surfDir")->setPlainText(localSurfPath);
     }
 }
 
@@ -48,7 +54,22 @@ void AddBeadType::on_hamFindButton_clicked()
 {
     QString hamFile = QFileDialog::getOpenFileName(this, tr("Hamaker File"),  this->searchPath,  tr("Hamaker (*.dat)"));
     if(hamFile != ""){
-        this->findChild<QPlainTextEdit *>("hamakerFile")->setPlainText(hamFile);
+        QDir uaDir(this->searchPath);
+       QString localHamPath = uaDir.relativeFilePath(hamFile);
+
+        this->findChild<QPlainTextEdit *>("hamakerFile")->setPlainText(localHamPath);
     }
+}
+
+
+void AddBeadType::on_materialTypeBox_currentIndexChanged(int index)
+{
+    //get new material type chosen
+   // QVariant currentData = this->findChild<QComboBox *>("materialTypeBox")->currentData();
+    auto currentData =this->findChild<QComboBox *>("materialTypeBox")->currentData().value<QList<QVariant>>();
+   // qDebug() << currentData[0].toString() << " " << currentData[1].toString() << "\n";
+     this->findChild<QPlainTextEdit *>("surfDir")->setPlainText(currentData[0].toString());
+     this->findChild<QPlainTextEdit *>("hamakerFile")->setPlainText(currentData[1].toString());
+
 }
 
