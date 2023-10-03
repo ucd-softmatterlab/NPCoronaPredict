@@ -68,7 +68,7 @@ return (stat (filename.c_str(), &buffer) == 0);
 
 }
 
-void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
+void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double *numcontacts_val, const double radius,
         const double zeta, const std::string& name, const std::string& directory,  const std::string& npName ,  double temperature=300.0,  int isMFPT=0, int appendAngle = 0, double omegaAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
@@ -100,7 +100,7 @@ else{
     double phi, theta;
     handle << "#Results generated at: " << std::ctime(&end_time)  ;
     handle << "#" << npName << " - " << name << "\n";
-    handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega\n"; 
+    handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts\n"; 
     for (int i = 0; i < iterations; ++i) { 
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
@@ -123,6 +123,9 @@ else{
                 handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i] + radius;
 
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << omegaAngle;
+        
+        
+         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << numcontacts_val[i] ;
 
         handle << "\n";
     }
@@ -503,7 +506,7 @@ return distance;
 
 
 
-void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,     const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
+void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,  double *numcontacts_val,   double *numcontacts_err, const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
 
     // Decleare all variables at the begining . Integration runs from the start at the largest value of r and proceeds inwards to the stop value, nominally R_{NP}.
     const int               size            = pdb.m_id.size();
@@ -533,6 +536,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
     double sample_energy[samples];
     double sample_mfpt[samples];
     double sample_minloc[samples];
+    double sample_numcontacts[samples];
     double closestSCD[size]; //closest allowed NP_nominal_surface to aa_centre distance allowed for each AA
    //NP component properties are looked up via e.g.: np.m_radius[m_npBeadType[j]]
    //where j is the index of that bead
@@ -669,16 +673,17 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
               // 
             double minLoc = start;
             double minEnergy = 0;
-
-
+            int numContactsAtMin = 0;
+            int numContactsAtStep = 0;
+            int resHasContacted = 0;
 
             for (i = 0; i < steps; ++i) {
                 ssd     = start - i * actualDZ;
                 energy  = 0;
-
+                 numContactsAtStep = 0;
                 //loop over each residue. loop variables: i = ssd index, j = residue index
                 for (j = 0; j < size; ++j) {
- 
+               resHasContacted = 0;
  
                double appliedOverlapPenalty = 0.0;
  
@@ -701,7 +706,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
               
               }
 
-
+               if(distance < 0.5){
+               resHasContacted = 1;
+               }
 
                 energy +=  pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
                  if(std::isnan(pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance, np.m_npBeadType[k] )))){
@@ -709,6 +716,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                     }
 
                 }
+                
+                
+                numContactsAtStep += resHasContacted;
                 
                 }
                 
@@ -720,6 +730,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                if(energy < minEnergy){
                minEnergy = energy;
                minLoc = ssd;
+               numContactsAtMin = numContactsAtStep;
                }
 
             }
@@ -750,6 +761,7 @@ cylinderFileNameAppend = "";
           }
 
            sample_minloc[sample] = minLoc - radius;
+           sample_numcontacts[sample] = numContactsAtMin;
          /*   for (i = 0; i < steps; ++i) {
                 std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
             }*/
@@ -787,7 +799,7 @@ cylinderFileNameAppend = "";
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
         MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
          MeanAndSD(samples, &(minloc_val[angle_offset + angle]), &(minloc_err[angle_offset + angle]), sample_minloc);
-
+        MeanAndSD(samples, &(numcontacts_val[angle_offset + angle]), &(numcontacts_err[angle_offset + angle]), sample_numcontacts);
 
  
     }
@@ -805,7 +817,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
    double minloc_val[iterations] = {};
    double minloc_err[iterations] = {};
    
-   
+    double numcontacts_val[iterations] = {};
+   double numcontacts_err[iterations] = {};  
    
 int appendAngle = 0;   
  if(config.m_npType == 2 || config.m_npType == 4 || config.m_npType == 5){
@@ -854,6 +867,8 @@ int appendAngle = 0;
                     mfpt_err,
                     minloc_val,
                     minloc_err,
+                    numcontacts_val,
+                    numcontacts_err,
                     pdb.m_name,
                     config.m_outputDirectory,
                     np.m_name,
@@ -872,7 +887,7 @@ int appendAngle = 0;
     
 
   
-    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val,radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,appendAngle,omegaAngle); 
+    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val, numcontacts_val, radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,appendAngle,omegaAngle); 
     //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
     
