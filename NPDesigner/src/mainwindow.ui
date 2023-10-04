@@ -44,7 +44,7 @@
          <bool>true</bool>
         </property>
         <property name="columnCount">
-         <number>4</number>
+         <number>5</number>
         </property>
         <column>
          <property name="text">
@@ -64,6 +64,11 @@
         <column>
          <property name="text">
           <string>z [nm]</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Remove?</string>
          </property>
         </column>
        </widget>

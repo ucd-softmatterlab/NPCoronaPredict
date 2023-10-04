@@ -127,6 +127,8 @@ private slots:
 
     void on_loadMaterialSet_clicked();
 
+    void on_uaPath_textEdited(const QString &arg1);
+
 private:
     Ui::MainWindow *ui;
     AddBead *addBead;

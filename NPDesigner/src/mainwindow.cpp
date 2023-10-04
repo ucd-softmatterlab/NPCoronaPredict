@@ -347,7 +347,7 @@ void MainWindow::updateBeadTypeTable( ){
 void MainWindow::updateBeadTable(){
     QTableWidget *beadTable = this->findChild<QTableWidget *>("beadTable");
     beadTable->setRowCount(0);
-    beadTable->setColumnCount(4);
+    beadTable->setColumnCount(5);
     for( const auto& np: npBeads){
     //qDebug() <<  np.beadTypeID << "\n";
     int currentRow = beadTable->rowCount();
@@ -356,7 +356,13 @@ void MainWindow::updateBeadTable(){
     beadTable->setItem(currentRow , 1, new QTableWidgetItem( QString::number(np.x) ));
     beadTable->setItem(currentRow , 2, new QTableWidgetItem( QString::number(np.y ) ));
     beadTable->setItem(currentRow , 3, new QTableWidgetItem( QString::number(np.z  )));
+    // beadTable->setItem(currentRow , 4, new QTableWidgetItem( QString::number(np.z  )));
+
+    QTableWidgetItem *deleteBox = new QTableWidgetItem();
+    deleteBox->setCheckState(Qt::Unchecked);
+    beadTable->setItem(currentRow , 4, deleteBox );
     }
+
     updateBindingRadii();
     updateGraphicsWindow();
 
@@ -676,7 +682,7 @@ void MainWindow::on_updateTables_clicked()
 
 
     //reset beads, re-initialise
-
+    std::vector<int> popIndices;
      QTableWidget *npBeadTable = this->findChild<QTableWidget *>("beadTable");
       for(int i = 0; i < (int)npBeads.size(); ++i){
 
@@ -685,6 +691,15 @@ void MainWindow::on_updateTables_clicked()
       npBeads[i].x =npBeadTable ->item(i, 1)->data(0).toFloat();
       npBeads[i].y = npBeadTable ->item(i, 2)->data(0).toFloat();
       npBeads[i].z =npBeadTable ->item(i, 3)->data(0).toFloat();
+      if(npBeadTable->item(i,4)->checkState() == Qt::Checked  ){
+          popIndices.insert(popIndices.begin(), i );
+      }
+     }
+      //delete beads which were marked as checked. Since we have the array in reverse order this removes from the end of the list first and keeps numbering intact
+      for(const auto& delIndex: popIndices){
+       npBeads.erase( npBeads.begin()+  delIndex);
+       npBeadTable->removeRow(delIndex);
+
 
       }
 
@@ -1045,3 +1060,9 @@ void MainWindow::on_loadMaterialSet_clicked()
 
 }
 }
+
+void MainWindow::on_uaPath_textEdited(const QString &uaDir)
+{
+    this->uaGlobalPath = uaDir;
+}
+
