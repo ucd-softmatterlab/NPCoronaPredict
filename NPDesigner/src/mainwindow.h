@@ -82,7 +82,7 @@ public:
     QGraphicsScene scene;
     double npInnerRadius;
     double npOuterRadius;
-
+    std::vector<int> knownBeadTypes;
 
 private slots:
     void on_newBeadTypeButton_clicked();
@@ -100,7 +100,7 @@ private slots:
     void on_actionQuit_triggered();
 
     void on_findUADir_clicked();
-
+    void rebuildBeadTypeList();
     void on_saveNPButton_clicked();
 
     void on_actionTips_triggered();
@@ -123,7 +123,7 @@ private slots:
 
     void on_actionLoad_triggered();
 
-    void on_pushButton_clicked();
+
 
     void on_loadMaterialSet_clicked();
 

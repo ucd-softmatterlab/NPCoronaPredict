@@ -27,7 +27,7 @@ void AddBeadType::on_buttonBox_accepted()
    double zetaVal =  (this->findChild<QLineEdit *>("zeta")->text()).toFloat()   ;
   double ljCutoffVal =  (this->findChild<QLineEdit *>("ljCutoff")->text()).toFloat()   ;
   double radius  =  (this->findChild<QLineEdit *>("radius")->text()).toFloat()   ;
-  int correctionOverride = 0;
+  int correctionOverride = 1;
 
    //qDebug() << "New bead: " << xval << " " << yval << " " << zval << " type: " << beadTypeID << "\n";
    emit( sendNewNPBeadType( hamFileString.toStdString() , surfDirString.toStdString() , radius, zetaVal, surfFactor, coreFactor, ljCutoffVal, correctionOverride   )) ;

@@ -24,7 +24,7 @@ void AddBead::on_buttonBox_accepted()
    double yval = ystring.toFloat();
    QString zstring = this->findChild<QLineEdit *>("newBeadZ")->text()   ;
    double zval = zstring.toFloat();
-   qDebug () << "Looking for bead type ID \n";
+   //qDebug () << "Looking for bead type ID \n";
    int beadTypeID = this->findChild<QComboBox *>("beadTypeID")->currentIndex() ;
   // qDebug() << "New bead: " << xval << " " << yval << " " << zval << " type: " << beadTypeID << "\n";
 

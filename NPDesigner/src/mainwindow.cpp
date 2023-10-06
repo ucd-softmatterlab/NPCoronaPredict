@@ -150,9 +150,9 @@ void MainWindow::recieveNewNPBeadType( std::string hamakerFileIn, std::string su
 
 void MainWindow::recieveNewShell(std::string hamakerFileIn, std::string surfaceDirIn, float   innerRadius, float outerRadius, float   surfacePotentialIn,  double ljCutoff){
      int newBeadTypeID = beadTypes.size();
-     recieveNewNPBeadType( hamakerFileIn , surfaceDirIn , outerRadius, surfacePotentialIn, 1.0, 1.0, ljCutoff, 0   ) ;
+     recieveNewNPBeadType( hamakerFileIn , surfaceDirIn , outerRadius, surfacePotentialIn, 1.0, 1.0, ljCutoff, 1   ) ;
      recieveNewNPBead(0, 0, 0  , newBeadTypeID);
-     recieveNewNPBeadType( hamakerFileIn , surfaceDirIn , innerRadius, 0.0, -1.0, -1.0, ljCutoff, 0  ) ;
+     recieveNewNPBeadType( hamakerFileIn , surfaceDirIn , innerRadius, 0.0, -1.0, -1.0, ljCutoff, 1  ) ;
      recieveNewNPBead(0, 0, 0  , newBeadTypeID+1);
 }
 
@@ -199,7 +199,7 @@ void MainWindow::recieveNewBrush(double brushOccupancy,double brushRadialDist, i
     //bool forceAttach = true;
     std::vector<NPBead> trialBeads;
 
-    if (beadTypeID < (int)beadTypes.size()){
+    if ( std::find(knownBeadTypes.begin(), knownBeadTypes.end(), beadTypeID) != knownBeadTypes.end() ){
         //qDebug() << "Checking bead type " << beadTypeID <<  " in array of size " << beadTypes.size() <<  "\n";
         beadRadius = beadTypes[beadTypeID].radius ;
         //brushRadialDist is the bead centres, so this corresponds to npRadius+beadRadius in the Python version
@@ -339,7 +339,7 @@ void MainWindow::updateBeadTypeTable( ){
         this->findChild<QPushButton *>("newBeadButton")->setDisabled(true);
         this->findChild<QPushButton *>("newBrushButton")->setDisabled(true);
     }
-
+    rebuildBeadTypeList();
     updateBindingRadii();
     updateGraphicsWindow();
 }
@@ -366,6 +366,14 @@ void MainWindow::updateBeadTable(){
     updateBindingRadii();
     updateGraphicsWindow();
 
+}
+
+
+void MainWindow::rebuildBeadTypeList(){
+    knownBeadTypes.erase( knownBeadTypes.begin(), knownBeadTypes.end());
+    for(const auto& beadType : beadTypes){
+        knownBeadTypes.push_back( beadType.beadID);
+    }
 }
 
 void MainWindow::on_actionQuit_triggered()
@@ -446,7 +454,7 @@ void MainWindow::saveNP( QString filename, bool doRotate = false, bool isPDBFile
        for( const auto& bt: beadTypes){
            QString beadTypeBaseStr="%1,%2,%3";
           // beadTypeBaseStr = beadTypeBaseStr.arg(bt.radius).arg(bt.surfacePotential).arg(bt.coreFactor).arg(bt.surfFactor).arg(1).arg(bt.hamakerFile).arg(bt.surfaceDir).arg(bt.ljCutoffVal).arg( bt.correctionOverride)  ;
-        fileOut << "TYPE," << bt.radius<<"," << bt.surfacePotential << "," << bt.coreFactor << "," << bt.surfFactor << ",1,";
+        fileOut << "TYPE," << bt.radius<<"," << bt.surfacePotential/1000.0 << "," << bt.coreFactor << "," << bt.surfFactor << ",1,";
         fileOut <<      QString::fromStdString(bt.hamakerFile ) << "," << QString::fromStdString(bt.surfaceDir) << "," << bt.ljCutoffVal << "," << bt.correctionOverride << "\n";
        }
 
@@ -578,10 +586,12 @@ void MainWindow::updateGraphicsWindow(){
     double maxRadius = 0;
         QPen outlinePen(Qt::black);
 
+
     //first pass: find the inner/outer limits and figure out plot order. we map z to up and down the screen, x to left and right, y to back-to-front.
     for( const auto& np: npBeads){
     //  qDebug() << beadTypes.size() << " found bead type ID: " << np.beadTypeID << "\n";
-        if( (int)beadTypes.size() > np.beadTypeID){
+      //  if( (int)beadTypes.size() > np.beadTypeID){
+           if(std::find(knownBeadTypes.begin(), knownBeadTypes.end(), np.beadTypeID) != knownBeadTypes.end() ){
             //recognised bead, add to plot
             auto npBeadType = beadTypes[ np.beadTypeID ] ;
             //qDebug() << "Found np of radius: " << npBeadType.radius << "\n";
@@ -732,7 +742,7 @@ void MainWindow::on_recenterNP_clicked()
     //pass 1: get center of mass
     for( const auto& np: npBeads){
     //  qDebug() << beadTypes.size() << " found bead type ID: " << np.beadTypeID << "\n";
-        if( (int)beadTypes.size() > np.beadTypeID){
+        if( std::find(knownBeadTypes.begin(), knownBeadTypes.end(), np.beadTypeID) != knownBeadTypes.end() ){
             //recognised bead, add to plot
             auto npBeadType = beadTypes[ np.beadTypeID ] ;
             //qDebug() << "Found np of radius: " << npBeadType.radius << "\n";
@@ -772,7 +782,7 @@ void MainWindow::updateBindingRadii(){
 
     for( const auto& np: npBeads){
     //  qDebug() << beadTypes.size() << " found bead type ID: " << np.beadTypeID << "\n";
-        if( (int)beadTypes.size() > np.beadTypeID){
+        if(std::find(knownBeadTypes.begin(), knownBeadTypes.end(), np.beadTypeID) != knownBeadTypes.end()){
             //recognised bead, add to plot
             auto npBeadType = beadTypes[ np.beadTypeID ] ;
             //qDebug() << "Found np of radius: " << npBeadType.radius << "\n";
@@ -890,7 +900,7 @@ void MainWindow::on_actionLoad_triggered()
                               if( results[0] == "TYPE"){
                               //register a new type
                                double newradiusval = std::stod(results[1]);
-                               double newzetaval = std::stod(results[2]);
+                               double newzetaval = std::stod(results[2])*1000;
 
                               double newcoreFactor = std::stod(results[3]);
                               double newsurfFactor = std::stod(results[4]);
@@ -930,7 +940,7 @@ void MainWindow::on_actionLoad_triggered()
                               double zval = std::stod(results[2]);
 
                               double newradiusval = std::stod(results[3]);
-                               double newzetaval = std::stod(results[4]);
+                               double newzetaval = std::stod(results[4])*1000;
                                double newcoreFactor = std::stod(results[5]);
                                double newsurfFactor= std::stod(results[6]);
                                int shapeVal = std::stoi(results[7]) ;
@@ -1016,10 +1026,6 @@ void MainWindow::on_actionLoad_triggered()
 }
 
 
-void MainWindow::on_pushButton_clicked()
-{
-
-}
 
 
 void MainWindow::on_loadMaterialSet_clicked()
@@ -1042,7 +1048,7 @@ void MainWindow::on_loadMaterialSet_clicked()
             std::vector<std::string> results;
              boost::split(results, lineIn, [](char c){return c == ',';});
              //silicaquartz,surface/SiO2-Quartz,hamaker/SiO2_Quartz.dat,1
-             qDebug() << QString::fromStdString(results[0]) << " " << QString::fromStdString(results[1]) << " " <<  QString::fromStdString(results[2] )<< "\n";
+             //qDebug() << QString::fromStdString(results[0]) << " " << QString::fromStdString(results[1]) << " " <<  QString::fromStdString(results[2] )<< "\n";
              if(results.size()==4){
              materialTypes.emplace_back( MaterialType( QString::fromStdString(results[0])   , QString::fromStdString(results[1]) ,QString::fromStdString(results[2])     ) ) ;
              addBeadTypeMaterialBox->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2])) ;
