@@ -113,7 +113,7 @@ double fileOuterBound = -1;
                std::vector<std::string> results;
                 boost::split(results, line, [](char c){return c == ',';});
 
-               if( results[0] == "TYPE"){
+               if( results[0].substr(0,4) == "TYPE"){
                //register a new type
                 double radiusval = std::stod(results[1]);
                 double zetaval = std::stod(results[2]);
