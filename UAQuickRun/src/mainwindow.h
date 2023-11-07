@@ -35,6 +35,10 @@ public:
     double dAvn;
      double dAvd;
    double dAv;
+   double colourParam;
+   double orientationPhi;
+   double orientationTheta;
+
     Atom( std::string nameIn, double x, double y, double z){
         atomName = nameIn;
         x0 = x;
@@ -44,6 +48,9 @@ public:
         z0 = z;
         zc = z;
         dAv = 0.01;
+        colourParam = 0.1;
+        orientationPhi=0;
+        orientationTheta=0;
     }
 };
 
@@ -65,6 +72,12 @@ public:
     QPixmap heatmapPixmap;
     ClickableScene scene;
     QGraphicsScene pdbScene;
+    QGraphicsScene heatmapBarScene;
+    QPixmap heatmapScalePixmap;
+
+    QGraphicsScene pdbBarScene;
+    QPixmap pdbScalePixmap;
+
     double energyData[72][36] = {{0.0}} ;
     std::vector<Atom> atomList;
     int uamBoxHeight = 1;
@@ -108,6 +121,12 @@ private slots:
     void on_findMinEnergyButton_clicked();
 
     void on_findBoltzMinButton_clicked();
+
+    void on_colourEnergy_clicked();
+
+    void on_autoNPBox_stateChanged(int arg1);
+
+    void on_npTargetButton_clicked();
 
 private:
     Ui::MainWindow *ui;

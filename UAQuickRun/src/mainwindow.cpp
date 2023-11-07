@@ -50,8 +50,13 @@ MainWindow::MainWindow(QWidget *parent)
     checkForMaterials();
     heatmapPixmap = QPixmap(360,180);
     heatmapPixmap.fill();
-
+    heatmapScalePixmap = QPixmap(400,50);
+    pdbScalePixmap = QPixmap(400,50);
     connect(&scene, &ClickableScene::sendMouseClickPos, this, &MainWindow::getSceneMouseClick);
+    connect(&processHandle, SIGNAL ( readyReadStandardOutput() )  , this,  SLOT( updateUABox() )        );
+    connect(&processHandle, SIGNAL(finished(int, QProcess::ExitStatus) ), this, SLOT(uaDoneAlert(int, QProcess::ExitStatus)));
+
+
     //this->findChild<QLabel *>("heatmapPlotLabel")->setPixmap(this->heatmapPixmap);
     //this->materialTypes.emplace_back( MaterialType( "Custom"   , "",""     ) ) ;
     //addBeadType->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
@@ -71,6 +76,12 @@ void MainWindow::on_loadUAMButton_clicked()
     QGraphicsView* heatmapBox = this->findChild<QGraphicsView *>("heatmapView") ;
     int gbWidth = heatmapBox->width() ;
     int gbHeight = heatmapBox->height() ;
+
+    QGraphicsView* heatmapScaleBox = this->findChild<QGraphicsView *>("heatmapScaleBar") ;
+    int scaleBarWidth = heatmapScaleBox->width() ;
+    int scaleBarHeight = heatmapScaleBox->height() ;
+
+
     uamBoxHeight = gbHeight;
     uamBoxWidth = gbWidth;
     double heatmapElemWidth = gbWidth/72;
@@ -101,7 +112,7 @@ void MainWindow::on_loadUAMButton_clicked()
         //load in the data
         while(!fileIn.atEnd()){
             std::string lineIn = fileIn.readLine().toStdString();
-            if(lineIn.substr(0,1) !="#"  && lineIn.length() > 5) {
+            if(lineIn.substr(0,1) !="#" && lineIn.length() > 5) {
 
                 std::vector<std::string> results;
                  boost::split(results, lineIn, [](char c){return c == ' ';}  , boost::token_compress_on   );
@@ -151,6 +162,35 @@ void MainWindow::on_loadUAMButton_clicked()
             }
         }
         delete paint;
+        heatmapScalePixmap.fill();
+        QPainter *scalePaint = new QPainter(&heatmapScalePixmap);
+        QFont font = scalePaint->font();
+        //font.setPixelSize(10 );
+        scalePaint->setFont(font);
+        int barWidth = 400/10;
+        for(int i =0; i<10;i++){
+            double energyVal = minEnergy - i*(minEnergy-maxEnergy)/10;
+            double eScale = (energyVal - maxEnergy)/(  minEnergy - maxEnergy );
+            //qDebug() << QString::number(eScale) << " from " << QString::number(energyVal) << "\n";
+            double y1 = 0;
+            double x1 = i*barWidth;
+            scalePaint->setPen(QColor(255*eScale,0,0));
+             scalePaint->setBrush(QColor(255*eScale,0,0));
+            scalePaint->drawRect(x1, y1, barWidth, 20  );
+             scalePaint->setPen(QColor(0,0,0));
+             //scalePaint->drawText( x1, y1+20, 10, 20, Qt::AlignLeft,  QString::number(energyVal, 'f',1)) ;
+             if(i%2 == 0){
+
+                 if(energyVal < -99){
+                      scalePaint->drawText( x1, y1+40,   QString::number((int)round(energyVal))) ;
+                 }
+                 else{
+             scalePaint->drawText( x1, y1+40,   QString::number(energyVal, 'f',1)) ;
+                 }
+             }
+        }
+        delete scalePaint;
+
 
         //save the pixmap out to the label
        // "heatmapPlotLabel" ;
@@ -171,6 +211,10 @@ void MainWindow::on_loadUAMButton_clicked()
          scene.addPixmap(heatmapPixmap.scaled(gbWidth*0.95,gbHeight*0.95));
        // this->findChild<QLabel *>("heatmapPlotLabel")->setPixmap(this->heatmapPixmap);
        heatmapBox->setScene(&scene);
+
+       heatmapBarScene.addPixmap(heatmapScalePixmap.scaled(scaleBarWidth*0.95,scaleBarHeight*0.95)   );
+       heatmapScaleBox->setScene(&heatmapBarScene);
+
         //this->findChild<QGraphicsView *>("heatmapView")->addPixmap(this->heatmapPixmap);
       this->statusBar()->showMessage("UAM load complete");
 
@@ -241,14 +285,16 @@ void MainWindow::updateEnergyBox(){
     //for now skip interpolation and just set the box to the closest match
 
 
-    int closestI = (int)round( (targetPhiVal-2.5)/deltaVal ) ;
-    int closestJ =(int)round( (targetThetaVal-2.5)/deltaVal ) ;
+    int closestI = (int)floor( (targetPhiVal)/deltaVal ) ;
+    int closestJ =(int)floor( (targetThetaVal)/deltaVal ) ;
     if(closestI > 71){
         closestI = 0;
     }
-    if(closestJ > 36){
-        closestJ = 0;
+    if(closestJ > 35){
+        closestJ = 35;
     }
+
+
     double foundEnergy = energyData[closestI][closestJ];
     this->findChild<QLineEdit *>("energyOutBox")->setText(QString::number(foundEnergy)) ;
 
@@ -360,6 +406,8 @@ void MainWindow::uaDoneAlert(int exitCode, QProcess::ExitStatus exitStatus){
   this->findChild<QLineEdit *>("loadUAMBox")->setText(   QDir::cleanPath(targetOutputFile  ));
 this->statusBar()->showMessage("UA run complete");
 
+
+//this->processHandle.close();
 }
 
 void MainWindow::on_runUAButton_clicked()
@@ -383,9 +431,9 @@ void MainWindow::on_runUAButton_clicked()
 
     if(canRun == true){
         this->statusBar()->showMessage("Beginning UA run");
-    qDebug() << "Attempting to run: " << targetPDB << " on NP of material " << targetMaterial << " radius: " << QString::number(targetRadius) <<   "zeta: " << QString::number(targetZetaMV) <<  "\n";
+    //qDebug() << "Attempting to run: " << targetPDB << " on NP of material " << targetMaterial << " radius: " << QString::number(targetRadius) <<   "zeta: " << QString::number(targetZetaMV) <<  "\n";
     QString argString = "--operation-type=pdb -p "+targetPDB+" -r "+QString::number(targetRadius)+" -z "+QString::number(targetZeta)+" -m "+targetMaterial+" -o "+outputFolder;
-    qDebug() << argString << "\n";
+    //qDebug() << argString << "\n";
     QStringList commandArgs;
     commandArgs << "RunUA.py";
     //commandArgs << argString;
@@ -402,12 +450,20 @@ void MainWindow::on_runUAButton_clicked()
     commandArgs << outputFolder;
     commandArgs << "-P";
     commandArgs << "0";
-    this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("RunUA.py " + argString+"\n");
+
+    if(this->findChild<QCheckBox *>("autoNPBox")->isChecked() == false){
+        QString npTarget = this->findChild<QLineEdit *>("npTargetBox")->text();
+       commandArgs << "-N";
+       commandArgs << npTarget;
+    }
+
+
+    this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText(commandArgs.join(" ")+"\n");
     this->processHandle.setWorkingDirectory(uaGlobalPath );
     processHandle.setProcessChannelMode(QProcess::MergedChannels) ;
 
-     connect(&processHandle, SIGNAL ( readyReadStandardOutput() )  , this,  SLOT( updateUABox() )        );
-     connect(&processHandle, SIGNAL(finished(int, QProcess::ExitStatus) ), this, SLOT(uaDoneAlert(int, QProcess::ExitStatus)));
+    // connect(&processHandle, SIGNAL ( readyReadStandardOutput() )  , this,  SLOT( updateUABox() )        );
+   //  connect(&processHandle, SIGNAL(finished(int, QProcess::ExitStatus) ), this, SLOT(uaDoneAlert(int, QProcess::ExitStatus)));
      this->findChild<QPushButton *>("runUAButton")->setDisabled(true);
     this->processHandle.start("python3", commandArgs) ;
 
@@ -504,6 +560,15 @@ void MainWindow::on_loadPDBButton_clicked()
             atom.x0 = atom.x0 - xcenter;
             atom.y0 = atom.y0 - ycenter;
             atom.z0 = atom.z0 - zcenter;
+
+            atom.orientationTheta = acos( atom.z0 / sqrt(atom.x0*atom.x0 + atom.y0*atom.y0 + atom.z0*atom.z0) ) ;
+            if(atom.y0 >= 0){
+            atom.orientationPhi =   acos( atom.x0/(sqrt(atom.x0*atom.x0 + atom.y0*atom.y0))) ;
+            }
+            else{
+             atom.orientationPhi =   2*3.1415 -   acos( atom.x0/(sqrt(atom.x0*atom.x0 + atom.y0*atom.y0))) ;
+            }
+
          //   qDebug() << " x0 now: " << QString::number( atom.x0 ) << "\n";
         }
      //   qDebug() << QString::number( atomList[0].x0 ) << "\n";
@@ -605,6 +670,7 @@ double zAbsMax = 0;
 
     for( auto& atom: atomList){
      atom.dAv = atom.dAvn / (atom.dAvd + 0.01);
+     atom.colourParam = atom.dAv;
     }
  this->statusBar()->showMessage("Distances calculated");
     updateMoleculeBox();
@@ -681,7 +747,7 @@ double colourParamMax = 0.01;
 
    //final pass: get the set of circles to plot, translating such that in the world-frame the molecule is above the NP and has its minimum point defined relative to the NP center at (0,0,0)
     for( auto& atom: atomList){
-        double colourParam = atom.dAv ;
+        double colourParam = atom.colourParam ;
         colourParamMin = std::min(colourParam,colourParamMin);
         colourParamMax = std::max(colourParam,colourParamMax);
         std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc - minz) + beadDelta ,0.5, colourParam} ;
@@ -732,6 +798,53 @@ pdbScene.setSceneRect( (-proteinRadius)*scaleFactor, 0 , (2*proteinRadius)*scale
  graphicsBox->fitInView(  -boundSize, -boundSize, 2*boundSize, 2*boundSize  );
 
 
+
+ //Add the scale bar
+
+ QGraphicsView* pdbScaleBox = this->findChild<QGraphicsView *>("pdbColourScaleBar") ;
+ int scaleBarWidth = pdbScaleBox->width() ;
+ int scaleBarHeight = pdbScaleBox->height() ;
+
+
+
+pdbScalePixmap.fill();
+ QPainter *scalePaint = new QPainter(&pdbScalePixmap);
+ QFont font = scalePaint->font();
+ //font.setPixelSize(10 );
+ scalePaint->setFont(font);
+ int barWidth = 400/10;
+ for(int i =0; i<10;i++){
+     double distVal = colourParamMin + i*(colourParamMax - colourParamMin)/10.0;
+
+     double colourVal = ( colourParamMax - distVal   )/(0.01 +  colourParamMax - colourParamMin ) ;
+     QBrush colourFill(  QColor(255*colourVal,0,0)  );
+
+     //qDebug() << QString::number(eScale) << " from " << QString::number(energyVal) << "\n";
+     double y1 = 0;
+     double x1 = i*barWidth;
+     scalePaint->setPen(QColor(255*colourVal,0,0));
+      scalePaint->setBrush(QColor(255*colourVal,0,0));
+     scalePaint->drawRect(x1, y1, barWidth, 20  );
+      scalePaint->setPen(QColor(0,0,0));
+      //scalePaint->drawText( x1, y1+20, 10, 20, Qt::AlignLeft,  QString::number(energyVal, 'f',1)) ;
+      if(i%2 == 0){
+
+          if(distVal > 1){
+               scalePaint->drawText( x1, y1+40,   QString::number((int)round(distVal))) ;
+          }
+          else{
+      scalePaint->drawText( x1, y1+40,   QString::number(distVal, 'f',1)) ;
+          }
+      }
+ }
+ delete scalePaint;
+
+
+
+ pdbBarScene.addPixmap(pdbScalePixmap.scaled(scaleBarWidth*0.95,scaleBarHeight*0.95)   );
+ pdbScaleBox->setScene(&pdbBarScene);
+
+
 }
 
 void MainWindow::on_radiusSpinBox_valueChanged(int arg1)
@@ -762,6 +875,11 @@ void MainWindow::checkForMaterials(){
 void MainWindow::on_colourBoltz_clicked()
 {
     calcBeadDistances();
+        for( auto& atom: atomList){
+            atom.colourParam = atom.dAv;
+        }
+
+
 }
 
 
@@ -899,5 +1017,41 @@ double zAbsMax = 0;
       this->findChild<QSpinBox *>("thetaInputBox")->setValue(bestTheta);
     updateMoleculeBox();
 
+}
+
+
+void MainWindow::on_colourEnergy_clicked()
+{
+
+    for( auto& atom: atomList){
+        int i =(int)( (atom.orientationPhi*180.0/3.1415 - 2.5)/5.0);
+        int j = (int)( (atom.orientationTheta*180.0/3.1415- 2.5)/5.0);
+        qDebug() << QString::number(atom.orientationPhi*180.0/3.1415) << " mapped to " << QString::number(i) << "\n";
+        atom.colourParam = energyData[i][j];
+    }
+updateMoleculeBox();
+}
+
+
+void MainWindow::on_autoNPBox_stateChanged(int arg1)
+{
+   // qDebug() << "Checkbox new state: " << QString::number(arg1) << "\n";
+    if (this->findChild<QCheckBox *>("autoNPBox")->isChecked() == true){
+      //box is currently checked, disable the find NP window
+        this->findChild<QLineEdit *>("npTargetBox")->setDisabled(true);
+        this->findChild<QPushButton *>("npTargetButton")->setDisabled(true);
+    }
+    else{
+this->findChild<QLineEdit *>("npTargetBox")->setDisabled(false);
+         this->findChild<QPushButton *>("npTargetButton")->setDisabled(false);
+    }
+
+}
+
+
+void MainWindow::on_npTargetButton_clicked()
+{
+    QString targetNPFile = QFileDialog::getOpenFileName(this, tr("NP File"),  this->uaGlobalPath,  tr("NP (*.np)"));
+    this->findChild<QLineEdit *>("npTargetBox")->setText(targetNPFile);
 }
 

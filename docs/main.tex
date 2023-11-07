@@ -844,7 +844,22 @@ You can also get differently wrong results by forgetting the signs for the angle
 The above generates the first two angles. For a spherical isotropic NP, as can be seen from the figures above, a further rotation around the $z$ axis is possible but won't alter the overall binding energy. In general, however, it may be necessary to apply a final rotation around $z$ of $\omega$ to correctly generate all possible conformations of the biomolecule relative to the NP.
 
 \section{Random rotation and point generation}
- From the previous section, it may be apparent that rotations in 3D are less trivial than they may appear. This is even more true for random rotations, which for UA are relevant when generating nanoparticles. Although it may seem straightforward to simply produce three random rotations in a row with uniformly distributed angles, this doesn't produce the desired result. A simple mechanism to generate the required rotation was proposed in [Arvo]:
+ From the previous section, it may be apparent that rotations in 3D are less trivial than they may appear. This is even more true for random rotations, which for UA are relevant when generating nanoparticles. Although it may seem straightforward to simply produce three random rotations in a row with uniformly distributed angles, this doesn't produce the desired result. A simple mechanism to generate the required rotation was proposed in [Arvo] (there are other methods, but this avoids the use of quaternions and only needs uniformly distributed random input). First, generate the matrix to rotate around the z-axis by a random amount $u_1 \in [0,1]$:
+ \begin{equation}
+R_1(u_1) =  \begin{pmatrix}  \cos (2 \pi u_1) & -\sin (2 \pi u_1) & 0 \\
+ \sin (2 \pi u_1) & \cos (2 \pi u_1) & 0 \\
+ 0 & 0 & 1  \end{pmatrix}
+\end{equation}
+Next, generate the ``Householder matrix'', 
+\begin{equation}
+H = I - 2 v v^T
+\end{equation}
+where $I$ is the three-by-three identity matrix,the vector $v$ is given by,
+\begin{equation}
+v = ( \cos(2 \pi u_2) \sqrt{u_3} ,  \sin(2 \pi u_2) \sqrt{u_3}, \sqrt{1-x_3}  )
+\end{equation}
+and $v v^T$ is the outer product of $v$ with itself. The final rotation matrix is then given by $M = -H R$, which generates isotropic random rotations if $u_1, u_2, u_3$ are all uniformly distributed in $[0,1]$. 
+ 
  
  
 Part of the reason for this complication is due to ``bunching'' of density at the poles. In short, if you generate a uniform grid of points $\phi,\theta$, the density in Cartesian coordinates is biased towards $x=0,y=0$. For generating random points on the surface, a specialised algorithm should be used. A simple one is generating $\phi$ uniform in $[0,2\pi]$, generating a second variable $u$ in $[0,1]$ and calculating $\theta =   acos (2 u-1)$.

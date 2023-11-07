@@ -20,7 +20,7 @@
       <item row="1" column="0">
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab">
          <attribute name="title">
@@ -337,6 +337,42 @@
              </layout>
             </item>
             <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_13">
+              <item>
+               <widget class="QGraphicsView" name="heatmapScaleBar">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>50</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QGraphicsView" name="pdbColourScaleBar">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="maximumSize">
+                 <size>
+                  <width>16777215</width>
+                  <height>50</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
              <layout class="QHBoxLayout" name="horizontalLayout_10">
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -444,10 +480,34 @@
               </item>
               <item>
                <layout class="QGridLayout" name="gridLayout_4">
+                <item row="0" column="3">
+                 <widget class="QLineEdit" name="energyOutBox">
+                  <property name="acceptDrops">
+                   <bool>false</bool>
+                  </property>
+                  <property name="readOnly">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
                 <item row="1" column="2">
                  <widget class="QLabel" name="label_7">
                   <property name="text">
                    <string>EAds(simple)</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QPushButton" name="findBoltzMinButton">
+                  <property name="text">
+                   <string>Set to Boltz minimum</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="2">
+                 <widget class="QLabel" name="label_6">
+                  <property name="text">
+                   <string>EAds(phi,theta)</string>
                   </property>
                  </widget>
                 </item>
@@ -468,16 +528,6 @@
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="3">
-                 <widget class="QLineEdit" name="energyOutBox">
-                  <property name="acceptDrops">
-                   <bool>false</bool>
-                  </property>
-                  <property name="readOnly">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
                 <item row="2" column="3">
                  <widget class="QLineEdit" name="boltzOutBox">
                   <property name="acceptDrops">
@@ -488,20 +538,6 @@
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="2">
-                 <widget class="QLabel" name="label_6">
-                  <property name="text">
-                   <string>EAds(phi,theta)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QPushButton" name="colourBoltz">
-                  <property name="text">
-                   <string>Colour by Boltz. distance</string>
-                  </property>
-                 </widget>
-                </item>
                 <item row="1" column="1">
                  <widget class="QPushButton" name="findMinEnergyButton">
                   <property name="text">
@@ -509,12 +545,23 @@
                   </property>
                  </widget>
                 </item>
-                <item row="2" column="1">
-                 <widget class="QPushButton" name="findBoltzMinButton">
-                  <property name="text">
-                   <string>Set to Boltz minimum</string>
-                  </property>
-                 </widget>
+                <item row="0" column="1">
+                 <layout class="QVBoxLayout" name="verticalLayout_8">
+                  <item>
+                   <widget class="QPushButton" name="colourBoltz">
+                    <property name="text">
+                     <string>Colour by Boltz. distance</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QPushButton" name="colourEnergy">
+                    <property name="text">
+                     <string>Colour by energy</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
                 </item>
                </layout>
               </item>

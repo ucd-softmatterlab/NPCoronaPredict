@@ -4,7 +4,8 @@ import numpy as np
 
 #Load in all known materials
 materialSet = {}
- 
+
+firstMaterial = ""
 for targetMaterialFile in ["MaterialSet.csv", "surface-pmfp/MaterialSetPMFP.csv"]:
     if not os.path.exists(targetMaterialFile):
         continue
@@ -17,7 +18,8 @@ for targetMaterialFile in ["MaterialSet.csv", "surface-pmfp/MaterialSetPMFP.csv"
             print("Problem reading material line: ", line)
             continue
         materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
-        
+        if firstMaterial == "":
+            firstMaterial = lineTerms[0]
 if len( materialSet.keys() ) == 0:
     print("No materials found. Please try again")
     quit()        
@@ -26,10 +28,10 @@ if len( materialSet.keys() ) == 0:
 parser = argparse.ArgumentParser(description="Parameters for UA Config File Generation")
 parser.add_argument('--operation-type', required = True, choices = ['pdb' , 'pdb-folder'], type = str, help = 'Currently only \'pdb\' or pdb-folder are valid')
 parser.add_argument("-p","--input-file",  required=True, help="Path to protein PDB file")
-parser.add_argument("-r","--radius", type=float,required=True,help="NP radius [nm]")
-parser.add_argument("-z","--zeta", type=float, required=True,  help="NP zeta potential [V]")
+parser.add_argument("-r","--radius", type=float,help="NP radius [nm]", default = 5)
+parser.add_argument("-z","--zeta", type=float, help="NP zeta potential [V]", default = 0)
 parser.add_argument("-o","--outputfolder", default="UAOutput", help="Working folder for results")
-parser.add_argument("-m","--material", required=True, choices =  materialSet.keys() ,help="Chosen material")
+parser.add_argument("-m","--material",  choices =  materialSet.keys() ,help="Chosen material", default="none")
 parser.add_argument("-P", "--postprocess",default = 1, help="Post-process results")
 parser.add_argument("-b","--beadset",default="beadsets/StandardAABeadSet.csv", help="Bead parameter file")
 parser.add_argument("-c","--configloc",default="", help="Location to save the generated configuration file")
@@ -37,22 +39,26 @@ parser.add_argument("-T","--temperature", type=float, default=300.0, help="Nomin
 parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic strength in Mol (one-half * sum:conc*chargeSquared)")
 parser.add_argument("-n","--name",type=str,default="uaautorun",help="Output file name")
 parser.add_argument("-H","--hamaker",type=int,default=1,help="Enable Hamaker interaction (0 to disable, enabled by default)")
-parser.add_argument("-N","--nps",type=str,default="",help="NP target folder, leave blank for automatic generation from radius/zeta. If enabled r,z,m parameters will be overwritten but must be provided.")
+parser.add_argument("-N","--nps",type=str,default="",help="NP target folder, leave blank for automatic generation from radius/zeta. If enabled this will override radius, zeta, material.")
 args = parser.parse_args()
 
 
 
 
 canRun = 0
+
+
 if args.material in materialSet:
     pmfFolder,hamakerFile,shape = materialSet[ args.material]
     canRun = 1
 elif args.nps != "":
-    print("No material found but NP folder set, continuing")
+    print("No material found but NP folder set, using default material which may not have sufficient PMFs/Hamaker constants. ")
+    canRun = 1
+    pmfFolder, hamakerFile, shape = materialSet[ firstMaterial ]
 if canRun == 0:
     print("An error has occured, cancelling run. Please check material name again.")
     print("Input material: ", args.material)
-    print("Known materials: ", materialSet.keys)
+    print("Known materials: ", materialSet.keys() )
     quit()
 
 useNPFolder = False
