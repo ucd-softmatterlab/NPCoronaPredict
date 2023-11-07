@@ -8,17 +8,16 @@
 \usepackage[comma,sort&compress]{natbib}
 
 \usepackage{listings}
-\bibliographystyle{h-physrev3}
 \setcitestyle{numbers,square}
 \usepackage{graphicx}
 \graphicspath{figs} 
 \begin{document}
-\title{UnitedAtom and CoronaKMC user guide}
+\title{NPCoronaPredict (UnitedAtom and CoronaKMC) user guide}
 
 \maketitle 
 
 \chapter{Introduction}
-This document is designed to provide an overview of how to run the UnitedAtom and CoronaKMC packages for the prediction of nanoparticle (NP) to protein adsorption energies and the composition of the corona for an NP immersed in a particular environment. It is assumed that you have access to the publications describing the theory behind these tools and so this document will focus more on practical details about running the software packages.
+This document is designed to provide an overview of how to run the NPCoronaPredict pipeline, consisting of the UnitedAtom and CoronaKMC packages, for the prediction of nanoparticle (NP) to protein adsorption energies and the composition of the corona for an NP immersed in a particular environment. It is assumed that you have access to the publications describing the theory behind these tools and so this document will focus more on practical details about running the software packages.
 
 Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of component beads.
 
@@ -35,6 +34,47 @@ make clean; make
 which will require a C++ compiler and the Boost libraries to be installed.
 
 The current version of CoronaKMC is implemented in Python 3 and is the CoronaKMC.py script. An older version (CoronaKMC-P2.py) is provided for Python 2.7 users but is no longer maintained and is lacking a significant amount of functionality compared to more recent versions. 
+ 
+Some optional GUI tools are included, NPDesigner and UAQuickRun. To install these, install QT:
+\begin{lstlisting}
+sudo apt install qtchooser qtbase5-dev qt5-qmake 
+\end{lstlisting} 
+
+and run the commands
+
+\begin{lstlisting}
+qmake -qt=qt5
+make
+\end{lstlisting} 
+in the folder of each GUI tool you want to build. 
+
+A complete installation from scratch would therefore look like:
+
+\begin{lstlisting}
+mkdir UnitedAtom
+git clone https://bitbucket.org/softmattergroup/unitedatom.git
+cd UnitedAtom
+sudo apt install libboost-all-dev libboost-filesystem-dev wget perl parallel  
+sudo apt install build-essential libsqlite3-dev libpng-dev libjpeg-dev
+sudo apt install python3 python3-pip
+pip3 install numpy scipy matplotlib argparse Bio
+make clean
+make
+sudo apt install qtchooser qtbase5-dev qt5-qmake 
+cd UAQuickRun
+qmake -qt=qt5
+make
+cd ../NPDesigner
+qmake -qt=qt5
+make
+cd ../
+\end{lstlisting}
+
+ which would then prepare you for running most of the tools. It's recommended you then run
+ \begin{lstlisting}
+python3 NPCoronaPredict.py -r 5 -z 0  -m anatase101 -p coronatest   -t 0.00001
+\end{lstlisting}
+to start a very basic UA+CoronaKMC run to make sure all of the above works.
  
 \section{High-level pipelines}
 A frequent use case is the prediction of the corona for a simple nanoparticle (e.g. a sphere of a predefined material) in a medium consisting of proteins of known concentration. In this case, the provided NPCoronaPredict.py script is designed to automate the process and can be run using a command such as:
@@ -60,10 +100,10 @@ which lists all the available commands and details about what they do. This scri
 \item Get CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist)
 \item Create a medium file as described above. Remember that this is ``molecule,concentration[M]'' format and each molecule must have a matching molecule.pdb file in all\textunderscore proteins.
 \item Identify the material you want to use - the standard are all listed in MaterialSet.csv and the machine-learning extended set in surface-pmfp/MaterialSetPMFP.csv
-\item Run PrepareKMCInput.py with a command string as shown above. 
+\item Run NPCoronaPredict.py with a command string as shown above. 
 \end{enumerate}
  
- 
+
  
 \chapter{UnitedAtom}
  \section{Introduction}
@@ -73,6 +113,31 @@ which lists all the available commands and details about what they do. This scri
 ./UnitedAtom --config-file=myconfigfile.config
 \end{lstlisting}
 to start UnitedAtom and then go wait a while (typically, up to a few minutes per protein per NP) until its done. 
+
+
+\subsection{My first UA Run}
+For new users, it's recommended you use the UAQuickRun utility included in the repository so you can get an immediate feel for how things work without having to edit many text files. 
+
+First, make sure UA is compiled and python is installed, and you've installed QT following all the instructions above. 
+If all goes well, you can then run
+\begin{lstlisting}
+./UAQuickRun
+\end{lstlisting}
+and if not you likely have an issue with QT - you might need to install more packages to get all the correct headers. Assuming it works, this will bring up a simple GUI for running UA. The UA folder should be auto-set, in which case a message will pop up saying ``Loaded XX materials'' -- if not, use the ``Find UA Folder'' button to find the ``/home/whatever/UnitedAtom/unitedatom'' folder. You can then select a PDB target, for this quick overview choose ``DiskAsymPointProtein.pdb'' from the ``testing-pdbs'' folder. Leave ``Auto-NP'' checked and select a radius and zeta potential, then choose a material from the drop-down list e.g. carbon black. Finally enter a target folder to contain your results, and click Run UA. Assuming you compiled UA and have python running, after a brief delay it'll tell you that the run is done and print some output to the big textbox. You can then move to the "View Results" tab. Use the ``load .uam'' button to find and load in the file generated by UA - you can see the path in the textbox on the UA Setup tab:
+\begin{lstlisting}
+Info: Saving map to: 
+
+/home/ianrouse/UnitedAtom/unitedatom/uaquickrunresults3/np1R_10_ZP_0/DiskAsymPointProtein_10_0.uam
+\end{lstlisting}
+and then load in the PDB from the same location as before. This will produce results similar to that shown in Figure \ref{fig:uaquickrun_results}. The left-hand graphic shows a heatmap plot of the data stored in the .uam results file, with strongly binding protein-NP conformations shown in red (the colour scale at the bottom indicates values in $kBT$), with a green arrow pointing towards the currently selected orientation (pair of phi, theta values, see Section \ref{section:uarotations} for details on how these are defined). Clicking on this image sets the orientation to be a new value, or finer control can be achieved by altering the phi, theta boxes directly. The right-hand window shows the biomolecule-NP complex at that orientation. By default, all the biomolecule beads are shown in black, its recommended to click ``colour by Boltz. distance'' to apply shading to these beads based on their average distance from the surface of the NP -- the average is biased towards orientations with a stronger binding energy. (colour by energy is not yet fully useful).  You can rotate the protein along the z axis with the omega dial - for these simple spherical NPs, this value omega doesn't alter the binding energy. The three text boxes on the lower-right corner show the values of the adsorption energy at the current orientation, the simple orientation average, and the Boltzmann orientational average - these two averages will be discussed more later. Finally, the ``set to min. energy'' can be used to reset phi, theta to the values corresponding to a minimum of energy, while ``set to boltz minimum'' attempts to set the orientation to one in which each bead is as close as possible to its average distance from the surface of the NP.
+
+It's a good idea to check a few different orientations to see why some are more strongly binding than others. The simple case shown here is useful as a test case to help check orientations are being defined correctly, and should typically show the strongly-binding orientations to be the ones with five beads in a plane and one bead on top, forming an L-shape. Depending on the material, radius and zeta potential chosen, this might differ slightly  -- the results shown here are for a 10 nm NP of silica quartz and zero  zeta potential. For this molecule, the circle of five beads are GLU (charged glutamic acid side chain analogues) and the other bead is VAL (neutral valine side chain analogue), and for an uncharged surface of zero zeta its reasonable to assume the GLU beads will be more often in contact with the surface, which for the structure shown corresponds to orientations of $\theta = 180^\circ$. 
+
+\begin{figure} \label{fig:uaquickrun_results}
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/uaquickrun_screen.png}
+    \caption{Example output from UAQuickRun.   }
+\end{figure}
 
 
 \subsection{What's it actually doing?}
@@ -737,7 +802,7 @@ If you're trying to get a match to experimental, match the absolute experimental
 \end{enumerate}
 These points are discussed in the following sections.
 
-\section{The UA rotation convention}
+\section{The UA rotation convention} \label{section:uarotations}
 One of the most common pitfalls with UA is misunderstanding how the orientation of a given biomolecule is defined and making this consistent with other software, which leads to misinterpretation of results and people making significant errors later. 
 
 We begin by considering a set of $N$ points, each indexed $i$ and with Cartesian co-ordinates $x_i,y_i,z_i$. These points are assumed to belong to the CG beads in a biomolecule of interest and are defined in the molecule's own reference frame, i.e. read directly from an input file. First, we center the molecule by applying the following transformations to each co-ordinate:
@@ -838,10 +903,12 @@ R_z(\beta) \cdot R_y(\alpha) =
 
 
 
-You can also get differently wrong results by forgetting the signs for the angles, using $\theta$ instead of $\pi - \theta$, trying to rotate around $x$, assuming that a rotation around $z$ won't do anything ever, switching which axis has which angle, etc. An example is shown in Figure \ref{fig:rotation_pathway}, demonstrating the correct approach and the results obtained if the rotations are performed in the wrong order. All of these mistakes can lead to nonsense results, like binding energies of tens of $kbT$ through a single point contact when each $AA$ only adsorbs with an energy of a few $kbT$. It's always worth looking at the proposed orientation relative to the NP and counting the number of contacts - in most cases, the highest binding affinity is the one with a large surface-surface contact area. 
+You can also get differently wrong results by forgetting the signs for the angles, using $\theta$ instead of $\pi - \theta$, trying to rotate around $x$, assuming that a rotation around $z$ won't do anything ever, switching which axis has which angle, etc. An example is shown in Figure \ref{fig:rotation_pathway}, demonstrating the correct approach and the results obtained if the rotations are performed in the wrong order. All of these mistakes can lead to nonsense results, like binding energies of tens of $kbT$ through a single point contact when each $AA$ only adsorbs with an energy of a few $kbT$. It's always worth looking at the proposed orientation relative to the NP and counting the number of contacts - in most cases, the highest binding affinity is the one with a large surface-surface contact area.
 
 
 The above generates the first two angles. For a spherical isotropic NP, as can be seen from the figures above, a further rotation around the $z$ axis is possible but won't alter the overall binding energy. In general, however, it may be necessary to apply a final rotation around $z$ of $\omega$ to correctly generate all possible conformations of the biomolecule relative to the NP.
+
+As a final reminder, the orientation $(0,0)$ only means ``zero-rotation'' in a frame of reference where the NP is placed directly \textbf{above} the biomolecule, i.e. at $(0,0,z > \mathrm{max}(z_i) )$. By convention, we usually take the NP to be at $(0,0,0)$ and the biomolecule placed above this, so an orientation $(0,0)$ corresponds to a rotation of $0$ around the z axis and $180$ around the y axis. 
 
 \section{Random rotation and point generation}
  From the previous section, it may be apparent that rotations in 3D are less trivial than they may appear. This is even more true for random rotations, which for UA are relevant when generating nanoparticles. Although it may seem straightforward to simply produce three random rotations in a row with uniformly distributed angles, this doesn't produce the desired result. A simple mechanism to generate the required rotation was proposed in [Arvo] (there are other methods, but this avoids the use of quaternions and only needs uniformly distributed random input). First, generate the matrix to rotate around the z-axis by a random amount $u_1 \in [0,1]$:
