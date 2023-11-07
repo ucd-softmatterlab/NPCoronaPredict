@@ -85,7 +85,7 @@ public:
 
 private slots:
     void on_loadUAMButton_clicked();
-
+    void updateHeatmapPlot();
     void on_findUAButton_clicked();
 
     void on_resultFolderButton_clicked();

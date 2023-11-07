@@ -139,6 +139,74 @@ void MainWindow::on_loadUAMButton_clicked()
         maxEnergy = std::max(maxEnergy, energyVal);
             }
         }
+
+
+
+
+
+      this->findChild<QSpinBox *>("phiInputBox")->setValue(minPhiVal);
+        this->findChild<QSpinBox *>("thetaInputBox")->setValue(minThetaVal);
+
+      //update the boxes
+        this->findChild<QLineEdit *>("boltzOutBox")->setText( QString::number(boltzAverageNum/boltzAverageDenom)) ;
+        this->findChild<QLineEdit *>("simpleOutBox")->setText( QString::number(simpleAverageNum/simpleAverageDenom)) ;
+        updateEnergyBox();
+
+        //plot the results
+       updateHeatmapPlot();
+
+
+        //this->findChild<QGraphicsView *>("heatmapView")->addPixmap(this->heatmapPixmap);
+      this->statusBar()->showMessage("UAM load complete");
+
+    }
+}
+
+
+}
+
+
+
+
+
+
+
+void MainWindow::updateHeatmapPlot()
+{
+    QGraphicsView* heatmapBox = this->findChild<QGraphicsView *>("heatmapView") ;
+    int gbWidth = heatmapBox->width() ;
+    int gbHeight = heatmapBox->height() ;
+
+    QGraphicsView* heatmapScaleBox = this->findChild<QGraphicsView *>("heatmapScaleBar") ;
+    int scaleBarWidth = heatmapScaleBox->width() ;
+    int scaleBarHeight = heatmapScaleBox->height() ;
+
+
+    uamBoxHeight = gbHeight;
+    uamBoxWidth = gbWidth;
+
+
+    int currentPhi = this->findChild<QSpinBox *>("phiInputBox")->value();
+     int currentTheta =  this->findChild<QSpinBox *>("thetaInputBox")->value();
+
+        double minEnergy = 0;
+        double maxEnergy = 1;
+        //first loop: get min and max energies
+       for( int phiIndex = 0; phiIndex < 72; ++phiIndex){
+       for(int thetaIndex = 0; thetaIndex< 36; ++thetaIndex){
+        double energyVal = energyData[phiIndex][thetaIndex] ;
+
+        if(energyVal < minEnergy){
+            minEnergy = energyVal;
+        }
+        //minEnergy = std::min(minEnergy,energyVal);
+        maxEnergy = std::max(maxEnergy, energyVal);
+            }
+        }
+
+
+
+
         heatmapPixmap.fill();
         QPainter *paint = new QPainter(&heatmapPixmap);
         if(abs( minEnergy - maxEnergy) < 0.0001 ){
@@ -161,6 +229,35 @@ void MainWindow::on_loadUAMButton_clicked()
 
             }
         }
+
+        //then paint a marker at the current phi, theta
+        QPen arrowPen(QColor(0,80,0),2);
+        QPen arrowPen2(QColor(0,80,0),2);
+        paint->setPen(arrowPen);
+        paint->setBrush(QColor(0,80,0));
+
+        double t1 = 180-currentTheta;
+        double lineLength = 6;
+        double arrowLength = 3;
+
+        double t2 = t1 +lineLength;
+        double t3 =  t1 + arrowLength;
+        if(currentTheta <90){
+        t2 = t1 - lineLength;
+                t3 = t1 - arrowLength;
+        }
+        double p2 = currentPhi+lineLength;
+        double p3 = currentPhi+arrowLength;
+        if(currentPhi > 180){
+            p2 = currentPhi-lineLength;
+            p3 = currentPhi-arrowLength;
+        }
+
+        paint->drawLine( QLineF(currentPhi,  t1,p2,t2));
+
+paint->setPen(arrowPen2);
+        paint->drawLine( QLineF(currentPhi,  t1,p3,t1));
+        paint->drawLine( QLineF(currentPhi,  t1,currentPhi,t3));
         delete paint;
         heatmapScalePixmap.fill();
         QPainter *scalePaint = new QPainter(&heatmapScalePixmap);
@@ -191,38 +288,19 @@ void MainWindow::on_loadUAMButton_clicked()
         }
         delete scalePaint;
 
-
-        //save the pixmap out to the label
-       // "heatmapPlotLabel" ;
-
-
-      this->findChild<QSpinBox *>("phiInputBox")->setValue(minPhiVal);
-        this->findChild<QSpinBox *>("thetaInputBox")->setValue(minThetaVal);
-
-      //update the boxes
-        this->findChild<QLineEdit *>("boltzOutBox")->setText( QString::number(boltzAverageNum/boltzAverageDenom)) ;
-        this->findChild<QLineEdit *>("simpleOutBox")->setText( QString::number(simpleAverageNum/simpleAverageDenom)) ;
-        updateEnergyBox();
-
-
         //update graphics
 
  // scene.addPixmap(heatmapPixmap );
          scene.addPixmap(heatmapPixmap.scaled(gbWidth*0.95,gbHeight*0.95));
-       // this->findChild<QLabel *>("heatmapPlotLabel")->setPixmap(this->heatmapPixmap);
        heatmapBox->setScene(&scene);
-
        heatmapBarScene.addPixmap(heatmapScalePixmap.scaled(scaleBarWidth*0.95,scaleBarHeight*0.95)   );
        heatmapScaleBox->setScene(&heatmapBarScene);
 
-        //this->findChild<QGraphicsView *>("heatmapView")->addPixmap(this->heatmapPixmap);
-      this->statusBar()->showMessage("UAM load complete");
-
-    }
 }
 
 
-}
+
+
 
 int MainWindow::phiToIndex(double phiVal, double deltaVal = 5.0){
     int index = (int)floor( (phiVal - deltaVal/2.0) / deltaVal) ;
@@ -475,6 +553,7 @@ void MainWindow::on_phiInputBox_valueChanged(int arg1)
 {
     updateEnergyBox() ;
     updateMoleculeBox();
+    updateHeatmapPlot();
 }
 
 
@@ -482,6 +561,7 @@ void MainWindow::on_thetaInputBox_valueChanged(int arg1)
 {
     updateEnergyBox() ;
     updateMoleculeBox();
+    updateHeatmapPlot();
 }
 
 void MainWindow::getSceneMouseClick(QPointF scenePosLoc ){
