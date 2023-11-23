@@ -89,6 +89,8 @@ public:
 
     QNetworkAccessManager networkManager;
 
+    QString lastUAMPath = "";
+
     double energyData[72][36] = {{0.0}} ;
     std::vector<Atom> atomList;
     std::vector<Atom> shrinkwrapList;
@@ -126,7 +128,7 @@ private slots:
 
     void on_omegaDial_valueChanged(int value);
     void checkForMaterials();
-    void loadMaterials(QString materialFile);
+    void loadMaterials(QString materialFile, bool doAlert);
     void calcBeadDistances(bool doRotate);
 
 

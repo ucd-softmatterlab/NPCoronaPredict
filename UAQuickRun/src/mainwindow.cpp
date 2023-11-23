@@ -102,12 +102,16 @@ void MainWindow::on_loadUAMButton_clicked()
    double kbtVal = 1;
    double minPhiVal = 1;
    double minThetaVal = 1;
+    QString targetUAMFileBasePath = this->findChild<QLineEdit *>("resultFolderBox")->text();
 
-    QString targetUAMFile = QFileDialog::getOpenFileName(this, tr("UAM File"),  this->findChild<QLineEdit *>("resultFolderBox")->text(),  tr("UA-Output (*.uam)"));
+    if(lastUAMPath != ""){
+        targetUAMFileBasePath = lastUAMPath;
+    }
+    QString targetUAMFile = QFileDialog::getOpenFileName(this, tr("UAM File"), targetUAMFileBasePath,  tr("UA-Output (*.uam)"));
     this->findChild<QLineEdit *>("loadUAMBox")->setText(targetUAMFile);
     //load in the .uam file
     if(targetUAMFile!=""){
-
+        lastUAMPath = targetUAMFile;
         QFile file(targetUAMFile);
         if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream fileIn(&file);
@@ -444,10 +448,10 @@ void MainWindow::on_loadMaterialButton_clicked()
 
     QString targetMaterialFile = QFileDialog::getOpenFileName(this, tr("Material File"),  this->uaGlobalPath,  tr("CSV (*.csv)"));
     //Load in the file and process
-    loadMaterials(targetMaterialFile);
+    loadMaterials(targetMaterialFile, true);
 }
 
-void MainWindow::loadMaterials( QString materialFile){
+void MainWindow::loadMaterials( QString materialFile, bool doAlert ){
 
     QFile file(materialFile);
     if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -474,9 +478,11 @@ void MainWindow::loadMaterials( QString materialFile){
         }
     }
 
+    if(doAlert == true){
     QMessageBox msgBox;
     msgBox.setText("Loaded " + QString::number(numFound) + " materials");
        msgBox.exec();
+    }
 
 }
 
@@ -515,8 +521,16 @@ void MainWindow::uaDoneAlert(int exitCode, QProcess::ExitStatus exitStatus){
   int targetRadius = this->findChild<QSpinBox *>("radiusSpinBox")->value() ;
   int targetZetaMV = this->findChild<QSpinBox *>("zetaSpinBox")->value() ;
    this->findChild<QSpinBox *>("npViewRadius")->setValue(targetRadius);
+
+
   QString targetOutputFile = (this->findChild<QLineEdit *>("resultFolderBox")->text())+"/NP1R_"+QString::number(targetRadius)+"_ZP_"+QString::number(targetZetaMV)+"/" ;
+
+
+
   this->findChild<QLineEdit *>("loadUAMBox")->setText(   QDir::cleanPath(targetOutputFile  ));
+
+
+
 this->statusBar()->showMessage("UA run complete");
 this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
 this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
@@ -599,23 +613,32 @@ void MainWindow::on_runUAButton_clicked()
 
         //construct a project name
         QString autoProjectName = "";
-
+QString npname = "";
+QString npUAName= "";
         if(this->findChild<QCheckBox *>("autoNPBox")->isChecked() == true){
-            autoProjectName =  targetMaterial + "_" + QString::number(targetRadius) + "_" + QString::number(targetZeta) ;
+
+            npname =  targetMaterial + "_" + QString::number(targetRadius) + "_" + QString::number(targetZeta) ;
+            autoProjectName = npname;
+            npUAName = "np1R_" + QString::number(targetRadius) +"_ZP_" + QString::number(targetZeta)  ;
         }
         else{
             QString npTarget = this->findChild<QLineEdit *>("npTargetBox")->text();
            QStringList npTargetParts = npTarget.split("/");
-           QString npname = npTargetParts.at( npTargetParts.size()-1);
+            npname = npTargetParts.at( npTargetParts.size()-1);
              npname.chop(3);
             autoProjectName = npname ;
+            npUAName = npname;
         }
+
 
 
         QStringList pdbTargetParts = targetPDB.split("/");
         QString mediumName = pdbTargetParts.at( pdbTargetParts.size()-1) ;
         mediumName.chop(4);
         autoProjectName = autoProjectName + "_" +  mediumName;
+
+
+          this->findChild<QLineEdit *>("resultFolderBox")->setText(uaGlobalPath+"/CoronaPredictionProjects/"+autoProjectName+"/results/"+npUAName) ;
 
        commandArgs << "-p";
         commandArgs << autoProjectName;
@@ -1098,7 +1121,7 @@ void MainWindow::on_omegaDial_valueChanged(int value)
 void MainWindow::checkForMaterials(){
    QString baseMaterialSet = QDir::cleanPath(  uaGlobalPath+"/MaterialSet.csv" );
   if(QFile::exists(baseMaterialSet ) ){
-    loadMaterials( baseMaterialSet);
+    loadMaterials( baseMaterialSet,false);
   }
 
 }
@@ -1315,11 +1338,13 @@ void MainWindow::on_npcpModeBox_stateChanged(int arg1)
       //swap text over as needed
          this->findChild<QPushButton *>("pdbTargetButton")->setText("Medium file");
         this->findChild<QComboBox *>("npcpModeOptions")->setEnabled(true) ;
+        this->findChild<QLineEdit *>("resultFolderBox")->setDisabled(true);
 
     }
     else{
     this->findChild<QPushButton *>("pdbTargetButton")->setText("PDB Target");
 this->findChild<QComboBox *>("npcpModeOptions")->setEnabled(false) ;
+         this->findChild<QLineEdit *>("resultFolderBox")->setDisabled(false);
     }
 
 
