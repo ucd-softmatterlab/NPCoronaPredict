@@ -101,8 +101,8 @@ double boundRadius = 0;
 double outerBoundRadius = 0;
 double zetaName = 0;
 
-double fileInnerBound = -1;
-double fileOuterBound = -1;
+double fileInnerBound = -5;
+double fileOuterBound = -5;
 
     while (std::getline(handle, line)) {
         if(line.size() > 3 && line.substr(0, 1) != "#") {
@@ -295,12 +295,16 @@ double fileOuterBound = -1;
     std::string name = NPTargetList::Filename(filename);
     std::cout << "NP filename: " << name << " generated with bounding radius " << boundRadius <<"\n";
     
-    if(fileInnerBound > 0){
-    boundRadius = fileInnerBound;
+    if(fileInnerBound > -1){
+    boundRadius = std::max(0.0, fileInnerBound);
+    std::cout << "Inner bound set to " << boundRadius << "\n";
     }
-    if(fileOuterBound > 0){
-    outerBoundRadius = fileOuterBound;
+    if(fileOuterBound > -1){
+    outerBoundRadius = std::max(0.0,fileOuterBound);
+    std::cout << "Outer bound set to " << outerBoundRadius << "\n";
     }
+    outerBoundRadius = std::max( boundRadius, outerBoundRadius);
+    
     return NP(npBeadType, x, y, z, id, numBeadTypes, name,radius,zeta,coreFactor,surfFactor,shape,hamakerFile,pmfFile,boundRadius,outerBoundRadius,zetaName,pmfCutoff,correctionType);
 }
 

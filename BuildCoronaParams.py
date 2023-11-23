@@ -71,7 +71,9 @@ def getAtomCoords(filename, caOnly=False):
             moleculeBeadRadiusSet.append( beadRadiusSet.get(  moleculeBeadLabelIn, 0.5 ) ) 
     fileIn.close()
     # return np.array(coordList)
-    coordData = np.array(coordList)
+    coordData = np.atleast_2d( np.array(coordList) )
+    print(filename)
+    print(coordData)
     coordData[:,0] = coordData[:,0] - np.mean(coordData[:,0])
     coordData[:,1] = coordData[:,1] - np.mean(coordData[:,1])
     coordData[:,2] = coordData[:,2] - np.mean(coordData[:,2])
@@ -204,6 +206,8 @@ parser.add_argument('-v','--verbose',type=int,help="verbose",default=0)
 parser.add_argument('-n','--nullfile',type=int,default=0,help="Write out the null corona input (planar projection, zero binding energy)")
 parser.add_argument('-b','--beadset',type=str,help="Bead definition file", default="beadsets/StandardAABeadSet.csv" )
 parser.add_argument('-o','--outputname',type=str,help="Name for the output file", default="buildcoronaparams-demo.csv")
+parser.add_argument('-I','--inneroverride',help="For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use", default=-1,type=int)
+
 
 args = parser.parse_args()
 
@@ -276,10 +280,18 @@ try:
 except:
     print("Bead definition file could not be found, using default radius for all beads")
 
+
+
+filenameRadius = str(int(npRadius))
+if args.inneroverride > 0:
+    filenameRadius = str(int( args.inneroverride ))
+    print("Looking for .uam files with radius ", filenameRadius, " in the name.")
+
+
 for proteinData in concentrationData:
     #print(proteinData[0] )
     if npShape==1 or npShape == 3:
-        filename=proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+".uam"
+        filename=proteinData[0]+"_"+filenameRadius+"_"+str(int(npZp))+".uam"
         print("looking for: ", filename)
         #load in the file as before, but calculate the projected area,kon and koff separately for each orientation
         #rawCoords =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")*0.1
@@ -289,7 +301,7 @@ for proteinData in concentrationData:
     else:
         alldatafiles = []
         for omega in [0,45,90,135]:
-            filename = proteinData[0]+"_"+str(int(npRadius))+"_"+str(int(npZp))+"_"+str(omega)+".uam"
+            filename = proteinData[0]+"_"+filenameRadius+"_"+str(int(npZp))+"_"+str(omega)+".uam"
             print("Looking for: ", filename)
             newdata = np.genfromtxt(energyMapFolder+"/"+filename)
             omegaSet = np.reshape( np.zeros_like(newdata[:,0]) + omega, (-1,1))

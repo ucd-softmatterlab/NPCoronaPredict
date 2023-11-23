@@ -56,13 +56,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(&processHandle, SIGNAL ( readyReadStandardOutput() )  , this,  SLOT( updateUABox() )        );
     connect(&processHandle, SIGNAL(finished(int, QProcess::ExitStatus) ), this, SLOT(uaDoneAlert(int, QProcess::ExitStatus)));
 
+    QAction *addMoleculeAction = new QAction("Add Molecule", this);
+    QAction *removeMoleculeAction = new QAction("Remove Molecule", this);
 
+    connect( addMoleculeAction, SIGNAL(triggered()) , this, SLOT( addMoleculeToMedium())   );
+    connect( removeMoleculeAction, SIGNAL(triggered()) , this, SLOT( removeMoleculeFromMedium())   );
+    tableMenu.addAction( addMoleculeAction );
+    tableMenu.addAction(removeMoleculeAction);
     //this->findChild<QLabel *>("heatmapPlotLabel")->setPixmap(this->heatmapPixmap);
     //this->materialTypes.emplace_back( MaterialType( "Custom"   , "",""     ) ) ;
     //addBeadType->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
     //addShell->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
     //this->findChild<QComboBox *>("materialDropdown")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
-
+    connect( &networkManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(downloadReplyFinished(QNetworkReply*)) );
 }
 
 MainWindow::~MainWindow()
@@ -105,7 +111,27 @@ void MainWindow::on_loadUAMButton_clicked()
         QFile file(targetUAMFile);
         if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream fileIn(&file);
+        QFileInfo fileInfo(targetUAMFile);
+        QString assumedPDBName = fileInfo.fileName().split("_")[0];
+        qDebug() << fileInfo.fileName();
+        qDebug() << assumedPDBName;
+        QString trialPDBPath = uaGlobalPath+"/all_proteins/"+assumedPDBName+".pdb";
+        //attempt 1 - test directly in all_proteins
+           qDebug() << "first trial: " << trialPDBPath;
+        if( QFile::exists(trialPDBPath) ){
 
+        this->findChild<QLineEdit *>("loadPDBBox")->setText(trialPDBPath);
+        }
+        else{
+        //attempt 2 - check in the local storage for this project
+            QString uamFileDir = QFileInfo( targetUAMFile ).absolutePath() ;
+
+            trialPDBPath = uamFileDir+"/../../proteins/"+assumedPDBName+".pdb";
+            qDebug() << "second trial: " << trialPDBPath;
+            if( QFile::exists(trialPDBPath) ){
+            this->findChild<QLineEdit *>("loadPDBBox")->setText(trialPDBPath);
+            }
+        }
         this->statusBar()->showMessage("Loading UAM");
         double minEnergy = 0;
         double maxEnergy = 1;
@@ -459,7 +485,16 @@ void MainWindow::loadMaterials( QString materialFile){
 
 void MainWindow::on_pdbTargetButton_clicked()
 {
-    QString targetPDB = QFileDialog::getOpenFileName(this, tr("PDB Target"),  this->uaGlobalPath,  tr("PDB (*.pdb)"));
+    QString targetPDB;
+    bool doCorona = this->findChild<QCheckBox *>("npcpModeBox")->isChecked();
+    if(doCorona == true){
+        targetPDB = QFileDialog::getOpenFileName(this, tr("Biomolecule Medium file"),  this->uaGlobalPath,  tr("CSV (*.csv)"));
+    }
+    else{
+    targetPDB = QFileDialog::getOpenFileName(this, tr("PDB Target"),  this->uaGlobalPath,  tr("PDB (*.pdb)"));
+
+    }
+
     this->findChild<QLineEdit *>("pdbTargetLine")->setText(targetPDB);
 }
 
@@ -483,8 +518,8 @@ void MainWindow::uaDoneAlert(int exitCode, QProcess::ExitStatus exitStatus){
   QString targetOutputFile = (this->findChild<QLineEdit *>("resultFolderBox")->text())+"/NP1R_"+QString::number(targetRadius)+"_ZP_"+QString::number(targetZetaMV)+"/" ;
   this->findChild<QLineEdit *>("loadUAMBox")->setText(   QDir::cleanPath(targetOutputFile  ));
 this->statusBar()->showMessage("UA run complete");
-
-
+this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
+this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
 //this->processHandle.close();
 }
 
@@ -496,6 +531,9 @@ void MainWindow::on_runUAButton_clicked()
     int targetRadius = this->findChild<QSpinBox *>("radiusSpinBox")->value() ;
     int targetZetaMV = this->findChild<QSpinBox *>("zetaSpinBox")->value() ;
     QString outputFolder = this->findChild<QLineEdit *>("resultFolderBox")->text();
+
+    bool doCorona = this->findChild<QCheckBox *>("npcpModeBox")->isChecked();
+
     double targetZeta = targetZetaMV/1000.0;
     bool canRun = true;
     if( targetPDB==""){
@@ -508,11 +546,19 @@ void MainWindow::on_runUAButton_clicked()
     }
 
     if(canRun == true){
+
+
         this->statusBar()->showMessage("Beginning UA run");
     //qDebug() << "Attempting to run: " << targetPDB << " on NP of material " << targetMaterial << " radius: " << QString::number(targetRadius) <<   "zeta: " << QString::number(targetZetaMV) <<  "\n";
-    QString argString = "--operation-type=pdb -p "+targetPDB+" -r "+QString::number(targetRadius)+" -z "+QString::number(targetZeta)+" -m "+targetMaterial+" -o "+outputFolder;
+    //QString argString = "--operation-type=pdb -p "+targetPDB+" -r "+QString::number(targetRadius)+" -z "+QString::number(targetZeta)+" -m "+targetMaterial+" -o "+outputFolder;
     //qDebug() << argString << "\n";
+
+
+
+
     QStringList commandArgs;
+
+    if(doCorona == false){
     commandArgs << "RunUA.py";
     //commandArgs << argString;
     commandArgs << "--operation-type=pdb";
@@ -529,20 +575,70 @@ void MainWindow::on_runUAButton_clicked()
     commandArgs << "-P";
     commandArgs << "0";
 
+
+
+    }
+    else{
+        //set up NPCoronaPredict
+
+        int autorunSetting = this->findChild<QComboBox *>("npcpModeOptions")->currentIndex() ;
+
+        commandArgs <<"NPCoronaPredict.py";
+
+        commandArgs <<"-r";
+        commandArgs<< QString::number(targetRadius) ;
+        commandArgs <<"-z";
+        commandArgs <<QString::number(targetZeta) ;
+        commandArgs <<"-m";
+        commandArgs <<targetMaterial ;
+        commandArgs << "-a";
+        commandArgs << QString::number(autorunSetting);
+
+        commandArgs << "-o";
+        commandArgs << targetPDB; //targetPDB was overloaded with otherproteins file if this mode is requested
+
+        //construct a project name
+        QString autoProjectName = "";
+
+        if(this->findChild<QCheckBox *>("autoNPBox")->isChecked() == true){
+            autoProjectName =  targetMaterial + "_" + QString::number(targetRadius) + "_" + QString::number(targetZeta) ;
+        }
+        else{
+            QString npTarget = this->findChild<QLineEdit *>("npTargetBox")->text();
+           QStringList npTargetParts = npTarget.split("/");
+           QString npname = npTargetParts.at( npTargetParts.size()-1);
+             npname.chop(3);
+            autoProjectName = npname ;
+        }
+
+
+        QStringList pdbTargetParts = targetPDB.split("/");
+        QString mediumName = pdbTargetParts.at( pdbTargetParts.size()-1) ;
+        mediumName.chop(4);
+        autoProjectName = autoProjectName + "_" +  mediumName;
+
+       commandArgs << "-p";
+        commandArgs << autoProjectName;
+    qDebug() << "Auto project name: " << autoProjectName ;
+    }
+
     if(this->findChild<QCheckBox *>("autoNPBox")->isChecked() == false){
         QString npTarget = this->findChild<QLineEdit *>("npTargetBox")->text();
        commandArgs << "-N";
        commandArgs << npTarget;
+
     }
 
-
+this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
     this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText(commandArgs.join(" ")+"\n");
+    this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
     this->processHandle.setWorkingDirectory(uaGlobalPath );
     processHandle.setProcessChannelMode(QProcess::MergedChannels) ;
 
     // connect(&processHandle, SIGNAL ( readyReadStandardOutput() )  , this,  SLOT( updateUABox() )        );
    //  connect(&processHandle, SIGNAL(finished(int, QProcess::ExitStatus) ), this, SLOT(uaDoneAlert(int, QProcess::ExitStatus)));
      this->findChild<QPushButton *>("runUAButton")->setDisabled(true);
+    this->findChild<QPushButton *>("cancelRunButton")->setDisabled(false);
     this->processHandle.start("python3", commandArgs) ;
 
     }
@@ -652,6 +748,49 @@ void MainWindow::on_loadPDBButton_clicked()
          //   qDebug() << " x0 now: " << QString::number( atom.x0 ) << "\n";
         }
      //   qDebug() << QString::number( atomList[0].x0 ) << "\n";
+
+      double shrinkwrapRadius = 0.2;
+      double npRadius = 5;
+        //then build the shrinkwrap layer for when this is shown
+     for(int j=0; j<36;++j){
+         for(int i=0; i<71;++i){
+             double phiVal = (2.5 +i*5)* 3.1415/180.0;
+             double thetaVal =(2.5 + j*5)* 3.1415/180.0;
+             double radius = 0.5;
+
+             double x0i = radius*cos(phiVal)*sin(thetaVal);
+             double y0i = radius*sin(phiVal)*sin(thetaVal);
+             double z0i = radius*cos(thetaVal);
+
+             //loop over all existing non-shrinkwrap atoms, calculate the place where the bead centre would need to be to be outside
+             for(auto& atom: atomList){
+                 if(atom.isShrinkWrap==false){
+
+                  double ri = sqrt( atom.x0*atom.x0 + atom.y0*atom.y0 + atom.z0 * atom.z0);
+                  double dotProduct = x0i*atom.x0 + y0i*atom.y0 + z0i*atom.z0 ;
+                  if(ri < 0.001){
+                      ri = 0.001;
+                      dotProduct = x0i*atom.x0 + y0i*atom.y0 + z0i*(atom.z0-0.01) ;
+                  }
+                  double inclAngle = acos(dotProduct/((ri)*(0.5) + 0.001 ));
+                  double rb = atom.radius  +shrinkwrapRadius;
+                  if(ri * sin(inclAngle) < rb  ){
+                      double radius1 = ri * cos(inclAngle) + sqrt(rb*rb - (ri * sin(inclAngle))*(ri * sin(inclAngle)) ) ;
+                      radius = std::max(radius,radius1 -  shrinkwrapRadius  );
+                  }
+                 }
+             }
+
+             double x = radius*cos(phiVal)*sin(thetaVal);
+             double y = radius*sin(phiVal)*sin(thetaVal);
+             double z = radius*cos(thetaVal);
+             Atom newAtom = Atom("sw",x,y,z,true,shrinkwrapRadius);
+             newAtom.orientationTheta =  thetaVal;
+             newAtom.orientationPhi = phiVal ;
+             atomList.emplace_back( newAtom) ;
+         }
+     }
+
 
 }
 }
@@ -769,7 +908,7 @@ void MainWindow::updateMoleculeBox(){
     }
 
     std::vector< std::vector<double> > plotObjects;
-
+    std::vector< std::vector<double> > shrinkwrapplotObjects;
 
     double currentPhi = this->findChild<QSpinBox *>("phiInputBox")->value() * 3.1415/180.0;
     double currentTheta = this->findChild<QSpinBox *>("thetaInputBox")->value() * 3.1415/180.0;
@@ -827,13 +966,19 @@ double colourParamMax = 0.01;
 
    //final pass: get the set of circles to plot, translating such that in the world-frame the molecule is above the NP and has its minimum point defined relative to the NP center at (0,0,0)
     for( auto& atom: atomList){
+
+        if( atom.isShrinkWrap == false || showEnergyShrinkWrap == true){
         double colourParam = atom.colourParam ;
         colourParamMin = std::min(colourParam,colourParamMin);
         colourParamMax = std::max(colourParam,colourParamMax);
-        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc - minz) + beadDelta ,0.5, colourParam} ;
+        double doOutLine = 1.0;
+        if(atom.isShrinkWrap == true){
+            doOutLine = 0.0;
+        }
+        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc - minz) + beadDelta ,atom.radius, colourParam, doOutLine} ;
         zMax = std::max( zMax, (atom.zc - minz) + beadDelta ); //get the maximum z-coordinate used to redefine the uppermost point for transformation to graphics co-ords
         plotObjects.emplace_back(  plotCircle );
-
+    }
 
     }
 
@@ -862,8 +1007,14 @@ for(const auto& pc: plotObjects){
  double zup =  zMax -pc[2]  - pc[3];
  double colourVal = ( colourParamMax - pc[4]   )/(0.01 +  colourParamMax - colourParamMin ) ;
  QBrush colourFill(  QColor(255*colourVal,0,0)  );
+ QPen colourPen(  QColor(255*colourVal,0,0)) ;
 
+if(pc[5] > 0.5){
  pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,outlinePen , colourFill);
+}
+else{
+     pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,colourPen , colourFill);
+}
 }
 
 double npLeft = -   npRadius;
@@ -954,6 +1105,7 @@ void MainWindow::checkForMaterials(){
 
 void MainWindow::on_colourBoltz_clicked()
 {
+    showEnergyShrinkWrap = false;
     calcBeadDistances();
         for( auto& atom: atomList){
             atom.colourParam = atom.dAv;
@@ -1102,13 +1254,32 @@ double zAbsMax = 0;
 
 void MainWindow::on_colourEnergy_clicked()
 {
-
-    for( auto& atom: atomList){
-        int i =(int)( (atom.orientationPhi*180.0/3.1415 - 2.5)/5.0);
-        int j = (int)( (atom.orientationTheta*180.0/3.1415- 2.5)/5.0);
-        qDebug() << QString::number(atom.orientationPhi*180.0/3.1415) << " mapped to " << QString::number(i) << "\n";
-        atom.colourParam = energyData[i][j];
+    double minEnergy =0;
+    double maxEnergy = 0.1;
+    for(int i=0;i<72;++i){
+        for(int j=0;j<36;++j){
+            minEnergy =std::min( energyData[i][j], minEnergy);
+            maxEnergy = std::max(energyData[i][j],maxEnergy);
+        }
     }
+
+    showEnergyShrinkWrap = true;
+    for( auto& atom: atomList){
+        int i =(int)( floor( (atom.orientationPhi*180.0/3.1415 )/5.0));
+        int j = (int)( floor((atom.orientationTheta*180.0/3.1415)/5.0));
+        i = std::max(0,i);
+        j = std::max(0,j);
+        i = std::min(71,i);
+        j = std::min(35,j);
+        //qDebug() << QString::number(atom.orientationPhi*180.0/3.1415) << " mapped to " << QString::number(i) << "\n";
+        atom.colourParam = 1.0 - (energyData[i][j] -maxEnergy)/(minEnergy - maxEnergy);
+
+            qDebug() << QString::number(energyData[i][j]) << " " <<QString::number(atom.colourParam) << "\n";
+
+    }
+
+
+
 updateMoleculeBox();
 }
 
@@ -1133,5 +1304,295 @@ void MainWindow::on_npTargetButton_clicked()
 {
     QString targetNPFile = QFileDialog::getOpenFileName(this, tr("NP File"),  this->uaGlobalPath,  tr("NP (*.np)"));
     this->findChild<QLineEdit *>("npTargetBox")->setText(targetNPFile);
+}
+
+
+void MainWindow::on_npcpModeBox_stateChanged(int arg1)
+{
+     // qDebug() << "Checkbox new state: " << QString::number(arg1) << "\n";
+
+    if (this->findChild<QCheckBox *>("npcpModeBox")->isChecked() == true){
+      //swap text over as needed
+         this->findChild<QPushButton *>("pdbTargetButton")->setText("Medium file");
+        this->findChild<QComboBox *>("npcpModeOptions")->setEnabled(true) ;
+
+    }
+    else{
+    this->findChild<QPushButton *>("pdbTargetButton")->setText("PDB Target");
+this->findChild<QComboBox *>("npcpModeOptions")->setEnabled(false) ;
+    }
+
+
+}
+
+
+void MainWindow::on_mediumEditTable_customContextMenuRequested(const QPoint &pos)
+{
+    //QModelIndex index = this->findChild<QTableWidget *>("mediumEditTable")->indexAt(pos);
+    tableMenu.popup( this->findChild<QTableWidget *>("mediumEditTable")->viewport()->mapToGlobal(pos)    ) ;
+    //qDebug() << index << "\n";
+}
+
+
+void MainWindow::addMoleculeToMedium(){
+QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+  blockMediumColouring=true;
+        tableWidget->insertRow ( tableWidget->rowCount() );
+        tableWidget->setItem   ( tableWidget->rowCount()-1,      0,  new QTableWidgetItem("NewMolecule"));
+                tableWidget->setItem   ( tableWidget->rowCount()-1,      1,  new QTableWidgetItem("0.0"));
+                  blockMediumColouring=false;
+
+    colourStructureRow(tableWidget->rowCount()-1)          ;
+
+}
+void MainWindow::removeMoleculeFromMedium(){
+
+     QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+   // int currentRow =this->findChild<QTableWidget *>("mediumEditTable")->currentRow();
+     int currentRow = tableWidget->currentRow();
+  blockMediumColouring=true;
+   // qDebug() << currentRow ;
+   // qDebug() << tableWidget->rowCount();
+    if(currentRow > -1 ){
+      //qDebug() << QString(currentRow) << " can be removed";
+      tableWidget->removeRow(currentRow);
+    }
+      blockMediumColouring=false;
+
+
+}
+
+void MainWindow::on_mediumNewButton_clicked()
+{
+    QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+    blockMediumColouring=true;
+    tableWidget->setRowCount(0);
+blockMediumColouring=false;
+}
+
+
+void MainWindow::on_mediumSaveButton_clicked()
+{
+    QString outputFile =   QFileDialog::getSaveFileName(this, tr("Medium CSV File"),uaGlobalPath ,  tr("Comma separated variable file (*.csv) "));
+if( !outputFile.endsWith(".csv")){
+ outputFile.append(".csv");
+}
+    QFile file(outputFile);
+    QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+
+
+       if(file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+           QTextStream fileOut(&file);
+           fileOut << "#MoleculeID,Concentration[mol/L]\n";
+          int numRows =  tableWidget->rowCount();
+         for(int i=0; i<numRows; ++i){
+
+
+             fileOut << tableWidget->item(i,0)->text() << "," << tableWidget->item(i,1)->text() << "\n";
+         }
+
+       }
+    file.close();
+}
+
+
+void MainWindow::on_mediumLoadButton_clicked()
+{
+    QString targetMediumFile = QFileDialog::getOpenFileName(this, tr("Medium File"),  this->uaGlobalPath,  tr("CSV (*.csv)"));
+     QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+     blockMediumColouring=true;
+     tableWidget->setRowCount(0);
+    QFile file(targetMediumFile);
+    if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QTextStream fileIn(&file);
+
+    while(!fileIn.atEnd()){
+        std::string lineIn = fileIn.readLine().toStdString();
+
+
+        if(lineIn.substr(0, 1) != "#") {
+            std::vector<std::string> results;
+             boost::split(results, lineIn, [](char c){return c == ',';});
+             //silicaquartz,surface/SiO2-Quartz,hamaker/SiO2_Quartz.dat,1
+             //qDebug() << QString::fromStdString(results[0]) << " " << QString::fromStdString(results[1]) << " " <<  QString::fromStdString(results[2] )<< "\n";
+             if(results.size()==2){
+            // materialTypes.emplace_back( MaterialType( QString::fromStdString(results[0])   , QString::fromStdString(results[1]) ,QString::fromStdString(results[2])     ) ) ;
+             //addBeadTypeMaterialBox->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2])) ;
+             //this->findChild<QComboBox *>("materialDropdown")->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2]))  ;
+
+                 tableWidget->insertRow ( tableWidget->rowCount() );
+                 tableWidget->setItem   ( tableWidget->rowCount()-1,      0,  new QTableWidgetItem(QString::fromStdString(results[0])));
+                 tableWidget->setItem   ( tableWidget->rowCount()-1,      1,  new QTableWidgetItem(QString::fromStdString(results[1])));
+
+
+             }
+
+        }
+    }
+
+
+}
+colourStructures();
+blockMediumColouring=false;
+}
+
+void MainWindow::on_cancelRunButton_clicked()
+{
+
+ processHandle.kill();
+    this->findChild<QPushButton *>("runUAButton")->setDisabled(false);
+   this->findChild<QPushButton *>("cancelRunButton")->setDisabled(true);
+
+}
+
+
+void MainWindow::on_checkStructureButton_clicked()
+{
+
+    QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+    int numRows =  tableWidget->rowCount();
+    for(int i=0; i<numRows; ++i){
+
+        QString pdbName = tableWidget->item(i,0)->text() ;
+
+
+
+         if(  !QFile::exists( uaGlobalPath+"/all_proteins/"+pdbName+".pdb")){
+
+
+             if(pdbName.size() ==4){
+                 //do PDB testing
+
+
+
+                 auto doPDBTest = QMessageBox::question(this, "Find PDB structure?", "No structure found for "+pdbName+". Check PDB?");
+
+                 if(doPDBTest == QMessageBox::Yes){
+                     //try to get from PDB, if so set foundStructure = true
+
+                     QUrl afPath("https://files.rcsb.org/download/" +pdbName+ ".pdb");
+                      MainWindow::startDownload( afPath) ;
+
+                 }
+
+
+
+             }
+             else{
+         auto doAFTest = QMessageBox::question(this, "Find AlphaFold structure?", "No structure found for "+pdbName+". Check AlphaFoldDB?");
+
+         if(doAFTest == QMessageBox::Yes){
+             //try to get from alphafold, if so set foundStructure = true
+             QUrl afPath("https://alphafold.ebi.ac.uk/files/AF-" +pdbName+ "-F1-model_v4.pdb");
+              MainWindow::startDownload( afPath) ;
+         }
+
+             }
+
+
+
+
+
+
+         }
+
+       colourStructureRow(i);
+    }
+
+
+       // colourStructures();
+
+}
+
+void MainWindow::startDownload(QUrl targetURL){
+
+
+networkManager.get(QNetworkRequest(targetURL));
+}
+
+
+void MainWindow::downloadReplyFinished(QNetworkReply *reply){
+//make all_proteins if needed
+
+    QString targetFile = reply->url().fileName();
+
+    QDir baseDir = QDir(uaGlobalPath);
+    baseDir.mkpath( "all_proteins");
+
+    if(reply->error()){
+    QMessageBox::warning(this, tr("UAQuickRun"),  "Failed to find structure for: "+targetFile+" \n"   );
+    }
+    else{
+
+
+    if( targetFile.size()!= 8  ){   //assume XXXX.pdb is from PDB and anything else is from AF
+        targetFile = targetFile.split("-")[1]+".pdb";
+    }
+
+    //save to file
+    QFile *saveFile = new QFile(uaGlobalPath+"/all_proteins/"+targetFile);
+    if(saveFile->open(QFile::Append)){
+        saveFile->write(reply->readAll());
+        saveFile->flush();
+        saveFile->close();
+    }
+      colourStructures();
+      QMessageBox::warning(this, tr("UAQuickRun"),  "Found structure for: "+targetFile+" \n"   );
+   delete saveFile;
+
+
+}
+
+
+    reply->deleteLater();
+}
+
+
+void MainWindow::colourStructures()
+{
+        QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+        int numRows =  tableWidget->rowCount();
+        for(int i=0; i<numRows; ++i){
+           colourStructureRow(i);
+        }
+
+}
+
+
+void MainWindow::colourStructureRow(int row)
+{
+        QTableWidget *tableWidget = this->findChild<QTableWidget *>("mediumEditTable") ;
+
+
+            QString pdbName = tableWidget->item(row,0)->text() ;
+             if(  QFile::exists( uaGlobalPath+"/all_proteins/"+pdbName+".pdb")){
+                 //qDebug() << " found pdb \n";
+                 tableWidget->item(row,0)->setData(Qt::BackgroundRole, QColor(175,255,175));
+                 tableWidget->item(row,1)->setData(Qt::BackgroundRole, QColor(175,255,175));
+             }
+             else{
+                 //qDebug() << " did not find pdb \n";
+                 tableWidget->item(row,0)->setData(Qt::BackgroundRole, QColor(255,175,175));
+                 tableWidget->item(row,1)->setData(Qt::BackgroundRole, QColor(255,175,175));
+
+             }
+
+
+}
+
+
+void MainWindow::on_mediumEditTable_cellChanged(int row, int column)
+{
+    if(blockMediumColouring==false){
+         colourStructureRow(row);
+    }
+
+}
+
+void MainWindow::on_mediumEditTable_currentCellChanged(int currentRow, int currentColumn, int previousRow, int previousColumn)
+{
+    if(blockMediumColouring==false){
+         colourStructureRow(currentRow);
+    }
 }
 

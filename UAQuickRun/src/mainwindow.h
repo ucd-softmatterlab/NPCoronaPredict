@@ -3,8 +3,11 @@
 
 #include <QMainWindow>
 #include <QProcess>
+#include <QMenu>
 #include <QGraphicsScene>
 #include "clickablescene.h"
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 class MaterialType{
 public:
@@ -38,8 +41,9 @@ public:
    double colourParam;
    double orientationPhi;
    double orientationTheta;
-
-    Atom( std::string nameIn, double x, double y, double z){
+   bool isShrinkWrap = false;
+   double radius = 0.5;
+    Atom( std::string nameIn, double x, double y, double z, bool swrap = false, double radiusIn = 0.5){
         atomName = nameIn;
         x0 = x;
         xc = x;
@@ -51,6 +55,9 @@ public:
         colourParam = 0.1;
         orientationPhi=0;
         orientationTheta=0;
+        isShrinkWrap = swrap;
+        radius = radiusIn;
+
     }
 };
 
@@ -78,10 +85,17 @@ public:
     QGraphicsScene pdbBarScene;
     QPixmap pdbScalePixmap;
 
+    QMenu tableMenu;
+
+    QNetworkAccessManager networkManager;
+
     double energyData[72][36] = {{0.0}} ;
     std::vector<Atom> atomList;
+    std::vector<Atom> shrinkwrapList;
     int uamBoxHeight = 1;
     int uamBoxWidth = 1;
+    bool showEnergyShrinkWrap = false;
+    bool blockMediumColouring = false;
 
 private slots:
     void on_loadUAMButton_clicked();
@@ -127,6 +141,32 @@ private slots:
     void on_autoNPBox_stateChanged(int arg1);
 
     void on_npTargetButton_clicked();
+
+    void on_npcpModeBox_stateChanged(int arg1);
+
+    void on_mediumEditTable_customContextMenuRequested(const QPoint &pos);
+
+    void addMoleculeToMedium();
+    void removeMoleculeFromMedium();
+
+    void on_mediumNewButton_clicked();
+
+    void on_mediumSaveButton_clicked();
+
+    void on_mediumLoadButton_clicked();
+
+    void on_cancelRunButton_clicked();
+
+    void on_checkStructureButton_clicked();
+    void colourStructures();
+    void colourStructureRow(int row);
+
+    void startDownload(QUrl targetURL);
+    void downloadReplyFinished( QNetworkReply *reply );
+
+    void on_mediumEditTable_cellChanged(int row, int column);
+
+    void on_mediumEditTable_currentCellChanged(int currentRow, int currentColumn, int previousRow, int previousColumn);
 
 private:
     Ui::MainWindow *ui;

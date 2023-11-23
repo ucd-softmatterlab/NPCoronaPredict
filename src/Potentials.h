@@ -40,7 +40,7 @@ public:
             return 0.0;
         }
         else if (r < m_start) {
-            return 200.0 + m_energy[npType][0];
+            return 200.0 * (m_start - r)*(m_start-r) + m_energy[npType][0];
         }
         const int       index  = static_cast<int>((r - m_start) * (potential_size - 1.0) / (m_cutoff - m_start)); 
         const double    factor = (r - m_start) / m_dr - index;
@@ -447,13 +447,20 @@ res = 0;
 
 double HamakerPotentialV2(const double A, const double R1, const double R2, const double r, const double cutoff) {
 
-  const double C  = r + R2; // Center to center distance
+  double C  = r + R2; // Center to center distance
 double re = cutoff;
 double d = C - R1 - R2;
 long double res = 0;
 //If re > min(r1,r2) then the potential should remain finite for all values of C, as there is no divergence. In practice the expression found here diverges for C < R2 even if this condition holds - this may be due to a geometrical issue with how the integral is performed. 
 if( C < std::min(R1,R2)){
-std::cout << "warning: overlap is too large! \n";
+//std::cout << "warning: overlap is too large! \n";
+//a safe C value is then min(R1,R2) + epsilon
+//C = r + R2 , so the safe value of r to use going forwards is C- R2
+
+//double hamakerNewCall = HamakerPotentialV2( A, R1, R2, r + R2+0.05, cutoff) ;
+//return hamakerNewCall;
+C = std::min(R1,R2)+0.01;
+d = C - R1-R2;
 } 
  
 int stepFunc1 = (d > re) ? 1:0;

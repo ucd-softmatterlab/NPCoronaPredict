@@ -26,7 +26,7 @@ if len( materialSet.keys() ) == 0:
         
 #print(materialSet)
 parser = argparse.ArgumentParser(description="Parameters for UA Config File Generation")
-parser.add_argument('--operation-type', required = True, choices = ['pdb' , 'pdb-folder'], type = str, help = 'Currently only \'pdb\' or pdb-folder are valid')
+parser.add_argument('--operation-type', default = "pdb-folder", choices = ['pdb' , 'pdb-folder'], type = str, help = 'Currently only \'pdb\' or pdb-folder are valid')
 parser.add_argument("-p","--input-file",  required=True, help="Path to protein PDB file")
 parser.add_argument("-r","--radius", type=float,help="NP radius [nm]", default = 5)
 parser.add_argument("-z","--zeta", type=float, help="NP zeta potential [V]", default = 0)
@@ -39,7 +39,7 @@ parser.add_argument("-T","--temperature", type=float, default=300.0, help="Nomin
 parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic strength in Mol (one-half * sum:conc*chargeSquared)")
 parser.add_argument("-n","--name",type=str,default="uaautorun",help="Output file name")
 parser.add_argument("-H","--hamaker",type=int,default=1,help="Enable Hamaker interaction (0 to disable, enabled by default)")
-parser.add_argument("-N","--nps",type=str,default="",help="NP target folder, leave blank for automatic generation from radius/zeta. If enabled this will override radius, zeta, material.")
+parser.add_argument("-N","--nps",type=str,default="",help="NP target [file/folder], leave blank for automatic generation from radius/zeta. If enabled this will override radius, zeta, material.")
 args = parser.parse_args()
 
 

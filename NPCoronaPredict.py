@@ -54,6 +54,8 @@ parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in
 parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
 parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
 parser.add_argument('-H','--hamaker',help="Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no", default = 1, type = int)
+parser.add_argument('-N','--npfile',help="Sets a target NP file for use in UA", default = "", type=str)
+parser.add_argument('-I','--inneroverride',help="For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use", default=-1,type=int)
 
 args = parser.parse_args()
 
@@ -74,21 +76,48 @@ enableHamaker = True
 if args.hamaker == 0:
     enableHamaker = False
 
-if NPMaterial == "":
-    print("Please set a material using the -m flag. Available materials are: ")
-    print(availableMaterials)
+setupFailed = False
+predefNP = False
+npName = "autonp"
+
+filenameRadius = NPRadius
+if args.inneroverride > 0:
+    filenameRadius = args.inneroverride
+    print("BCP will be told to look for .uam files with radius ", filenameRadius, " in the name.")
+
+if args.npfile != "":
+    print("Using custom NP file for UA input. Note that the radius given as input will be used for corona simulations, please check this is physically meaningful for your system. Passing default material anatase101.")
+    predefNP = True
+    #npName = args.npfile[:-3]
+    npName = (args.npfile.split("/")[-1])[:-3]
+    NPMaterial = "anatase101"
+else:
+    print("NP file will be auto generated")
+    if NPMaterial == "":
+        print("Please set a material using the -m flag. Available materials are: ")
+        print(availableMaterials)
+        setupFailed = True
+        #raise ValueError("End")
+    if NPMaterial not in availableMaterials :
+        print("Could not find material ", NPMaterial, " check the spelling. Available materials are: ")
+        print(availableMaterials)
+        setupFailed = True
+        #raise ValueError("End")
+
+if setupFailed == True:
     raise ValueError("End")
 
-if NPMaterial not in availableMaterials :
-    print("Could not find material ", NPMaterial, " check the spelling. Available materials are: ")
-    print(availableMaterials)
-    raise ValueError("End")
-
-if NPMaterial[-5:] == "-pmfp":
+if predefNP == False and NPMaterial[-5:] == "-pmfp":
     print("Auto-detected PMFPredictor output material, changing to extended bead set")
     CGBeadFile = "pmfp-beadsetdef/PMFP-BeadSet.csv"
 
-npShape=int(materialDefs[NPMaterial][3])
+if predefNP == False:
+    npShape=int(materialDefs[NPMaterial][3])
+else:
+    print("Predefined NP, assuming spherical. For cylindrical NPs you will need to run commands individually.")
+    npShape = 1
+    
+
 if npShape == 2 or  npShape == 4 or npShape == 5:
     isCylinder = True
     print("Enabling cylinder mode")
@@ -107,7 +136,10 @@ ProjectName = args.projectname
 ProteinStorageFolder = "all_proteins"
 ProteinWorkingFolder = BaseStorageFolder+"/"+ProjectName+"/proteins"
 UAResultsFolderBase =  BaseStorageFolder+"/"+ProjectName+"/results"
-UAResultsFolder = UAResultsFolderBase+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZeta))
+if predefNP == False:
+    UAResultsFolder = UAResultsFolderBase+"/np1R_"+str(round(NPRadius))+"_ZP_"+str(round(NPZeta))
+else:
+    UAResultsFolder = UAResultsFolderBase+"/"+ npName
 
 allFolders = [BaseStorageFolder,ProteinStorageFolder,ProteinWorkingFolder,UAResultsFolderBase,UAResultsFolder,"cg_corona_data"]
 for folderName in allFolders:
@@ -193,7 +225,7 @@ for proteinLine in AllProteins:
         print("Found "+proteinID+" in storage folder, copied to working")
         foundProtein = 1
     else:
-        if proteinSource=="AF" or proteinSource=="Other":
+        if proteinSource=="AF" :
             #download from AlphaFold
             try:
                 os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID+'-F1-model_v2.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
@@ -232,9 +264,15 @@ print("Suggested autorun command: ")
 
 UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)
 
+if predefNP == True:
+    #npName = args.npfile[:-3]
+    UACommandString += " -N " + args.npfile
+
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
+if args.inneroverride > 0:
+    BCPCommandString += " -I "+str(filenameRadius)
 KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)
 
 if isCylinder == True:

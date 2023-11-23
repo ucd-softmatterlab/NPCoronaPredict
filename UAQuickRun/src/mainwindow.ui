@@ -11,11 +11,11 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>UA Quick Run</string>
+   <string>UAQuickRun</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="horizontalLayout_8">
-    <item>
+   <layout class="QGridLayout" name="gridLayout_6">
+    <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout">
       <item row="1" column="0">
        <widget class="QTabWidget" name="tabWidget">
@@ -24,7 +24,7 @@
         </property>
         <widget class="QWidget" name="tab">
          <attribute name="title">
-          <string>UA Setup</string>
+          <string>Run</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_3">
           <item row="0" column="0">
@@ -62,6 +62,47 @@
                </size>
               </property>
              </spacer>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_14"/>
+            </item>
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_15">
+              <item>
+               <widget class="QCheckBox" name="npcpModeBox">
+                <property name="text">
+                 <string>Advanced mode (needs .csv medium file )</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QComboBox" name="npcpModeOptions">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <item>
+                 <property name="text">
+                  <string>Prepare only</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Prepare + UA</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Prepare + UA + BCP</string>
+                 </property>
+                </item>
+                <item>
+                 <property name="text">
+                  <string>Prepare + UA + BCP + KMC</string>
+                 </property>
+                </item>
+               </widget>
+              </item>
+             </layout>
             </item>
             <item>
              <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -275,6 +316,16 @@
                </widget>
               </item>
               <item>
+               <widget class="QPushButton" name="cancelRunButton">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="text">
+                 <string>Cancel run</string>
+                </property>
+               </widget>
+              </item>
+              <item>
                <spacer name="horizontalSpacer">
                 <property name="orientation">
                  <enum>Qt::Horizontal</enum>
@@ -288,22 +339,6 @@
                </spacer>
               </item>
              </layout>
-            </item>
-            <item>
-             <spacer name="verticalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Vertical</enum>
-              </property>
-              <property name="sizeType">
-               <enum>QSizePolicy::Fixed</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>20</width>
-                <height>40</height>
-               </size>
-              </property>
-             </spacer>
             </item>
             <item>
              <widget class="QPlainTextEdit" name="uaOutputBox">
@@ -321,7 +356,7 @@
         </widget>
         <widget class="QWidget" name="tab_2">
          <attribute name="title">
-          <string>View Results</string>
+          <string>View UA Results</string>
          </attribute>
          <layout class="QHBoxLayout" name="horizontalLayout_12">
           <item>
@@ -566,6 +601,88 @@
                </layout>
               </item>
              </layout>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="tab_3">
+         <attribute name="title">
+          <string>Molecule List Editor</string>
+         </attribute>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QTableWidget" name="mediumEditTable">
+            <property name="contextMenuPolicy">
+             <enum>Qt::CustomContextMenu</enum>
+            </property>
+            <attribute name="horizontalHeaderDefaultSectionSize">
+             <number>400</number>
+            </attribute>
+            <attribute name="horizontalHeaderStretchLastSection">
+             <bool>true</bool>
+            </attribute>
+            <column>
+             <property name="text">
+              <string>MoleculeID</string>
+             </property>
+            </column>
+            <column>
+             <property name="text">
+              <string>Concentration [mol/L]</string>
+             </property>
+            </column>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <layout class="QHBoxLayout" name="horizontalLayout_8">
+            <item>
+             <widget class="QLabel" name="label_11">
+              <property name="text">
+               <string>File locations: all_proteins/*.pdb</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="checkStructureButton">
+              <property name="text">
+               <string>Check Structures</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="horizontalSpacer_3">
+              <property name="orientation">
+               <enum>Qt::Horizontal</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="mediumNewButton">
+              <property name="text">
+               <string>New</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="mediumLoadButton">
+              <property name="text">
+               <string>Load</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="mediumSaveButton">
+              <property name="text">
+               <string>Save</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </item>
