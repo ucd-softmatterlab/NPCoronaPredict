@@ -9,6 +9,7 @@
 #include "addshell.h"
 #include "tipswindow.h"
 #include <random>
+#include <QMenu>
 
 class BeadType{
 public:
@@ -83,16 +84,18 @@ public:
     double npInnerRadius;
     double npOuterRadius;
     std::vector<int> knownBeadTypes;
-
+    QMenu npBeadTableMenu;
 private slots:
     void on_newBeadTypeButton_clicked();
     void on_newBeadButton_clicked();
     void on_newShellButton_clicked();
     void on_newBrushButton_clicked();
     void recieveNewNPBead( double x, double y, double z, int beadID, bool doUpdate);
-    void recieveNewNPBeadType( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn);
+    void recieveNewNPBeadTypeAuto( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn);
+    void recieveNewNPBeadType( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn, int beadTypeIDIn,bool doUpdate);
     void recieveNewShell(std::string hamakerFileIn, std::string surfaceDirIn, float   innerRadius, float outerRadius, float   surfacePotentialIn,  double ljCutoff);
     void recieveNewBrush(double brushOccupancy,double brushRadialDist, int beadTypeID, bool forceAttach);
+    void removeMultipleNPBeads();
     void updateBeadTypeTable();
     void updateBeadTable();
     double updateM(double m, int numPoints);
@@ -128,6 +131,8 @@ private slots:
     void on_loadMaterialSet_clicked();
 
     void on_uaPath_textEdited(const QString &arg1);
+
+    void on_beadTable_customContextMenuRequested(const QPoint &pos);
 
 private:
     Ui::MainWindow *ui;

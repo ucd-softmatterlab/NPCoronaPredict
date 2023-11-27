@@ -37,11 +37,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     connect(addBead, &AddBead::sendNewNPBead,this , &MainWindow::recieveNewNPBead);
-connect(addBeadType, &AddBeadType::sendNewNPBeadType,this , &MainWindow::recieveNewNPBeadType);
+connect(addBeadType, &AddBeadType::sendNewNPBeadType,this , &MainWindow::recieveNewNPBeadTypeAuto);
 connect(addShell, &AddShell::sendNewShell,this , &MainWindow::recieveNewShell);
 connect(addBrush, &AddBrush::sendNewBrush,this , &MainWindow::recieveNewBrush);
 QString currentPath = QDir::currentPath() ;
 currentPath = QDir::cleanPath(currentPath+"/../");
+
+QAction *removeSelectedBeads = new QAction("Remove multiple", this);
+npBeadTableMenu.addAction( removeSelectedBeads);
+connect(removeSelectedBeads,SIGNAL(triggered()), this, SLOT( removeMultipleNPBeads()));
 
 this->uaGlobalPath = currentPath;
 this->findChild<QLineEdit *>("uaPath")->setText(this->uaGlobalPath);
@@ -132,8 +136,18 @@ void MainWindow::recieveNewNPBead( double x, double y, double z, int beadTypeID,
 
 }
 
-void MainWindow::recieveNewNPBeadType( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn){
-    int newBeadID = beadTypes.size();
+void MainWindow::recieveNewNPBeadTypeAuto( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn){
+    recieveNewNPBeadType(hamakerFileIn,surfaceDirIn,radiusIn,surfacePotentialIn,surfFactorIn,coreFactorIn,ljCutoffIn,correctionOverrideIn,-1,true);
+}
+
+void MainWindow::recieveNewNPBeadType( std::string hamakerFileIn, std::string surfaceDirIn, float   radiusIn, float   surfacePotentialIn, float surfFactorIn, float coreFactorIn, float ljCutoffIn, int correctionOverrideIn, int beadTypeIDIn, bool doUpdate){
+    int newBeadID;
+    if(beadTypeIDIn == -1){
+    newBeadID = beadTypes.size();
+    }
+    else{
+        newBeadID = beadTypeIDIn;
+    }
     QDir uaDir(uaGlobalPath);
     /*
     std::string surfaceRelPath  = uaDir.relativeFilePath(QString::fromStdString(surfaceDirIn)).toStdString()  ;
@@ -145,14 +159,16 @@ void MainWindow::recieveNewNPBeadType( std::string hamakerFileIn, std::string su
 
     BeadType newNPBead(newBeadID  , hamakerRelPath, surfaceRelPath, radiusIn,  surfacePotentialIn, surfFactorIn, coreFactorIn, ljCutoffIn, correctionOverrideIn   );
     beadTypes.emplace_back(newNPBead);
+    if(doUpdate==true){
     updateBeadTypeTable( ) ;
+    }
 }
 
 void MainWindow::recieveNewShell(std::string hamakerFileIn, std::string surfaceDirIn, float   innerRadius, float outerRadius, float   surfacePotentialIn,  double ljCutoff){
      int newBeadTypeID = beadTypes.size();
-     recieveNewNPBeadType( hamakerFileIn , surfaceDirIn , outerRadius, surfacePotentialIn, 1.0, 1.0, ljCutoff, 1   ) ;
+     recieveNewNPBeadTypeAuto( hamakerFileIn , surfaceDirIn , outerRadius, surfacePotentialIn, 1.0, 1.0, ljCutoff, 1   ) ;
      recieveNewNPBead(0, 0, 0  , newBeadTypeID);
-     recieveNewNPBeadType( hamakerFileIn , surfaceDirIn , innerRadius, 0.0, -1.0, -1.0, ljCutoff, 1  ) ;
+     recieveNewNPBeadTypeAuto( hamakerFileIn , surfaceDirIn , innerRadius, 0.0, -1.0, -1.0, ljCutoff, 1  ) ;
      recieveNewNPBead(0, 0, 0  , newBeadTypeID+1);
 }
 
@@ -677,12 +693,16 @@ void MainWindow::on_updateTables_clicked()
 {
 //reset bead types, re-initialise from defined beads
     QTableWidget *beadTable = this->findChild<QTableWidget *>("beadTypeTable");
+     QTableWidget *npBeadTable = this->findChild<QTableWidget *>("beadTable");
+    float minRadius = 0.1;
+
+    /*
      for(int i = 0; i < (int)beadTypes.size(); ++i){
 
      beadTypes[i].surfaceDir = beadTable->item(i, 1)->data(0).toString().toStdString();
      beadTypes[i].hamakerFile = beadTable->item(i, 2)->data(0).toString().toStdString();
 
-     beadTypes[i].radius = beadTable->item(i, 3)->data(0).toFloat();
+     beadTypes[i].radius = std::max(minRadius, beadTable->item(i, 3)->data(0).toFloat() );
      beadTypes[i].surfacePotential = beadTable->item(i, 4)->data(0).toFloat();
       beadTypes[i].surfFactor = beadTable->item(i, 5)->data(0).toFloat();
      beadTypes[i].coreFactor = beadTable->item(i, 6)->data(0).toFloat();
@@ -693,7 +713,7 @@ void MainWindow::on_updateTables_clicked()
 
     //reset beads, re-initialise
     std::vector<int> popIndices;
-     QTableWidget *npBeadTable = this->findChild<QTableWidget *>("beadTable");
+     //QTableWidget *npBeadTable = this->findChild<QTableWidget *>("beadTable");
       for(int i = 0; i < (int)npBeads.size(); ++i){
 
 
@@ -712,8 +732,45 @@ void MainWindow::on_updateTables_clicked()
 
 
       }
+     */
+     beadTypes.clear();
+     npBeads.clear();
+    std::vector<int> popIndices;
+    int numBeadTypeTableRows = beadTable->rowCount();
+    int numNPBeadRows = npBeadTable->rowCount();
+
+     for(int i = 0; i < numBeadTypeTableRows; ++i){
+
+      int newBeadTypeID = beadTable->item(i, 0)->data(0).toInt();
+     std::string newSurfaceDir = beadTable->item(i, 1)->data(0).toString().toStdString();
+     std::string newHamakerFile = beadTable->item(i, 2)->data(0).toString().toStdString();
+
+     float newRadius = std::max(minRadius, beadTable->item(i, 3)->data(0).toFloat() );
+     float newSurfacePotential = beadTable->item(i, 4)->data(0).toFloat();
+      float newSurfFactor = beadTable->item(i, 5)->data(0).toFloat();
+     float newCoreFactor = beadTable->item(i, 6)->data(0).toFloat();
+   float newLjCutoffVal = beadTable->item(i, 7)->data(0).toFloat();
+   int newCorrectionOverride = beadTable->item(i, 8)->data(0).toInt();
+   recieveNewNPBeadType(newHamakerFile, newSurfaceDir, newRadius, newSurfacePotential, newSurfFactor,newCoreFactor,newLjCutoffVal, newCorrectionOverride,newBeadTypeID,false);
+
+     }
+
+     for(int i = 0; i < numNPBeadRows; ++i){
+
+     if(npBeadTable->item(i,4)->checkState() == Qt::Checked  ){
+         popIndices.insert(popIndices.begin(), i );
+     }
+     else{
+         recieveNewNPBead(  npBeadTable ->item(i, 1)->data(0).toFloat(), npBeadTable ->item(i, 2)->data(0).toFloat(), npBeadTable ->item(i, 3)->data(0).toFloat(), npBeadTable ->item(i, 0)->data(0).toInt(), false  );
+     }
+    }
+
+     for(const auto& delIndex: popIndices){
+      //npBeads.erase( npBeads.begin()+  delIndex);
+      npBeadTable->removeRow(delIndex);
 
 
+     }
      updateBindingRadii();
      //reset the view
      updateGraphicsWindow();
@@ -1070,5 +1127,24 @@ void MainWindow::on_loadMaterialSet_clicked()
 void MainWindow::on_uaPath_textEdited(const QString &uaDir)
 {
     this->uaGlobalPath = uaDir;
+}
+
+
+void MainWindow::on_beadTable_customContextMenuRequested(const QPoint &pos)
+{
+    npBeadTableMenu.popup( this->findChild<QTableWidget *>("beadTable")->viewport()->mapToGlobal(pos)    ) ;
+}
+
+void MainWindow::removeMultipleNPBeads(){
+    qDebug() << "removing multiple beads";
+    QTableWidget *npBeadTable =  this->findChild<QTableWidget *>("beadTable");
+    for(auto selectedItem: npBeadTable->selectedItems() ){
+     int targetRow = selectedItem->row();
+     if(targetRow > -1){
+        npBeadTable->item( targetRow, 4)-> setCheckState(Qt::Checked);
+     }
+    }
+
+    on_updateTables_clicked();
 }
 

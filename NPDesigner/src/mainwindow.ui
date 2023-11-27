@@ -40,6 +40,9 @@
       </item>
       <item row="0" column="4">
        <widget class="QTableWidget" name="beadTable">
+        <property name="contextMenuPolicy">
+         <enum>Qt::CustomContextMenu</enum>
+        </property>
         <property name="alternatingRowColors">
          <bool>true</bool>
         </property>
