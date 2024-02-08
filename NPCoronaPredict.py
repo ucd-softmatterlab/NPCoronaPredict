@@ -228,7 +228,7 @@ for proteinLine in AllProteins:
         if proteinSource=="AF" :
             #download from AlphaFold
             try:
-                os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID+'-F1-model_v2.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
+                os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID+'-F1-model_v4.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
                 os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3] +".pdb")
                 foundProtein = 1
             except:
