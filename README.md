@@ -1,9 +1,10 @@
 Please note: Some of the information below is outdated, for more up to date instructions please refer to the manuals included in the docs folder. A typical installation runs like:
 
 
-mkdir UnitedAtom
+mkdir NPCoronaPredict
+cd NPCoronaPredict
 git clone https://github.com/ucd-softmatterlab/NPCoronaPredict.git
-cd UnitedAtom
+cd NPCoronaPredict
 sudo apt install libboost-all-dev libboost-filesystem-dev wget perl parallel  
 sudo apt install build-essential libsqlite3-dev libpng-dev libjpeg-dev
 sudo apt install python3 python3-pip
