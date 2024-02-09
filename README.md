@@ -1,5 +1,27 @@
+Please note: Some of the information below is outdated, for more up to date instructions please refer to the manuals included in the docs folder. A typical installation runs like:
 
-####UNITED ATOM######
+
+mkdir UnitedAtom
+git clone https://github.com/ucd-softmatterlab/NPCoronaPredict.git
+cd UnitedAtom
+sudo apt install libboost-all-dev libboost-filesystem-dev wget perl parallel  
+sudo apt install build-essential libsqlite3-dev libpng-dev libjpeg-dev
+sudo apt install python3 python3-pip
+pip3 install numpy scipy matplotlib argparse Bio
+make clean
+make
+sudo apt install qtchooser qtbase5-dev qt5-qmake 
+cd UAQuickRun
+qmake -qt=qt5
+make
+cd ../NPDesigner
+qmake -qt=qt5
+make
+cd ../
+
+This will build the required executables including the grahpical interfaces, and ensure the majority of the Python libraries needed are installed.
+
+####UNITEDATOM######
 
 How to build:
 Install GCC and Boost with development headers (more detailed instructions to come). Also install python3, numpy, scipy and matplotlib as some of the tools use these.
