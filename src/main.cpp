@@ -38,8 +38,23 @@ constexpr double        kbConst       =  1.380649e-23;
 constexpr double        naConst       =  6.02214076e23; 
 
 
+
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
+
+//Define the version number to provide metadata, following the semantic versioning convention https://semver.org 
+//In brief: Increment the first number if UA is no longer backwards compatible, i.e. old input files won't work or the output files won't work with pre-existing scripts.
+//          Increment the second number if there's new functionality, e.g. new NP shapes, new output, etc.
+//          Increment the third number if no functionality has been modified but bug fixes have been applied which may change output.
+//When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
+
+std::string getUAVersion(){
+    static std::string uaVersionID("1.0.0"); 
+    return uaVersionID;
+}
+
+
+
 
 bool CheckForPrecalculated(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double radius,
         const double zeta, const std::string& name, const std::string& directory, const std::string& npName, int isMFPT=0, int appendAngle = 0, double omegaAngle=0) {
@@ -98,7 +113,10 @@ else{
     std::clog << "Info: Saving map to: "<< filename << "\n";
     std::ofstream handle(filename.c_str());
     double phi, theta;
-    handle << "#Results generated at: " << std::ctime(&end_time)  ;
+    std::string timestamp;
+    timestamp = std::ctime(&end_time);
+    timestamp.erase( timestamp.end() - 1);
+    handle << "#Results generated at: " << timestamp  << " using UA version: " << getUAVersion() << "\n";
     handle << "#" << npName << " - " << name << "\n";
     handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts\n"; 
     for (int i = 0; i < iterations; ++i) { 
