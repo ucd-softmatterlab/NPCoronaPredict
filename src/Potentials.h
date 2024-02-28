@@ -233,6 +233,16 @@ else{
        }
 
 
+        bool addShortRangeRepulsion = true;
+        if(addShortRangeRepulsion == true){
+        if(rstar < 0.1){
+        double wcaHS = pow(0.1/rstar, 12.0) - 1.0 ;
+        U += wcaHS;
+        }
+        
+        }
+
+
         if (config.m_enableSurface) {
             surface = surface_potential.Value(rstar, nanoparticleRadius, pmfCutoff,correctionTypeOverride);
             //std::cout << "bead type "<< j << " distance " << rstar << " surface " << surface << " scale: " << component_surfacePrefactor << "\n";
@@ -246,7 +256,7 @@ else{
             }
             else if(npShape == 2 || npShape == 5){ //cylinder, defined in CylinderPotential.h, applicable to solid cylinders and MWCNT
                 core = HamakerSphereCylinder(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
- }
+             }
             else if(npShape == 3){//cube, defined in CubePotential.h
                 core =  HamakerSphereCube(hamaker,aminoAcidRadius,nanoparticleRadius,rstar,pmfCutoff);
             }

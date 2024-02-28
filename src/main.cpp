@@ -42,6 +42,8 @@ constexpr double        naConst       =  6.02214076e23;
 std::random_device randomEngine;
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
+std::normal_distribution<double> unitNormalDist(0.0, 1.0);
+
 //Define the version number to provide metadata, following the semantic versioning convention https://semver.org 
 //In brief: Increment the first number if UA is no longer backwards compatible, i.e. old input files won't work or the output files won't work with pre-existing scripts.
 //          Increment the second number if there's new functionality, e.g. new NP shapes, new output, etc.
@@ -83,7 +85,11 @@ return (stat (filename.c_str(), &buffer) == 0);
 
 }
 
-void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double *numcontacts_val, const double radius,
+
+// minloc_val  gives the distance between the protein's COM and the surface of the NP, so the com_com min is minlocval + radius
+// surf-surf separation is minlocval -  protein_offset[i] 
+// and protein surf - np centre is minlocval + radius - protein_offset[i]
+void WriteMapFile(const double *adsorption_energy, const double *adsorption_error, const double *mfpt_val, const double *minloc_val, const double *numcontacts_val, const double *protein_offset, const double radius,
         const double zeta, const std::string& name, const std::string& directory,  const std::string& npName ,  double temperature=300.0,  int isMFPT=0, int appendAngle = 0, double omegaAngle=0) {
 std::string filename;
 std::string cylinderFileNameAppend;
@@ -118,7 +124,8 @@ else{
     timestamp.erase( timestamp.end() - 1);
     handle << "#Results generated at: " << timestamp  << " using UA version: " << getUAVersion() << "\n";
     handle << "#" << npName << " - " << name << "\n";
-    handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts\n"; 
+    handle << "#RADIUS: "<<radius<<"\n";
+    handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts min_COM_COM-dist/nm\n"; 
     for (int i = 0; i < iterations; ++i) { 
         phi   = (i % ncols) * 5.0;
         theta = (i / ncols) * 5.0;
@@ -132,19 +139,19 @@ else{
         
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_error[i];
 
-        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i];
+        handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i]  - protein_offset[i];
 
         handle << std::left << std::setw(14) << std::fixed << std::scientific << std::setprecision(5) << mfpt_val[i];
         
         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << adsorption_energy[i] * 300.0 * kbConst * naConst / 1000.0;
         
-                handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i] + radius;
+                handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i] + radius - protein_offset[i] ; //protein surface is at approx. -protein_offset, add radius to get to NP centre
 
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << omegaAngle;
         
         
          handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << numcontacts_val[i] ;
-
+         handle << std::left << std::setw(14) << std::fixed << std::setprecision(5) << minloc_val[i] + radius ; //minloc is np_surf to protein_com, so adjust for that
         handle << "\n";
     }
     handle.close();
@@ -246,8 +253,7 @@ double *x, double *y, double *z) {
 
 
 
-inline void JitterPDB (const int size, const double jitterMagnitude,const std::vector<double>& cx, const std::vector<double>& cy, const std::vector<double>& cz,
-double *x, double *y, double *z) {
+inline void JitterPDB (const int size, const double jitterMagnitude, double *x, double *y, double *z) {
 /*
     R[0][0] = std::cos(theta) * std::cos(phi) * std::cos(omega) - std::sin(omega) * std::sin(phi);
     R[0][1] = -1.0 * std::cos(theta) * std::sin(phi) * std::cos(omega) - std::cos(phi)*std::sin(omega);
@@ -259,12 +265,12 @@ double *x, double *y, double *z) {
     R[2][1] = std::sin(theta) * std::sin(phi);
     R[2][2] = std::cos(theta);
 */
-    std::normal_distribution<double> jitterDist(0.0, jitterMagnitude);
+    //std::normal_distribution<double> jitterDist(0.0, jitterMagnitude);
 
     for(int i = 0; i < size; ++i) {
-        x[i] = cx[i]  + jitterDist(randomEngine);
-        y[i] = cy[i] + jitterDist(randomEngine);
-        z[i] = cz[i] + jitterDist(randomEngine);
+        x[i] = x[i]  + unitNormalDist(randomEngine)*jitterMagnitude;
+        y[i] = y[i] + unitNormalDist(randomEngine)*jitterMagnitude;
+        z[i] = z[i] + unitNormalDist(randomEngine)*jitterMagnitude;
 
 
 
@@ -332,7 +338,8 @@ void Sum (const int size, double* result, double *arr) {
         *result += arr[i];
     }
 }
-//note that for this integration routine and all others, "ssd" is actually the distance between the centre of the NP and the closest point of the protein.
+//note that for this integration routine and all others, "ssd" was the distance between the centre of the NP and the closest point of the protein.
+//as of Feb 2024, it now refers to the COM-COM distance for consistency with small NPs/large biomolecules
 void Integrate(const int size, const double dz, const double init_energy, const double *energy, const double *ssd, double *adsorption,double temperature) {
     long double area = 0.0;
     double minEnergy = 500.0;
@@ -524,12 +531,12 @@ return distance;
 
 
 
-void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,  double *numcontacts_val,   double *numcontacts_err, const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
+void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,  double *numcontacts_val,   double *numcontacts_err,  double *protein_offset_val, double *protein_offset_err,  const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
 
-    // Decleare all variables at the begining . Integration runs from the start at the largest value of r and proceeds inwards to the stop value, nominally R_{NP}.
+    // Decleare all variables at the begining . Integration runs from the start at the largest value of r and proceeds inwards to the stop value
     const int               size            = pdb.m_id.size();
-    const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds; //gds = 0 and imaginary radius is unused so this should always just return radius (inner bounding radius)
-    const double            start           =  outerRadius + delta;  //stop + delta;
+    //const double            stop            = imaginary_radius < 0 ? radius + gds : imaginary_radius + gds; //gds = 0 and imaginary radius is unused so this should always just return radius (inner bounding radius)
+    
 
     int                     i;
     int                     j;
@@ -542,18 +549,19 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
     double                  init_energy;
     double                  distance;
     double                  ssd;
-
+    double                  rcc; //R com-com distance
      
-    
+    double stop = radius;
     double x[size];
     double y[size];
     double z[size];
-    double actualDZ = (start - stop)/(steps-1);
+    
     double total_energy[steps];
     double SSD[steps];
     double sample_energy[samples];
     double sample_mfpt[samples];
     double sample_minloc[samples];
+    double sample_proteinoffset[samples];
     double sample_numcontacts[samples];
     double closestSCD[size]; //closest allowed NP_nominal_surface to aa_centre distance allowed for each AA
    //NP component properties are looked up via e.g.: np.m_radius[m_npBeadType[j]]
@@ -577,11 +585,10 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
            double cylinderAngle = cylinderAngleDeg * M_PI/180.0;
 
 
-
 	    // Sample a angle multiple times.The sample = samples run is not included in averaging but instead used to generate output potentials  
         for (int sample = 0; sample < samples+1 ; ++sample) {
   //         double cylinderAngle = 90 * M_PI/180.0;
-
+             //std::cout << sample << "/" << samples << "\n";
     	    // Rotation step - random sampling is enabled if the number of samples to generate is > 1. If not, it just calculates it at the bin center
 
             if(sample <  samples){
@@ -595,18 +602,149 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
               }
 
             Rotate3(size, phi_adjusted, theta_adjusted,cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
-            //JitterPDB(size, 0.1, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z );
+            /*
+            if(config.m_pdbJitterMag > 0.0){
+            JitterPDB(size, config.m_pdbJitterMag, x, y, z, x, y, z );
+             }
+            */
+            //Prepare the initial offset of the protein.
+            //There are three modes for finding the minimum value of R
+            //1) Classic mode ( config.m_zshiftToPlane == true) - the closest approach is defined by the plane of the lowest z-coordinate. this gives odd results for elongated proteins.
+            //2) Regular mode ( config.m_enableFullScan = false, m_zshiftToPlane == false) - put the protein at infinity, move it inwards until first contact (bead centre to NP radius), the R value at which this occurs is RMin = stop.
+            //3) Full-scan mode (config.m_enableFullScan = true, m_zshiftToPlane == false) - put the protein's COM on the surface of the NP, move outwards until no overlap. 
+            
+            //For each of these, we must find a suitable closest approach RStop = NPRadius + appliedOffset to shift the protein COM to the correct position for the above case
+            //classic mode: RStop = NPRadius - min(z) -> appliedOffset = -min(z)
+            //regular mode: 
+            //full-scan mode: 
+            
+            double finalRDelta = delta;
+            double currentOffset  = 0;  // -1.0 * (  *std::max_element(z, z + size) );
+            double appliedOffset = 0.0; //store the offset applied in the z-direction relative to the COM
+            bool shiftToSeparation = true; //this should only be set to false if you want to test for compatability with old-style UA
+            bool scanFullProtein = config.m_enableFullScan; //if true (this will be settable via config file) then the start/stop parameters are set to ensure the full protein gets scanned. make sure there is a repulsive potential.
+            bool foundShift = false;
+            double beadDelta = 0.01;
+            int xfactor = 1; //used to define if x/y contribute to the distance
+            int yfactor = 1;
+            if(npType == 2 || npType == 4 || npType==5){
+            xfactor = 0;
+            }
+            if(npType == 3){
+            xfactor = 0;
+            yfactor = 0;
+            }
 
+            double rClosest = radius;
+            if(config.m_zshiftToPlane==true){
+            scanFullProtein = false;
+            shiftToSeparation =  false;
 
-            // Convert to SSD except because this doesn't take into account the radius of the AA bead it's really the distance from the surface of the NP to the centre of the closest AA bead.
-            //After this, the minimum z-coordinate of the protein is equal to zero.
-            //the NP is also defined with its centre at 0,0,0 so make sure that all distance calculations properly offset the protein first by adding start or ssd as appropriate
-            ShiftZ(size, z);
+            }
+      
+      
+            
+            double currentRCOM0 = 0;
 
+            //Next apply a further shift so that the protein can get closer for small NPs, long proteins or concave proteins for which the zmin plane results in a large distance from the NP
+            //the algorithm: for each bead, compute the vertical distance necessary to bring that bead into contact with the NP (distSq < 0 implies no shift will achieve this)
+            if(shiftToSeparation == true){
+            for( i = 0; i < size; ++i){
+             double distSq =  (radius + beadDelta)*(radius + beadDelta)   - (xfactor* x[i]*x[i] + yfactor*y[i]*y[i] );
+            double dzNeededI = 0;
+             
+             
+            if(distSq >0){
+            
+            
+            if(scanFullProtein == true){
+            double dz1 = - std::sqrt(distSq) - z[i] ; 
+            double dz2 =   std::sqrt(distSq) - z[i] ; 
+            double newRCOM0 = 0;
+            if(dz1 > 0){
+            newRCOM0 = dz1;
+            }
+            else{
+            if(dz2 > 0){
+            newRCOM0 = dz2;
+            }
+            
+            }
+            
+            //check to see if the bead is outside the NP radius anyway in which case we just skip it
+            if( xfactor*x[i]*x[i] + yfactor*y[i]*y[i] + z[i]*z[i] > radius*radius){
+            newRCOM0 = 0;
+            }
+            
+            currentRCOM0 = std::max( currentRCOM0, newRCOM0);
+            currentOffset = currentRCOM0 - radius;
+            
+            
+            
+            }
+            
+            
+            else{
+            dzNeededI = std::sqrt( distSq) -( z[i] + radius ) ; 
+            currentOffset = std::max(currentOffset, dzNeededI);
+            }
+            
+            foundShift = true;
 
+            }
+            
+            
+            }
+            
+            if(foundShift == false){
+            //std::cout << "No distance could be found to bring the protein in contact \n";
+            //std::cout << phi << " " << theta << "\n";
+            currentOffset = 0.0;
+            }
+            
+
+            //next find how far it has to move outwards to bring all beads sufficiently far
+            for( i = 0; i < size; ++i){
+            
+            //apply offset and calculate how much further the bead will need to translate along the z direction so that all beads are at least 2nm away along the z axis
+            
+            //z[i] = z[i] + currentOffset;
+            
+            double trialDelta = delta;
+           
+            double deltaTermSq =  delta*delta + 2*delta*radius + radius*radius ;
+            if(deltaTermSq>0){
+                trialDelta = std::sqrt(deltaTermSq) - (z[i]+currentOffset) - radius;
+            }
+            finalRDelta = std::max( trialDelta, finalRDelta); //this will be at least delta(=2 by default), possibly greater to allow the protein to move further.
+             
+            
+            }
+            appliedOffset = currentOffset;
+            }
+            else{
+            appliedOffset = -1.0 * (*std::min_element(z, z + size));   //classic mode: RCC at closest approach will be the radius of the NP + half the protein vertical width
+            
+            //ShiftZ(size, z);
+            }
+
+            //std::cout << "Sample " << sample << " of " << samples  << " set offset to: " <<appliedOffset << "\n";
+            //finalRDelta = delta - (*std::min_element(z,z+size)) ; 
             //Find the closest approach
             
-       
+            
+            finalRDelta = delta  -1.0 * (*std::min_element(z,z+size));
+            
+            
+          
+
+
+
+           //appliedOffset = currentRCOM0 - radius;
+           double rInner = radius + appliedOffset;
+           double rOuter = outerRadius + finalRDelta;
+        //  std::cout << rInner << " " << rOuter << "\n";
+            //this overlap code is augmented by the WCA potential and is needed only if the NP potential is summed over initially
             
             for( i = 0; i< size; ++i){ //loop over AA beads
              double closestAllowedSSD = 0;
@@ -647,6 +785,15 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
            }
            
            }
+           
+           
+           
+           
+           //once we've established the protein offset, define the "start" location, i.e. the outermost r value
+           double            start           =  rOuter;  //stop + delta;
+           double            stop            = rInner;
+           double actualDZ = (start - stop)/(steps-1);
+           
               //x,y no longer squared
             
             init_energy = 0.0;
@@ -675,9 +822,6 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
 
               //find the distance of closest approach
 
-  
-
-
 
 
          }             
@@ -696,10 +840,12 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             int resHasContacted = 0;
 
             for (i = 0; i < steps; ++i) {
-                ssd     = start - i * actualDZ;
+                rcc     = start - i * actualDZ; //was SSD 
+               // std::cout << rcc << "\n";
+                
                 energy  = 0;
                  numContactsAtStep = 0;
-                //loop over each residue. loop variables: i = ssd index, j = residue index
+                //loop over each residue. loop variables: i = R index, j = residue index. The ssd value itself is given by the radius of the NP plus an offset distance of i*dz
                 for (j = 0; j < size; ++j) {
                resHasContacted = 0;
  
@@ -709,11 +855,10 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                     for(k = 0; k<numNPBeadSummation; ++k) {
               //distance is AA centre to NP (Nominal) surface
                             if(config.m_sumNPPotentials == false){
-              distance = getDistance3D(x[j],y[j],z[j] + ssd,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              distance = getDistance3D(x[j],y[j],z[j] + rcc,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
               }
               else{
-              distance = getDistance3D(x[j],y[j],z[j] + ssd,  0 , 0 , 0 , radius,npType);
-              
+              distance = getDistance3D(x[j],y[j],z[j] + rcc,  0 , 0 , 0 , radius,npType);
               
               
                              if(distance < closestSCD[j]){
@@ -724,11 +869,16 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
               
               }
 
-               if(distance < 0.5){
+               if(distance < 0.5){ //count close-range interactions for later summary statistics
                resHasContacted = 1;
                }
 
-                energy +=  pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
+                double noiseEnergy =   pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
+                if(config.m_potNoiseMag > 0){
+                 noiseEnergy +=     unitNormalDist(randomEngine)*  (  std::min( std::fabs(noiseEnergy*0.1) , config.m_potNoiseMag)); //gaussian noise with zero mean and magnitude of 10% of the energy or the value specified in the config file, whichever is smaller
+                }
+                energy += noiseEnergy;
+                
                  if(std::isnan(pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance, np.m_npBeadType[k] )))){
                   std::cout << "NaN generated by res. " << j << " type: "  << pdb.m_id[j]  <<   " at " << distance << "with NP bead " << k << " of type " << np.m_npBeadType[k] << "\n";
                     }
@@ -740,14 +890,14 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 
                 }
                 
-                SSD[i]          = ssd;
+                SSD[i]          = rcc;
                 total_energy[i] = energy;
-
-               //std::cout << SSD[i] << " " << total_energy[i] << "\n";
+    
+               //std::cout << theta*180/M_PI<< " " << phi*180/M_PI << " " << SSD[i] << " " << total_energy[i] << "\n";
 
                if(energy < minEnergy){
                minEnergy = energy;
-               minLoc = ssd;
+               minLoc = rcc;
                numContactsAtMin = numContactsAtStep;
                }
 
@@ -769,17 +919,21 @@ cylinderFileNameAppend = "";
   //std::cout<<phi << " " << theta << "\n";
           filename = outputdirectory + "/" + npName + "/"+ pdbname + "_"+std::to_string(static_cast<int>(radius)) + "_" + std::to_string(static_cast<int>(1000 * zeta))+ "_" + std::to_string(static_cast<int>(phi*180/M_PI))+ "_" + std::to_string(static_cast<int>(theta*180/M_PI))+ cylinderFileNameAppend  +".uap";
     std::ofstream handle(filename.c_str());
-             handle<<"#ssd,E(kbT)\n";
+             handle<<"#rcc,E(kbT)\n";
             for (i = 0; i < steps; ++i) {
-                handle << (SSD[i] - radius) << ", " << total_energy[i] << "\n";
+                handle << (SSD[i] ) << ", " << total_energy[i] << "\n";
             }
     handle.close();
 }
           continue;
           }
 
-           sample_minloc[sample] = minLoc - radius;
+
+
+           sample_minloc[sample] = minLoc - radius; //this gives the distance between the protein's COM and the surface of the NP
            sample_numcontacts[sample] = numContactsAtMin;
+           sample_proteinoffset[sample] =  appliedOffset;
+
          /*   for (i = 0; i < steps; ++i) {
                 std::cout << (SSD[i] - radius) << " " << total_energy[i] << "\n"; 
             }*/
@@ -818,7 +972,7 @@ cylinderFileNameAppend = "";
         MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
          MeanAndSD(samples, &(minloc_val[angle_offset + angle]), &(minloc_err[angle_offset + angle]), sample_minloc);
         MeanAndSD(samples, &(numcontacts_val[angle_offset + angle]), &(numcontacts_err[angle_offset + angle]), sample_numcontacts);
-
+         MeanAndSD(samples, &(protein_offset_val[angle_offset + angle]), &(protein_offset_err[angle_offset + angle]), sample_proteinoffset);
  
     }
 }
@@ -834,7 +988,8 @@ void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta
         double mfpt_err[iterations] = {};
    double minloc_val[iterations] = {};
    double minloc_err[iterations] = {};
-   
+      double protein_offset_val[iterations] = {};
+   double protein_offset_err[iterations] = {};
     double numcontacts_val[iterations] = {};
    double numcontacts_err[iterations] = {};  
    
@@ -853,7 +1008,7 @@ int appendAngle = 0;
     }
     else{
     #ifdef PARALLEL  
-    const int n_threads         =   omp_get_max_threads();
+    const int n_threads         =    omp_get_max_threads();
     #else
     const int n_threads         = 1;
     #endif
@@ -887,6 +1042,8 @@ int appendAngle = 0;
                     minloc_err,
                     numcontacts_val,
                     numcontacts_err,
+                    protein_offset_val,
+                    protein_offset_err,
                     pdb.m_name,
                     config.m_outputDirectory,
                     np.m_name,
@@ -905,7 +1062,7 @@ int appendAngle = 0;
     
 
   
-    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val, numcontacts_val, radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,appendAngle,omegaAngle); 
+    WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val, numcontacts_val, protein_offset_val, radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,appendAngle,omegaAngle); 
     //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
     

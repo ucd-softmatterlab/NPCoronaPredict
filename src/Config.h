@@ -14,6 +14,8 @@ public: // Switches
     bool        m_enableCore            = false;
     bool        m_enableElectrostatic   = false;
     bool	m_sumNPPotentials    = true;
+    bool        m_enableFullScan     = false;
+    bool        m_zshiftToPlane = false;
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -54,8 +56,8 @@ public: // Key - vaules
   //For physical proteins see e.g. https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-018-2083-8 for a discussion of what a>
   double m_disorderMinBound = -5; //b-factors less than this value are not recognised as disordered
   double m_disorderMaxBound = 50; //b-factors greater than this value are not recognised as disordered.
-
-
+  double m_pdbJitterMag = 0.0; //set the magnitude for PDB jittering in nanometers [recommended < 0.1 nm] 
+  double m_potNoiseMag = 0.0;
 
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
@@ -71,6 +73,13 @@ public:
             }
             else if(switches[i] == "disable-np-summation"){
             m_sumNPPotentials = false;
+            }
+            else if(switches[i] == "enable-fullscan"){
+            m_enableFullScan = true;
+            }
+            else if(switches[i] == "disable-protein-smartzshift"){
+            std::cout << "Warning: disable-protein-smartzshift should not be used for production runs and is provided only for testing purposes.\n" ;
+            m_zshiftToPlane = true;
             }
             else {
                 std::cerr << "Error: Unknown switch statment '" << switches[i] << "\n'";
@@ -209,8 +218,12 @@ public:
             else if(keys[i] == "disorder-maxbound"){
             m_disorderMaxBound = AsDouble(values[i]);
             }
-
-
+            else if(keys[i] == "pdb-jitter-magnitude"){
+            m_pdbJitterMag = AsDouble(values[i]);
+            }
+            else if(keys[i] == "potential-noise-magnitude"){
+            m_potNoiseMag = AsDouble(values[i]);
+            }
             else if (keys[i] == "np-type") {
                 std::cout << "npType " << values[i] << "\n";
                 int trialVal =  AsInt(values[i]);

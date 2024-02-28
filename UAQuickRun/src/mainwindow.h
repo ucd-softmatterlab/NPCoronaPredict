@@ -92,6 +92,7 @@ public:
     QString lastUAMPath = "";
 
     double energyData[72][36] = {{0.0}} ;
+    double comData[72][36] = {{-1.0}} ;
     std::vector<Atom> atomList;
     std::vector<Atom> shrinkwrapList;
     int uamBoxHeight = 1;
@@ -130,6 +131,7 @@ private slots:
     void checkForMaterials();
     void loadMaterials(QString materialFile, bool doAlert);
     void calcBeadDistances(bool doRotate);
+    void calcBeadBoltzDistances(bool doRotate);
 
 
     void on_colourBoltz_clicked();
@@ -169,6 +171,12 @@ private slots:
     void on_mediumEditTable_cellChanged(int row, int column);
 
     void on_mediumEditTable_currentCellChanged(int currentRow, int currentColumn, int previousRow, int previousColumn);
+
+    void on_showCOMBox_stateChanged(int arg1);
+
+    void on_opacitySlider_sliderMoved(int position);
+
+    void on_opacitySlider_valueChanged(int value);
 
 private:
     Ui::MainWindow *ui;

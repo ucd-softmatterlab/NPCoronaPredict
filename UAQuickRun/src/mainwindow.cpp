@@ -103,7 +103,7 @@ void MainWindow::on_loadUAMButton_clicked()
    double minPhiVal = 1;
    double minThetaVal = 1;
     QString targetUAMFileBasePath = this->findChild<QLineEdit *>("resultFolderBox")->text();
-
+double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
     if(lastUAMPath != ""){
         targetUAMFileBasePath = lastUAMPath;
     }
@@ -117,11 +117,11 @@ void MainWindow::on_loadUAMButton_clicked()
         QTextStream fileIn(&file);
         QFileInfo fileInfo(targetUAMFile);
         QString assumedPDBName = fileInfo.fileName().split("_")[0];
-        qDebug() << fileInfo.fileName();
-        qDebug() << assumedPDBName;
+        //qDebug() << fileInfo.fileName();
+        //qDebug() << assumedPDBName;
         QString trialPDBPath = uaGlobalPath+"/all_proteins/"+assumedPDBName+".pdb";
         //attempt 1 - test directly in all_proteins
-           qDebug() << "first trial: " << trialPDBPath;
+         //  qDebug() << "first trial: " << trialPDBPath;
         if( QFile::exists(trialPDBPath) ){
 
         this->findChild<QLineEdit *>("loadPDBBox")->setText(trialPDBPath);
@@ -131,7 +131,7 @@ void MainWindow::on_loadUAMButton_clicked()
             QString uamFileDir = QFileInfo( targetUAMFile ).absolutePath() ;
 
             trialPDBPath = uamFileDir+"/../../proteins/"+assumedPDBName+".pdb";
-            qDebug() << "second trial: " << trialPDBPath;
+           // qDebug() << "second trial: " << trialPDBPath;
             if( QFile::exists(trialPDBPath) ){
             this->findChild<QLineEdit *>("loadPDBBox")->setText(trialPDBPath);
             }
@@ -139,9 +139,23 @@ void MainWindow::on_loadUAMButton_clicked()
         this->statusBar()->showMessage("Loading UAM");
         double minEnergy = 0;
         double maxEnergy = 1;
+        double foundRadius = -1;
         //load in the data
         while(!fileIn.atEnd()){
             std::string lineIn = fileIn.readLine().toStdString();
+            //extra processing for metadata contained in the comments section
+            if(lineIn.substr(0,1) == "#"){
+              if(lineIn.substr(0,8) == "#RADIUS:"){
+              foundRadius = std::stod( lineIn.substr(9) );
+              //qDebug() << "extracted radius: " << foundRadius << "\n";
+
+              if(foundRadius > 0){
+                  this->findChild<QSpinBox *>("npViewRadius")->setValue( (int)round(foundRadius) );
+              }
+
+              }
+            }
+
             if(lineIn.substr(0,1) !="#" && lineIn.length() > 5) {
 
                 std::vector<std::string> results;
@@ -159,6 +173,13 @@ void MainWindow::on_loadUAMButton_clicked()
         simpleAverageDenom += sinTheta;
         boltzAverageDenom += sinTheta*exp(-energyVal/kbtVal);
         energyData[phiIndex][thetaIndex] = energyVal;
+
+        double comVal = -1.0; //use this as an error value to tell the plotting routine it needs to estimate an offset
+        if( results.size() > 10){
+            comVal = std::stod( results[10]);
+        }
+        comData[phiIndex][thetaIndex] = comVal;
+
 
         if(energyVal < minEnergy){
             minEnergy = energyVal;
@@ -405,9 +426,13 @@ void MainWindow::updateEnergyBox(){
 
     double foundEnergy = energyData[closestI][closestJ];
     this->findChild<QLineEdit *>("energyOutBox")->setText(QString::number(foundEnergy)) ;
-
-
-
+    double foundCOM =  comData[closestI][closestJ];
+    if(foundCOM > 0){
+       this->findChild<QLineEdit *>("comDistOutBox")->setText(QString::number(foundCOM)) ;
+    }
+    else{
+         this->findChild<QLineEdit *>("comDistOutBox")->setText("?") ;
+    }
 
 }
 
@@ -822,7 +847,7 @@ updateMoleculeBox();
 }
 
 void MainWindow::calcBeadDistances(bool doRotate = false){
-    //for each bead, calculate its boltzmann-weighted distance to the surface of the NP
+    //for each bead, calculate its distance to the surface of the NP in the current phi, theta configuration
 
     double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
     double beadDelta = 0.5 + 0.2 + npRadius ;
@@ -839,19 +864,30 @@ void MainWindow::calcBeadDistances(bool doRotate = false){
            atom.dAvn = 0;
            atom.dAvd = 0.000001;
        }
-//for loop i for loop j
+       double targetPhiVal =( this->findChild<QSpinBox *>("phiInputBox")->value()   );
+       double targetThetaVal = this->findChild<QSpinBox *>("thetaInputBox")->value();
+       double deltaVal = 5.0;
 
-    int i = 2;
-    int j = 3;
-
-    for( i = 0; i<72;++i){
-        for(j = 0; j<36;++j){
-
-
+    int closestI = (int)floor( (targetPhiVal)/deltaVal ) ;
+    int closestJ =(int)floor( (targetThetaVal)/deltaVal ) ;
+    if(closestI > 71){
+        closestI = 0;
+    }
+    if(closestJ > 35){
+        closestJ = 35;
+    }
+    int i = closestI;
+    int j = closestJ;
 
     double currentPhi = (  i*5 + 2.5)* 3.1415/180.0;
     double currentTheta = (j*5 + 2.5)* 3.1415/180.0;
+
+
+
     double energyVal = energyData[i][j];
+    double comVal = comData[i][j];
+
+
     double p = -1.0*currentPhi;
     double t = 3.1415 - currentTheta;
     double omega = this->findChild<QDial *>("omegaDial")->value() * 3.1415/180.0;
@@ -898,7 +934,120 @@ double zAbsMax = 0;
 //third pass: get the distance to the NP for this orientation
 
     for( auto& atom: atomList){
+
+
         double zOffset = atom.zc2 -minz + beadDelta;
+        if(comVal > -1.0){
+            zOffset = atom.zc2 + comVal;
+        }
+
+     double beadDist = sqrt( atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
+     atom.dAvn += beadDist * exp(-energyVal)*std::sin(currentTheta);
+     atom.dAvd += exp(-energyVal)*std::sin(currentTheta);
+
+    }
+
+
+
+
+    //final pass: set the average distance
+
+    for( auto& atom: atomList){
+     atom.dAv = atom.dAvn / (atom.dAvd + 0.01);
+     atom.colourParam = atom.dAv;
+    }
+ this->statusBar()->showMessage("Distances calculated");
+    updateMoleculeBox();
+}
+
+
+void MainWindow::calcBeadBoltzDistances(bool doRotate = false){
+    //for each bead, calculate its boltzmann-weighted distance to the surface of the NP
+
+    double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
+    double beadDelta = 0.5 + 0.2 + npRadius ;
+
+    this->statusBar()->showMessage("Beginning distance calculation");
+
+
+     //first pass: initialise the working variables
+       for( auto& atom: atomList){
+           atom.xc2 = atom.x0;
+           atom.yc2 = atom.y0;
+           atom.zc2 = atom.z0;
+           atom.dAv = 0;
+           atom.dAvn = 0;
+           atom.dAvd = 0.000001;
+       }
+//for loop i for loop j
+
+    int i = 2;
+    int j = 3;
+
+    for( i = 0; i<72;++i){
+        for(j = 0; j<36;++j){
+
+
+
+    double currentPhi = (  i*5 + 2.5)* 3.1415/180.0;
+    double currentTheta = (j*5 + 2.5)* 3.1415/180.0;
+    double energyVal = energyData[i][j];
+    double comVal = comData[i][j];
+
+
+    double p = -1.0*currentPhi;
+    double t = 3.1415 - currentTheta;
+    double omega = this->findChild<QDial *>("omegaDial")->value() * 3.1415/180.0;
+    double extent = 1;
+    double minz = 0;
+
+     double rotateMatrix[3][3];
+     rotateMatrix[0][0] = std::cos(t) * std::cos(p) * std::cos(omega) - std::sin(omega) * std::sin(p);
+     rotateMatrix[0][1] = -1.0 * std::cos(t) * std::sin(p) * std::cos(omega) - std::cos(p)*std::sin(omega);
+     rotateMatrix[0][2] = std::sin(t)*std::cos(omega);
+     rotateMatrix[1][0] = std::sin(p)*std::cos(omega) + std::cos(p) * std::cos(t)*std::sin(omega);
+     rotateMatrix[1][1] = std::cos(p)*std::cos(omega) - std::cos(t)*std::sin(omega)*std::sin(p);
+     rotateMatrix[1][2] = std::sin(omega) * std::sin(t);
+     rotateMatrix[2][0] = -1.0 * std::sin(t) * std::cos(p);
+     rotateMatrix[2][1] = std::sin(t) * std::sin(p);
+     rotateMatrix[2][2] = std::cos(t);
+
+
+double xAbsMax = 0;
+double yAbsMax = 0;
+double zAbsMax = 0;
+
+
+//second pass: rotate the biomolecule and store its coordinates
+
+
+    for( auto& atom: atomList){
+
+        double xc = atom.x0*rotateMatrix[0][0] + atom.y0 * rotateMatrix[0][1] + atom.z0 * rotateMatrix[0][2];
+        double yc = atom.x0*rotateMatrix[1][0] + atom.y0 *rotateMatrix[1][1] + atom.z0 * rotateMatrix[1][2];
+        double zc = atom.x0*rotateMatrix[2][0] + atom.y0 * rotateMatrix[2][1] + atom.z0 * rotateMatrix[2][2];
+        atom.xc2 = xc;
+        atom.yc2 = yc;
+        atom.zc2 = zc;
+        minz = std::min( minz, zc);
+        xAbsMax = std::max( xAbsMax, abs(xc));
+        yAbsMax = std::max( yAbsMax, abs(yc));
+        zAbsMax = std::max( zAbsMax, abs(zc));
+        extent = std::max( extent, sqrt(xc*xc + yc*yc + zc*zc));
+    }
+   // double proteinRadius = extent;
+
+
+//third pass: get the distance to the NP for this orientation
+
+    for( auto& atom: atomList){
+
+
+        double zOffset = atom.zc2 -minz + beadDelta;
+        if(comVal > -1.0){
+            zOffset = atom.zc2 + comVal;
+        }
+
      double beadDist = sqrt( atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
      atom.dAvn += beadDist * exp(-energyVal)*std::sin(currentTheta);
      atom.dAvd += exp(-energyVal)*std::sin(currentTheta);
@@ -982,8 +1131,30 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
     double proteinRadius = extent;
 
    double beadDelta = 0.5 + 0.2 + npRadius ; //offset to apply to beads to displace their center from the NP center at (0,0) by one bead radius + a separation + the NP radius;
-double zMax = 0;
 
+   int phiIndex =(int)( floor( (currentPhi*180.0/3.1415 )/5.0));
+   int thetaIndex = (int)( floor((currentTheta*180.0/3.1415)/5.0));
+   phiIndex = std::max(0,phiIndex);
+   thetaIndex = std::max(0,thetaIndex);
+   phiIndex = std::min(71,phiIndex);
+   thetaIndex = std::min(35,thetaIndex);
+
+
+   double comVal = comData[phiIndex][thetaIndex];
+   double plotComVal = comVal;
+   //qDebug() << phiIndex << " " << thetaIndex << " found comval " << comVal << "\n";
+   if(comVal > -1.0){
+       beadDelta = comVal;
+   }
+    else{
+       beadDelta = beadDelta - minz;
+       plotComVal = beadDelta;
+   }
+
+
+
+   double zMax = 0;
+    //qDebug() << " z offset applied: " << beadDelta << "\n";
 double colourParamMin = 0;
 double colourParamMax = 0.01;
 
@@ -998,8 +1169,8 @@ double colourParamMax = 0.01;
         if(atom.isShrinkWrap == true){
             doOutLine = 0.0;
         }
-        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc - minz) + beadDelta ,atom.radius, colourParam, doOutLine} ;
-        zMax = std::max( zMax, (atom.zc - minz) + beadDelta ); //get the maximum z-coordinate used to redefine the uppermost point for transformation to graphics co-ords
+        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc ) + beadDelta ,atom.radius, colourParam, doOutLine} ;
+        zMax = std::max( zMax, (atom.zc ) + beadDelta ); //get the maximum z-coordinate used to redefine the uppermost point for transformation to graphics co-ords
         plotObjects.emplace_back(  plotCircle );
     }
 
@@ -1024,13 +1195,26 @@ double scaleFactor = 0.5*scaleBasis/(extent + 0.01);
  double boundSize = scaleFactor*( 1 + 1.5*proteinRadius);
 outlinePen.setWidth( boundSize/100);
 
+double npLeft = -   npRadius;
+double npUp = zMax -( 0 ) - npRadius;
+bool plottedNP = false;
+
+int alphaVal = this->findChild<QSlider *>("opacitySlider")->value() ;
+
 for(const auto& pc: plotObjects){
  //qDebug() << " plotting bead at max-y-value " << pc[2] << "\n";
  double xleft = pc[0] - pc[3];
  double zup =  zMax -pc[2]  - pc[3];
  double colourVal = ( colourParamMax - pc[4]   )/(0.01 +  colourParamMax - colourParamMin ) ;
- QBrush colourFill(  QColor(255*colourVal,0,0)  );
+ QBrush colourFill(  QColor(255*colourVal,0,0,alphaVal)  );
  QPen colourPen(  QColor(255*colourVal,0,0)) ;
+
+ if(pc[1] > 0 && plottedNP == false){
+     pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
+
+     plottedNP = true;
+ }
+
 
 if(pc[5] > 0.5){
  pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,outlinePen , colourFill);
@@ -1040,9 +1224,32 @@ else{
 }
 }
 
-double npLeft = -   npRadius;
-double npUp = zMax -( 0 ) - npRadius;
- pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
+//replot the NP's outline dashed
+QPen dashedPen(Qt::blue);
+QVector<qreal> dashes;
+dashes << 4 << 4;
+dashedPen.setDashPattern(dashes );
+QBrush noFillBrush(Qt::white);
+QBrush blueFill(Qt::blue);
+QPen bluePen(Qt::blue);
+QBrush greenFill(Qt::green);
+QPen greenPen(Qt::green);
+noFillBrush.setStyle(Qt::BrushStyle( Qt::NoBrush));
+pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,dashedPen, noFillBrush );
+
+
+
+//plot COMs
+
+double proteinCOMSize = 0.1;
+double xleft = 0 - proteinCOMSize;
+double zup = zMax - proteinCOMSize;
+
+if( this->findChild<QCheckBox *>("showCOMBox")->isChecked()  == true ){
+pdbScene.addEllipse(xleft*scaleFactor, (-1.0*plotComVal+zup)*scaleFactor, 2*proteinCOMSize*scaleFactor , 2*proteinCOMSize*scaleFactor  ,greenPen , greenFill) ;
+pdbScene.addEllipse( (-0.1)*scaleFactor, (zMax-0.1)*scaleFactor, 2*0.1*scaleFactor , 2*0.1*scaleFactor  ,bluePen, blueFill );
+}
+
 pdbScene.setSceneRect( (-proteinRadius)*scaleFactor, 0 , (2*proteinRadius)*scaleFactor, (2*proteinRadius)*scaleFactor);
 
  graphicsBox->setScene( &pdbScene );
@@ -1619,5 +1826,23 @@ void MainWindow::on_mediumEditTable_currentCellChanged(int currentRow, int curre
     if(blockMediumColouring==false){
          colourStructureRow(currentRow);
     }
+}
+
+
+void MainWindow::on_showCOMBox_stateChanged(int arg1)
+{
+    updateMoleculeBox();
+}
+
+
+void MainWindow::on_opacitySlider_sliderMoved(int position)
+{
+  //  updateMoleculeBox();
+}
+
+
+void MainWindow::on_opacitySlider_valueChanged(int value)
+{
+    updateMoleculeBox();
 }
 
