@@ -16,6 +16,7 @@ public: // Switches
     bool	m_sumNPPotentials    = true;
     bool        m_enableFullScan     = false;
     bool        m_zshiftToPlane = false;
+    bool        m_enableLocalBoltz = false;
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -77,6 +78,10 @@ public:
             else if(switches[i] == "enable-fullscan"){
             m_enableFullScan = true;
             }
+            else if(switches[i] == "enable-local-boltz"){
+            m_enableLocalBoltz = true;
+            }           
+            
             else if(switches[i] == "disable-protein-smartzshift"){
             std::cout << "Warning: disable-protein-smartzshift should not be used for production runs and is provided only for testing purposes.\n" ;
             m_zshiftToPlane = true;

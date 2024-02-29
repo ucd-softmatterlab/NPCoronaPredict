@@ -39,8 +39,8 @@ constexpr double        naConst       =  6.02214076e23;
 
 
 
-std::random_device randomEngineSeed;
-std::mt19937 randomEngine( randomEngineSeed()  );
+std::random_device randomEngineSeed{};
+std::mt19937 randomEngine{ randomEngineSeed()  };
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 std::normal_distribution<double> unitNormalDist(0.0, 1.0);
@@ -268,14 +268,11 @@ inline void JitterPDB (const int size, const double jitterMagnitude, double *x, 
 */
     //std::normal_distribution<double> jitterDist(0.0, jitterMagnitude);
 
+
     for(int i = 0; i < size; ++i) {
         x[i] = x[i]  + unitNormalDist(randomEngine)*jitterMagnitude;
         y[i] = y[i] + unitNormalDist(randomEngine)*jitterMagnitude;
         z[i] = z[i] + unitNormalDist(randomEngine)*jitterMagnitude;
-
-
-
-
 
     }
 
@@ -486,6 +483,32 @@ void MeanAndSD(const int size, double *mean, double *sd, double *arr) {
  
 }
 
+
+
+void BoltzMeanAndSD(const int size, double *mean, double *sd, double *arr) {
+    double lmeanN = 0;
+    double lmeanDN = 0.000001;
+    double lmean = 0;
+    double lsd   = 0;
+    double referenceEnergy =  (*std::min_element(arr,arr + size));
+    for (int i = 0; i < size; ++i) {
+        double BoltzFactor = std::exp(static_cast<long double>(-1.0 * (arr[i] - referenceEnergy))) ; //use local weighting for the factor such that the exp argument remains finite.
+        lmeanN += arr[i] * BoltzFactor  ;
+        lmeanDN += BoltzFactor;
+    }
+    lmean =  lmeanN/lmeanDN;
+    for (int i = 0; i < size; ++i) {
+        lsd += std::pow(arr[i] - lmean, 2.0);
+    }
+    lsd /= size;
+    
+    *mean   = lmean;
+    *sd     = std::sqrt(lsd);
+ 
+}
+
+
+
 //geometry -specific radius for a bead at (sqrt(x),sqrt(y),z) at an NP-protein distance start.
 double getDistance(double x, double y, double z, double start, double radius,int npType){
 double distance;
@@ -604,7 +627,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
 
             Rotate3(size, phi_adjusted, theta_adjusted,cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
             
-            if(config.m_pdbJitterMag > 0.0){
+            if(config.m_pdbJitterMag > 0.001){
             JitterPDB(size, config.m_pdbJitterMag, x, y, z);
              }
             
@@ -626,6 +649,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             bool scanFullProtein = config.m_enableFullScan; //if true (this will be settable via config file) then the start/stop parameters are set to ensure the full protein gets scanned. make sure there is a repulsive potential.
             bool foundShift = false;
             double beadDelta = 0.01;
+            
+       
+            
             int xfactor = 1; //used to define if x/y contribute to the distance
             int yfactor = 1;
             if(npType == 2 || npType == 4 || npType==5){
@@ -848,7 +874,11 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             int numContactsAtMin = 0;
             int numContactsAtStep = 0;
             int resHasContacted = 0;
-
+               
+               
+               
+               
+               
             for (i = 0; i < steps; ++i) {
                 rcc     = start - i * actualDZ; //was SSD - renamed because it didn't actually fit that description and this was making code maintenance difficult.
                // std::cout << rcc << "\n";
@@ -884,9 +914,15 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                }
 
                 double noiseEnergy =   pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
-                if(config.m_potNoiseMag > 0){
-                 noiseEnergy +=     unitNormalDist(randomEngine)*  (  std::min( std::fabs(noiseEnergy*0.1) , config.m_potNoiseMag)); //gaussian noise with zero mean and magnitude of 10% of the energy or the value specified in the config file, whichever is smaller
+   
+   /*
+                if(config.m_potNoiseMag > 100){
+                 //noiseEnergy +=     unitNormalDist(randomEngine)*  (  std::min( std::fabs(noiseEnergy*0.1) , config.m_potNoiseMag)); //gaussian noise with zero mean and magnitude of 10% of the energy or the value specified in the config file, whichever is smaller
+
+                 noiseEnergy +=  pdb.m_occupancy[j] *unitNormalDist(randomEngine) * config.m_potNoiseMag;
                 }
+                */
+                
                 energy += noiseEnergy;
                 
                  if(std::isnan(pdb.m_occupancy[j] * static_cast<double>(potentials[pdb.m_id[j]].Value(distance, np.m_npBeadType[k] )))){
@@ -899,6 +935,12 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 numContactsAtStep += resHasContacted;
                 
                 }
+                
+                 if(config.m_potNoiseMag > 0.01){
+                 //std::cout << "adding potential noise \n";
+                 energy = energy + unitNormalDist(randomEngine) *config.m_potNoiseMag;
+                 //std::cout << "added potential noise \n";
+                 }
                 
                 SSD[i]          = rcc;
                 total_energy[i] = energy;
@@ -978,7 +1020,16 @@ cylinderFileNameAppend = "";
         }
   
         // Mean of all the samples
+        
+ 
+        if(config.m_enableLocalBoltz == true){
+        BoltzMeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
+        }
+        else{
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
+        }
+        
+        
         MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
          MeanAndSD(samples, &(minloc_val[angle_offset + angle]), &(minloc_err[angle_offset + angle]), sample_minloc);
         MeanAndSD(samples, &(numcontacts_val[angle_offset + angle]), &(numcontacts_err[angle_offset + angle]), sample_numcontacts);
@@ -1179,7 +1230,7 @@ int main(const int argc, const char* argv[]) {
     nanoparticleBoundingRadius = config.m_boundingRadius;
     nanoparticleOuterBoundingRadius = config.m_boundingRadius+0.01;
     }
-    std::cout << "Scanning from " << nanoparticleBoundingRadius << " to " << nanoparticleOuterBoundingRadius + 2.0 << "\n";
+    std::cout << "Scanning from (approx):" << nanoparticleBoundingRadius << " to " << nanoparticleOuterBoundingRadius + 2.0 << "\n";
     Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleBoundingRadius, config,np);
     for (const auto& pdb : pdbs){
     
