@@ -39,7 +39,8 @@ constexpr double        naConst       =  6.02214076e23;
 
 
 
-std::random_device randomEngine;
+std::random_device randomEngineSeed;
+std::mt19937 randomEngine( randomEngineSeed()  );
 std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
 
 std::normal_distribution<double> unitNormalDist(0.0, 1.0);
@@ -602,11 +603,11 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
               }
 
             Rotate3(size, phi_adjusted, theta_adjusted,cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
-            /*
+            
             if(config.m_pdbJitterMag > 0.0){
-            JitterPDB(size, config.m_pdbJitterMag, x, y, z, x, y, z );
+            JitterPDB(size, config.m_pdbJitterMag, x, y, z);
              }
-            */
+            
             //Prepare the initial offset of the protein.
             //There are three modes for finding the minimum value of R
             //1) Classic mode ( config.m_zshiftToPlane == true) - the closest approach is defined by the plane of the lowest z-coordinate. this gives odd results for elongated proteins.
@@ -645,9 +646,12 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
       
             
             double currentRCOM0 = 0;
-
+ 
+            //double rInner = radius + appliedOffset; is the closest approach for the RCC value . This means that setting appliedOffset = 0 corresponds to the COM of the protein lies on the NP radius
             //Next apply a further shift so that the protein can get closer for small NPs, long proteins or concave proteins for which the zmin plane results in a large distance from the NP
             //the algorithm: for each bead, compute the vertical distance necessary to bring that bead into contact with the NP (distSq < 0 implies no shift will achieve this)
+            currentOffset = -radius; //set a default value such that RCC can take a value of zero
+
             if(shiftToSeparation == true){
             for( i = 0; i < size; ++i){
              double distSq =  (radius + beadDelta)*(radius + beadDelta)   - (xfactor* x[i]*x[i] + yfactor*y[i]*y[i] );
@@ -699,10 +703,11 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             if(foundShift == false){
             //std::cout << "No distance could be found to bring the protein in contact \n";
             //std::cout << phi << " " << theta << "\n";
-            currentOffset = 0.0;
+            currentOffset = -radius; //let the COMs overlap to handle ring-like proteins and small NPs
             }
             
 
+           /*
             //next find how far it has to move outwards to bring all beads sufficiently far
             for( i = 0; i < size; ++i){
             
@@ -710,6 +715,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             
             //z[i] = z[i] + currentOffset;
             
+           
             double trialDelta = delta;
            
             double deltaTermSq =  delta*delta + 2*delta*radius + radius*radius ;
@@ -720,10 +726,13 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
              
             
             }
+            
+            */
+            
             appliedOffset = currentOffset;
             }
             else{
-            appliedOffset = -1.0 * (*std::min_element(z, z + size));   //classic mode: RCC at closest approach will be the radius of the NP + half the protein vertical width
+            appliedOffset = -1.0 * (*std::min_element(z, z + size));   //classic mode: RCC at closest approach will put the lowest point of the protein on the NP radius-plane
             
             //ShiftZ(size, z);
             }
@@ -732,7 +741,8 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             //finalRDelta = delta - (*std::min_element(z,z+size)) ; 
             //Find the closest approach
             
-            
+            //the outermost point is previously that which the minimum point of the protein is at a distance delta=2 nm from the outer radius-plane of the NP 
+            //we keep this for consistency: the RCC value is equal to the outerRadius of the NP + delta  + the protein's surface to COM width
             finalRDelta = delta  -1.0 * (*std::min_element(z,z+size));
             
             
@@ -744,7 +754,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
            double rInner = radius + appliedOffset;
            double rOuter = outerRadius + finalRDelta;
         //  std::cout << rInner << " " << rOuter << "\n";
-            //this overlap code is augmented by the WCA potential and is needed only if the NP potential is summed over initially
+            //this overlap code is augmented by the WCA potential and is needed only if the NP potential is summed over initially, with the goal of identifying RCCs which cause overlap.
             
             for( i = 0; i< size; ++i){ //loop over AA beads
              double closestAllowedSSD = 0;
@@ -778,7 +788,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
 
 
                if(  closestAllowedSSD + aaBeadRadius > closestSCD[i]  ){
-                     closestSCD[i] = closestAllowedSSD + aaBeadRadius ; //correct for the fact that here SSD is the surface-surface distance while everywhere else ssd means surface-centre distance because David.
+                     closestSCD[i] = closestAllowedSSD + aaBeadRadius  ; //correct for the fact that here SSD is the surface-surface distance while everywhere else ssd means surface-centre distance because David 
                }
 
             }
@@ -840,7 +850,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             int resHasContacted = 0;
 
             for (i = 0; i < steps; ++i) {
-                rcc     = start - i * actualDZ; //was SSD 
+                rcc     = start - i * actualDZ; //was SSD - renamed because it didn't actually fit that description and this was making code maintenance difficult.
                // std::cout << rcc << "\n";
                 
                 energy  = 0;
