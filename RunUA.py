@@ -40,6 +40,9 @@ parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic s
 parser.add_argument("-n","--name",type=str,default="uaautorun",help="Output file name")
 parser.add_argument("-H","--hamaker",type=int,default=1,help="Enable Hamaker interaction (0 to disable, enabled by default)")
 parser.add_argument("-N","--nps",type=str,default="",help="NP target [file/folder], leave blank for automatic generation from radius/zeta. If enabled this will override radius, zeta, material.")
+parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
+parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
+
 args = parser.parse_args()
 
 
@@ -69,6 +72,14 @@ if args.nps != "":
 enableHamaker = True
 if args.hamaker == 0:
     enableHamaker = False
+
+enableBoltz = 0
+if args.boltzmode > 0:
+    enableBoltz = 1
+
+jitterMag = 0
+if args.jitter > 0.001:
+    jitterMag = args.jitter
 
 beadSetFile = open(args.beadset,"r")
 beadNames = []
@@ -136,6 +147,9 @@ def writeConfigFile(configOutputLoc):
     outputConfigFile.write("enable-electrostatic \nsimulation-steps = 2000 \npotential-cutoff=5.0 \npotential-size = 1000 \nangle-delta = 5.0 \nbjerum-length="+str(round(bjerrumLength ,3))+" \ndebye-length="+str(round(debyeLength,3))+" \n")
     outputConfigFile.write("temperature = "+str(round(inputTemp,2))+"\n")
     outputConfigFile.write("zeta-potential = [" + str(args.zeta) + "] \n")
+    outputConfigFile.write("pdb-jitter-magnitude = "+str(jitterMag)+" \n")
+    if enableBoltz > 0:
+        outputConfigFile.write("enable-local-boltz \n")
     if useDefaultBeadSet == 1:
         outputConfigFile.write("amino-acids         = [ ALA, ARG, ASN, ASP, CYS, GLN, GLU, GLY, HIS, ILE, LEU, LYS, MET, PHE, PRO, SER, THR, TRP, TYR, VAL] \n")
         outputConfigFile.write("amino-acid-charges  = [ 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ] \n")

@@ -571,9 +571,15 @@ void MainWindow::on_runUAButton_clicked()
     int targetZetaMV = this->findChild<QSpinBox *>("zetaSpinBox")->value() ;
     QString outputFolder = this->findChild<QLineEdit *>("resultFolderBox")->text();
 
+
     bool doCorona = this->findChild<QCheckBox *>("npcpModeBox")->isChecked();
 
+    bool localBoltzMode = this->findChild<QCheckBox *>("boltzModeCheckBox")->isChecked();
+
     double targetZeta = targetZetaMV/1000.0;
+
+    double jitterMag = this->findChild<QDoubleSpinBox *>("jitterSpinBox")->value();
+
     bool canRun = true;
     if( targetPDB==""){
         qDebug() << "no pdb specified \n";
@@ -613,6 +619,12 @@ void MainWindow::on_runUAButton_clicked()
     commandArgs << outputFolder;
     commandArgs << "-P";
     commandArgs << "0";
+    commandArgs << "-j";
+    commandArgs << QString::number(jitterMag);
+    if(localBoltzMode == true){
+        commandArgs << "-B";
+        commandArgs << "1";
+    }
 
 
 
@@ -632,6 +644,14 @@ void MainWindow::on_runUAButton_clicked()
         commandArgs <<targetMaterial ;
         commandArgs << "-a";
         commandArgs << QString::number(autorunSetting);
+        commandArgs << "-j";
+        commandArgs << QString::number(jitterMag);
+
+        if(localBoltzMode == true){
+            commandArgs << "-B";
+            commandArgs << "1";
+        }
+
 
         commandArgs << "-o";
         commandArgs << targetPDB; //targetPDB was overloaded with otherproteins file if this mode is requested

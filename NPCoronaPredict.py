@@ -56,6 +56,9 @@ parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequi
 parser.add_argument('-H','--hamaker',help="Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no", default = 1, type = int)
 parser.add_argument('-N','--npfile',help="Sets a target NP file for use in UA", default = "", type=str)
 parser.add_argument('-I','--inneroverride',help="For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use", default=-1,type=int)
+parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
+parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
+
 
 args = parser.parse_args()
 
@@ -75,6 +78,15 @@ planarRadiusCutoff = 500 #if a spherical NP radius is set larger than this, then
 enableHamaker = True
 if args.hamaker == 0:
     enableHamaker = False
+
+
+jitterMag = 0
+if args.jitter > 0.001:
+    jitterMag = args.jitter
+enableBoltz = 0
+if args.boltzmode > 0:
+    enableBoltz = 1
+
 
 setupFailed = False
 predefNP = False
@@ -262,7 +274,7 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)+ "-j "+str( jitterMag ) + " -B "+str(enableBoltz)
 
 if predefNP == True:
     #npName = args.npfile[:-3]
