@@ -274,7 +274,7 @@ serumOutputFile.close()
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
 
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)+ "-j "+str( jitterMag ) + " -B "+str(enableBoltz)
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)+ " -j "+str( jitterMag ) + " -B "+str(enableBoltz)
 
 if predefNP == True:
     #npName = args.npfile[:-3]
