@@ -169,7 +169,7 @@ void MainWindow::recieveNewShell(std::string hamakerFileIn, std::string surfaceD
      recieveNewNPBeadTypeAuto( hamakerFileIn , surfaceDirIn , outerRadius, surfacePotentialIn, 1.0, 1.0, ljCutoff, 1   ) ;
      recieveNewNPBead(0, 0, 0  , newBeadTypeID);
      recieveNewNPBeadTypeAuto( hamakerFileIn , surfaceDirIn , innerRadius, 0.0, -1.0, -1.0, ljCutoff, 1  ) ;
-     recieveNewNPBead(0, 0, 0  , newBeadTypeID+1);
+     recieveNewNPBead(0, 0, 0  , newBeadTypeID+1, true);
 }
 
 

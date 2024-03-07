@@ -175,7 +175,7 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
         energyData[phiIndex][thetaIndex] = energyVal;
 
         double comVal = -1.0; //use this as an error value to tell the plotting routine it needs to estimate an offset
-        if( results.size() > 10){
+        if( results.size() > 11){
             comVal = std::stod( results[10]);
         }
         comData[phiIndex][thetaIndex] = comVal;
