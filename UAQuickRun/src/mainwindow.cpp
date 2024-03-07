@@ -16,7 +16,7 @@
 #include <boost/algorithm/string.hpp>
 #include <QString>
 #include <QProcess>
-
+#include <map>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -788,7 +788,15 @@ void MainWindow::on_loadPDBButton_clicked()
                 double x = (0.1 * std::stod(lineIn.substr(30, 8)));
                 double y=(0.1 * std::stod(lineIn.substr(38, 8)));
                 double z=(0.1 * std::stod(lineIn.substr(46, 8)));
-                  atomList.emplace_back( Atom(nameIn,x,y,z)) ;
+                double radiusVal = 0.5;
+                double chargeVal = 0.0;
+                auto beadSearch = beadTypeMap.find(nameIn);
+                if(  beadSearch!=beadTypeMap.end()   ){
+                    radiusVal = beadSearch->second.radius;
+                    chargeVal = beadSearch->second.charge;
+                }
+
+                  atomList.emplace_back( Atom(nameIn,x,y,z,false,radiusVal,chargeVal)) ;
                   xcenter += x;
                   ycenter += y;
                   zcenter += z;
@@ -1189,7 +1197,9 @@ double colourParamMax = 0.01;
         if(atom.isShrinkWrap == true){
             doOutLine = 0.0;
         }
-        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc ) + beadDelta ,atom.radius, colourParam, doOutLine} ;
+
+
+        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc ) + beadDelta ,atom.radius, colourParam, doOutLine, atom.charge} ;
         zMax = std::max( zMax, (atom.zc ) + beadDelta ); //get the maximum z-coordinate used to redefine the uppermost point for transformation to graphics co-ords
         plotObjects.emplace_back(  plotCircle );
     }
@@ -1204,6 +1214,10 @@ double colourParamMax = 0.01;
 
 
 QPen outlinePen(Qt::black);
+QPen outlineRed(Qt::red);
+QPen outlineBlue(Qt::blue);
+QPen currentOutline;
+
 QBrush whiteFill(Qt::white);
 QBrush greyFill(Qt::gray);
 
@@ -1231,13 +1245,22 @@ for(const auto& pc: plotObjects){
 
  if(pc[1] > 0 && plottedNP == false){
      pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
-
      plottedNP = true;
  }
 
 
 if(pc[5] > 0.5){
- pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,outlinePen , colourFill);
+    currentOutline = outlinePen;
+    if( this->findChild<QCheckBox *>("showChargeBox")->isChecked() == true  ){
+    if(pc[6] > 0.5){
+        currentOutline = outlineRed;
+    }
+    else if(pc[6] < -0.5){
+        currentOutline = outlineBlue;
+    }
+    }
+ pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,currentOutline , colourFill);
+
 }
 else{
      pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,colourPen , colourFill);
@@ -1350,6 +1373,11 @@ void MainWindow::checkForMaterials(){
   if(QFile::exists(baseMaterialSet ) ){
     loadMaterials( baseMaterialSet,false);
   }
+
+  QString baseBeadSet = QDir::cleanPath(  uaGlobalPath+"/pmfp-beadsetdef/PMFP-BeadSet.csv" );
+ if(QFile::exists(baseBeadSet ) ){
+   loadBeadSetFile( baseBeadSet );
+ }
 
 }
 
@@ -1862,6 +1890,56 @@ void MainWindow::on_opacitySlider_sliderMoved(int position)
 
 
 void MainWindow::on_opacitySlider_valueChanged(int value)
+{
+    updateMoleculeBox();
+}
+
+
+void MainWindow::on_loadBeadmapButton_clicked()
+{
+    QString targetBeadSetFile = QFileDialog::getOpenFileName(this, tr("Bead definition file"),  this->uaGlobalPath , tr("CSV-file (*.csv)"));
+    if(targetBeadSetFile!=""){
+        loadBeadSetFile(targetBeadSetFile);
+    }
+
+}
+
+void MainWindow::loadBeadSetFile(QString targetFile){
+    QFile file(targetFile);
+    if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QTextStream fileIn(&file);
+    while(!fileIn.atEnd()){
+        std::string lineIn = fileIn.readLine().toStdString();
+        if(lineIn.substr(0,1) != "#"   and lineIn.length()>5){
+            std::vector<std::string> results;
+             boost::split(results, lineIn, [](char c){return c == ',';}  , boost::token_compress_on   );
+             if(results.size() == 3){
+                 //qDebug() << "loaded " << QString::fromStdString(results[0] );
+                 //BeadType newBead(  "ZZZ", 0.5, -1.0);
+                 beadTypeMap[ results[0] ] = BeadType(   results[0],std::stod(results[2]), std::stod(results[1])) ;
+             }
+        }
+    }
+    }
+
+    //loop over atoms and update
+
+    for(auto& atom: atomList){
+        auto beadSearch = beadTypeMap.find(atom.atomName);
+        double radiusVal = 0.5;
+        double chargeVal = 0.0;
+        if(  beadSearch!=beadTypeMap.end()   ){
+            radiusVal = beadSearch->second.radius;
+            chargeVal = beadSearch->second.charge;
+        }
+        atom.radius = radiusVal;
+        atom.charge = chargeVal;
+    }
+
+updateMoleculeBox();
+}
+
+void MainWindow::on_showChargeBox_stateChanged(int arg1)
 {
     updateMoleculeBox();
 }

@@ -8,6 +8,7 @@
 #include "clickablescene.h"
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <map>
 
 class MaterialType{
 public:
@@ -19,6 +20,24 @@ public:
         surfaceDir = surfaceDirIn;
         hamakerFile = hamakerFileIn;
     }
+};
+
+class BeadType{
+public:
+    std::string name = "ZZZ";
+    double radius = 0.5;
+    double charge = 0.0;
+
+    BeadType(std::string nameIn = "ZZZ", double radiusIn = 0.5, double chargeIn = 0.0){
+        name = nameIn;
+        radius = radiusIn;
+        charge = chargeIn;
+    }
+    /*
+    BeadType(QString nameIn, double radiusIn, double chargeIn) : name(nameIn), radius(radiusIn), charge(chargeIn){
+
+    }
+    */
 };
 
 class Atom{
@@ -43,7 +62,8 @@ public:
    double orientationTheta;
    bool isShrinkWrap = false;
    double radius = 0.5;
-    Atom( std::string nameIn, double x, double y, double z, bool swrap = false, double radiusIn = 0.5){
+   double charge = 0.0;
+    Atom( std::string nameIn, double x, double y, double z, bool swrap = false, double radiusIn = 0.5, double chargeIn = 0.0){
         atomName = nameIn;
         x0 = x;
         xc = x;
@@ -57,7 +77,7 @@ public:
         orientationTheta=0;
         isShrinkWrap = swrap;
         radius = radiusIn;
-
+        charge = chargeIn;
     }
 };
 
@@ -99,6 +119,7 @@ public:
     int uamBoxWidth = 1;
     bool showEnergyShrinkWrap = false;
     bool blockMediumColouring = false;
+    std::map<std::string, BeadType> beadTypeMap{ {"???", BeadType("???",0.2,-1.0)} };
 
 private slots:
     void on_loadUAMButton_clicked();
@@ -177,6 +198,11 @@ private slots:
     void on_opacitySlider_sliderMoved(int position);
 
     void on_opacitySlider_valueChanged(int value);
+
+    void on_loadBeadmapButton_clicked();
+    void loadBeadSetFile(QString targetFile);
+
+    void on_showChargeBox_stateChanged(int arg1);
 
 private:
     Ui::MainWindow *ui;

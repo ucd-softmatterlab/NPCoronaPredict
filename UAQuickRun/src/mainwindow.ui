@@ -20,7 +20,7 @@
       <item row="1" column="0">
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab">
          <attribute name="title">
@@ -553,6 +553,16 @@
               </item>
               <item>
                <layout class="QGridLayout" name="gridLayout_4">
+                <item row="0" column="3">
+                 <widget class="QLineEdit" name="energyOutBox">
+                  <property name="acceptDrops">
+                   <bool>false</bool>
+                  </property>
+                  <property name="readOnly">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
                 <item row="3" column="1">
                  <widget class="QPushButton" name="findMinEnergyButton">
                   <property name="text">
@@ -600,10 +610,38 @@
                   </property>
                  </widget>
                 </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="colourEnergy">
+                  <property name="text">
+                   <string>Colour by energy</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="4">
+                 <widget class="QPushButton" name="loadBeadmapButton">
+                  <property name="text">
+                   <string>Reload CG bead data</string>
+                  </property>
+                 </widget>
+                </item>
                 <item row="4" column="1">
                  <widget class="QPushButton" name="findBoltzMinButton">
                   <property name="text">
                    <string>Set to Boltz minimum</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="3">
+                 <widget class="QLineEdit" name="comDistOutBox">
+                  <property name="readOnly">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="colourBoltz">
+                  <property name="text">
+                   <string>Colour by distance</string>
                   </property>
                  </widget>
                 </item>
@@ -617,20 +655,6 @@
                   </property>
                  </widget>
                 </item>
-                <item row="4" column="2">
-                 <widget class="QLabel" name="label_8">
-                  <property name="text">
-                   <string>EAds(Boltz)</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QPushButton" name="colourBoltz">
-                  <property name="text">
-                   <string>Colour by distance</string>
-                  </property>
-                 </widget>
-                </item>
                 <item row="0" column="2">
                  <widget class="QLabel" name="label_6">
                   <property name="text">
@@ -638,30 +662,10 @@
                   </property>
                  </widget>
                 </item>
-                <item row="0" column="3">
-                 <widget class="QLineEdit" name="energyOutBox">
-                  <property name="acceptDrops">
-                   <bool>false</bool>
-                  </property>
-                  <property name="readOnly">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QPushButton" name="colourEnergy">
+                <item row="4" column="2">
+                 <widget class="QLabel" name="label_8">
                   <property name="text">
-                   <string>Colour by energy</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="4">
-                 <widget class="QCheckBox" name="showCOMBox">
-                  <property name="text">
-                   <string>Show COMs</string>
-                  </property>
-                  <property name="checked">
-                   <bool>true</bool>
+                   <string>EAds(Boltz)</string>
                   </property>
                  </widget>
                 </item>
@@ -672,12 +676,26 @@
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="3">
-                 <widget class="QLineEdit" name="comDistOutBox">
-                  <property name="readOnly">
-                   <bool>true</bool>
-                  </property>
-                 </widget>
+                <item row="1" column="4">
+                 <layout class="QHBoxLayout" name="horizontalLayout_17">
+                  <item>
+                   <widget class="QCheckBox" name="showChargeBox">
+                    <property name="text">
+                     <string>Show charges</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QCheckBox" name="showCOMBox">
+                    <property name="text">
+                     <string>Show COMs</string>
+                    </property>
+                    <property name="checked">
+                     <bool>true</bool>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
                 </item>
                </layout>
               </item>
