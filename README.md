@@ -45,9 +45,11 @@ boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFi
 How to run:
 ./UnitedAtom --config-file=name_of_config_file.config
 
-The expected output is a set of .map files in the results folder named in the config file. Each map file is named:
-PDBID_(NP radius in nm)_(zeta potential in microvolts)_(angle of rotation of NP in degrees).map and contains data in the form
-phi theta energy error
+The expected output is a set of .uam (UA Map) files in the results folder named in the config file and a subfolder specific to that NP. Each uam file is named:
+PDBID_(NP radius in nm)_(zeta potential in millivolts)_(angle of rotation of NP in degrees).uam  and contains data in the form
+phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts min_COM_COM-dist/nm
+
+The most relevant columns are typically phi, theta, EAds/kbT and the min_COM_COM-dist. The remaining columns are primarily of use for debugging and further analysis.
 
 A sample config file is provided and most options are self-explanatory. Some require more explanation as provided below:
 
@@ -57,7 +59,7 @@ The geometry of the NP is defined by the radius and the np-type variable. The op
 3 = cube (Planar PMF)
 4 = SWCNT ( Cylindrical PMF of diameter 1.5nm , finite thickness tube for vdW)
 5 = MWCNT (Cylindrical PMF of diameter 1.5nm, full cylinder for vdW)
-For a spherical NP, no rotation of the NP is performed and the output names do not have the final _ANGLE, e.g. they are 1AX8_5_0.map
+For a spherical NP, no rotation of the NP is performed and the output names do not have the final _ANGLE, e.g. they are 1AX8_5_0.uam
 
 If the recalculate-zp option is set to 1 then the input zeta potential is taken to be the zeta potential for a particle of radius 1 nm in a solution with debye length 1 nm and Bjerrum length 1 nm. The zeta potential applied to
 a given particle is then adjusted to ensure that the surface charge density of the NP is a constant regardless of the radius. 
@@ -140,7 +142,7 @@ area is the projected area.
 Coarse-grained Kinetic Monte Carlo simulation of corona evolution.
 
 How to run: (requires python 3)
-python CoronaKMC-P3.py  -r [RADIUS] -p [protein file] -f [File ID - number to add to filename of output]
+python CoronaKMC.py  -r [RADIUS] -p [protein file] -f [File ID - number to add to filename of output]
 
 The input specified by the -p argument is a file with one entry per line of the form:
 proteinname concentration radius kon koff ebind area
@@ -173,3 +175,5 @@ Contributors (PMF input files)
 Erik Brandt (Stockholm University)
 Marzieh Saeedimasine (Stockholm University)
 Alexander Lyubartsev (Stockholm University)
+Julia Subbotina (UCD)
+Parinaz Mosadeggi (UCD)
