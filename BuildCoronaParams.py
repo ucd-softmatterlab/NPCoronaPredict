@@ -150,10 +150,13 @@ def CalculateBoltzArea(filename,pdbFile):
 
 
 
-def projectOntoSphere(coords,npRadius,beadRadius):
+def projectOntoSphere(coords,npRadius,beadRadius, ccd=-1):
     coords[:,0] = coords[:,0] - np.mean(coords[:,0])
     coords[:,1] = coords[:,1] - np.mean(coords[:,1])
-    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ] #after this transformation the proteins centre is at x=0,y=0 and z such that the protein is just touching the NP
+    zOffset = - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ]
+    if ccd > -0.1:
+        zOffset = - np.mean(coords[:,2] ) + ccd
+    coords[:,2] = coords[:,2] + zOffset #after this transformation the proteins centre is at x=0,y=0 and z such that the protein is just touching the NP
     beadDist = np.sqrt( coords[:,0]**2 + coords[:,1]**2 + coords[:,2]**2)
     phiProjections = np.arctan2( coords[:,1], coords[:,0]) 
     thetaProjections = np.arctan2( np.sqrt(coords[:,1]**2 + coords[:,0]**2), coords[:,2]) + np.arcsin( beadRadius/beadDist) #projected theta, corrected for non-zero bead radius
@@ -168,10 +171,13 @@ def projectOntoSphere(coords,npRadius,beadRadius):
     areaTerms = (PTOCyclic[:-1,0] - PTOCyclic[1:,0])/(PTOCyclic[:-1,1] - PTOCyclic[1:,1]) *(   PTOCyclic[1:,1] - PTOCyclic[:-1,1] - np.sin(PTOCyclic[1:,1]) + np.sin(PTOCyclic[:-1,1]))
     return np.sum(npRadius**2 * areaTerms)
 
-def projectOntoCylinder(coords,npRadius,beadRadius = 0.5):
+def projectOntoCylinder(coords,npRadius,beadRadius = 0.5,ccd=-1):
     coords[:,0] = coords[:,0] - np.mean(coords[:,0])
     coords[:,1] = coords[:,1] - np.mean(coords[:,1])
-    coords[:,2] = coords[:,2] - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ]
+    zOffset = - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ]
+    if ccd > -0.1:
+        zOffset = - np.mean(coords[:,2] ) + ccd
+    coords[:,2] = coords[:,2] + zOffset 
     angleCoord = np.arctan2(coords[:,2] , coords[:,1])
     beadOffsetAngle = np.arcsin( beadRadius/ np.sqrt( coords[:,1]**2 + coords[:,2]**2))
     beadSet1 =   np.column_stack(( coords[:,0] + beadRadius, angleCoord + beadOffsetAngle   ))
@@ -310,9 +316,13 @@ for proteinData in concentrationData:
             alldatafiles.append(newdata)
         data = np.concatenate(alldatafiles,axis=0)
     #print(data[0:2])
+ 
     singleBeadMode = False
     rawCoords, beadLabels, moleculeBeadRadiusSet =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")
     rawCoords = rawCoords*0.1
+
+
+
 
     thetaOffset = (np.amax(data[1:,1] - data[0:-1,1]))/2.0 #UA output gives the left-edge of the bin containing the angular orientations, this corrects for that
     phiOffset = (np.amax(data[1:,0] - data[0:-1,0]))/2.0 #UA output gives the left-edge of the bin containing the angular orientations, this corrects for that
@@ -339,15 +349,18 @@ for proteinData in concentrationData:
         phi      = orientation[0]
         energy   = orientation[2]
         omega = orientation[-1]
+        ccd = -1.0
+        if len(orientation) > 10:
+            ccd = orientation[10]
         #nameList.append( proteinData[0]+":"+str(theta)+"-"+str(phi) )
         sinTheta = np.sin(theta * np.pi / 180.0)
         rotatedCoords = rotatePDB3(rawCoords,phi*np.pi/180.0,theta*np.pi/180.0, omega*np.pi/180.0)
         if npShape == 1:
-            projectedArea = projectOntoSphere(rotatedCoords, npRadius,moleculeBeadRadiusSet) #gets the projected area of the protein
+            projectedArea = projectOntoSphere(rotatedCoords, npRadius,moleculeBeadRadiusSet,ccd) #gets the projected area of the protein
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the sph$
         elif npShape == 2:
-            projectedArea = projectOntoCylinder(rotatedCoords,npRadius,moleculeBeadRadiusSet)
+            projectedArea = projectOntoCylinder(rotatedCoords,npRadius,moleculeBeadRadiusSet,ccd)
             radiusApprox = np.sqrt(projectedArea/np.pi)
             #print scopt.root(  cylinderRadiusWrapperFunc, radiusApprox, args=(projectedArea,npRadius) )
             optRes= scopt.minimize(  cylinderRadiusWrapperFunc, np.sqrt( projectedArea/np.pi), args=(projectedArea, npRadius),tol=0.01 )
@@ -358,11 +371,11 @@ for proteinData in concentrationData:
             #print("First approx: ", radiusApprox, " second approx: ", effectiveRadius3D, "projected area:" , projectedArea, " re-projected area: ", projectedAreaFromCalc," num binding", (4*np.pi*npRadius**2)/projectedArea)
             #effectiveRadius = np.sqrt(projectedArea/np.pi) #figure out how to do this for the cylindrical projection!
         elif npShape == 3:
-            projectedArea = projectOntoSphere(rotatedCoords,1000,moleculeBeadRadiusSet)
+            projectedArea = projectOntoSphere(rotatedCoords,1000,moleculeBeadRadiusSet,ccd)
             effectiveRadius = np.sqrt(projectedArea/np.pi)
             effectiveRadius3D = effectiveRadius 
         else:
-            projectedArea = projectOntoSphere(rotatedCoords,npRadius,moleculeBeadRadiusSet)
+            projectedArea = projectOntoSphere(rotatedCoords,npRadius,moleculeBeadRadiusSet,ccd)
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the spherical protein which has a shadow with radius effectiveRadius
         #print effectiveRadius, effectiveRadius3D,SphereProjectedRadius(npRadius,effectiveRadius3D)
