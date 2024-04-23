@@ -94,7 +94,7 @@ void MainWindow::on_loadUAMButton_clicked()
     double heatmapElemHeight = gbHeight/36;
 
     double angleDelta = 5;
-    double piVal = 3.14159265;
+    double piVal = fPi;
     double simpleAverageNum = 0;
     double simpleAverageDenom = 0.00001;
     double boltzAverageNum = 0;
@@ -102,6 +102,9 @@ void MainWindow::on_loadUAMButton_clicked()
    double kbtVal = 1;
    double minPhiVal = 1;
    double minThetaVal = 1;
+
+   currentFileOmega = 0;
+
     QString targetUAMFileBasePath = this->findChild<QLineEdit *>("resultFolderBox")->text();
 double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
     if(lastUAMPath != ""){
@@ -177,6 +180,7 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
         double comVal = -1.0; //use this as an error value to tell the plotting routine it needs to estimate an offset
         if( results.size() > 11){
             comVal = std::stod( results[10]);
+            currentFileOmega = std::stod( results[8] ) * fPi/180.0;
         }
         comData[phiIndex][thetaIndex] = comVal;
 
@@ -818,7 +822,7 @@ void MainWindow::on_loadPDBButton_clicked()
             atom.orientationPhi =   acos( atom.x0/(sqrt(atom.x0*atom.x0 + atom.y0*atom.y0))) ;
             }
             else{
-             atom.orientationPhi =   2*3.1415 -   acos( atom.x0/(sqrt(atom.x0*atom.x0 + atom.y0*atom.y0))) ;
+             atom.orientationPhi =   2*fPi -   acos( atom.x0/(sqrt(atom.x0*atom.x0 + atom.y0*atom.y0))) ;
             }
 
          //   qDebug() << " x0 now: " << QString::number( atom.x0 ) << "\n";
@@ -830,8 +834,8 @@ void MainWindow::on_loadPDBButton_clicked()
         //then build the shrinkwrap layer for when this is shown
      for(int j=0; j<36;++j){
          for(int i=0; i<71;++i){
-             double phiVal = (2.5 +i*5)* 3.1415/180.0;
-             double thetaVal =(2.5 + j*5)* 3.1415/180.0;
+             double phiVal = (2.5 +i*5)* fPi/180.0;
+             double thetaVal =(2.5 + j*5)* fPi/180.0;
              double radius = 0.5;
 
              double x0i = radius*cos(phiVal)*sin(thetaVal);
@@ -907,8 +911,8 @@ void MainWindow::calcBeadDistances(bool doRotate = false){
     int i = closestI;
     int j = closestJ;
 
-    double currentPhi = (  i*5 + 2.5)* 3.1415/180.0;
-    double currentTheta = (j*5 + 2.5)* 3.1415/180.0;
+    double currentPhi = (  i*5 + 2.5)* fPi/180.0;
+    double currentTheta = (j*5 + 2.5)* fPi/180.0;
 
 
 
@@ -917,8 +921,8 @@ void MainWindow::calcBeadDistances(bool doRotate = false){
 
 
     double p = -1.0*currentPhi;
-    double t = 3.1415 - currentTheta;
-    double omega = this->findChild<QDial *>("omegaDial")->value() * 3.1415/180.0;
+    double t = fPi- currentTheta;
+    double omega = currentFileOmega;
     double extent = 1;
     double minz = 0;
 
@@ -968,8 +972,14 @@ double zAbsMax = 0;
         if(comVal > -1.0){
             zOffset = atom.zc2 + comVal;
         }
+     int npShapeIndex = this->findChild<QComboBox *>("npShapeBox")->currentIndex();
 
-     double beadDist = sqrt( atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
+     int xFactor = 1;
+     if(npShapeIndex == 1){
+         xFactor = 0;
+     }
+
+     double beadDist = sqrt( xFactor*atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
      atom.dAvn += beadDist * exp(-energyVal)*std::sin(currentTheta);
      atom.dAvd += exp(-energyVal)*std::sin(currentTheta);
 
@@ -1017,15 +1027,15 @@ void MainWindow::calcBeadBoltzDistances(bool doRotate = false){
 
 
 
-    double currentPhi = (  i*5 + 2.5)* 3.1415/180.0;
-    double currentTheta = (j*5 + 2.5)* 3.1415/180.0;
+    double currentPhi = (  i*5 + 2.5)* fPi/180.0;
+    double currentTheta = (j*5 + 2.5)* fPi/180.0;
     double energyVal = energyData[i][j];
     double comVal = comData[i][j];
 
 
     double p = -1.0*currentPhi;
-    double t = 3.1415 - currentTheta;
-    double omega = this->findChild<QDial *>("omegaDial")->value() * 3.1415/180.0;
+    double t = fPi - currentTheta;
+    double omega = this->findChild<QDial *>("omegaDial")->value() * fPi/180.0;
     double extent = 1;
     double minz = 0;
 
@@ -1067,7 +1077,12 @@ double zAbsMax = 0;
 
 
 //third pass: get the distance to the NP for this orientation
+    int npShapeIndex = this->findChild<QComboBox *>("npShapeBox")->currentIndex();
 
+    int xFactor = 1;
+    if(npShapeIndex == 1){
+        xFactor = 0;
+    }
     for( auto& atom: atomList){
 
 
@@ -1076,7 +1091,7 @@ double zAbsMax = 0;
             zOffset = atom.zc2 + comVal;
         }
 
-     double beadDist = sqrt( atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
+     double beadDist = sqrt(xFactor* atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
      atom.dAvn += beadDist * exp(-energyVal)*std::sin(currentTheta);
      atom.dAvd += exp(-energyVal)*std::sin(currentTheta);
 
@@ -1098,7 +1113,7 @@ double zAbsMax = 0;
 void MainWindow::updateMoleculeBox(){
  //"pdbScene" for the painting scene
     // "pdbView" for the QGraphicsView box
-
+double cylinderHalfLength = 10;
     QGraphicsView* graphicsBox = this->findChild<QGraphicsView *>("pdbView") ;
     int gbWidth = graphicsBox->width() ;
     int gbHeight = graphicsBox->height() ;
@@ -1110,12 +1125,13 @@ void MainWindow::updateMoleculeBox(){
     std::vector< std::vector<double> > plotObjects;
     std::vector< std::vector<double> > shrinkwrapplotObjects;
 
-    double currentPhi = this->findChild<QSpinBox *>("phiInputBox")->value() * 3.1415/180.0;
-    double currentTheta = this->findChild<QSpinBox *>("thetaInputBox")->value() * 3.1415/180.0;
+    double currentPhi = this->findChild<QSpinBox *>("phiInputBox")->value() * fPi/180.0;
+    double currentTheta = this->findChild<QSpinBox *>("thetaInputBox")->value() * fPi/180.0;
 
     double p = -1.0*currentPhi;
-    double t = 3.1415 - currentTheta;
-    double omega = this->findChild<QDial *>("omegaDial")->value() * 3.1415/180.0;
+    double t = fPi - currentTheta;
+    double screenRotate = this->findChild<QDial *>("omegaDial")->value() * fPi/180.0  ;
+    double omega = screenRotate + currentFileOmega;
     double extent = 1;
     double minz = 0;
 
@@ -1137,7 +1153,7 @@ double zAbsMax = 0;
 
 double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
 //first pass: rotate the biomolecule and store its coordinates
-
+int maxNPCircles =7;
 
     for( auto& atom: atomList){
 
@@ -1152,7 +1168,7 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
         yAbsMax = std::max( yAbsMax, abs(yc));
         zAbsMax = std::max( zAbsMax, abs(zc));
         extent = std::max( extent, sqrt(xc*xc + yc*yc + zc*zc));
-
+         cylinderHalfLength = std::max( cylinderHalfLength, sqrt(xc*xc + yc*yc)*1.1 );
 
 
     }
@@ -1160,8 +1176,8 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
 
    double beadDelta = 0.5 + 0.2 + npRadius ; //offset to apply to beads to displace their center from the NP center at (0,0) by one bead radius + a separation + the NP radius;
 
-   int phiIndex =(int)( floor( (currentPhi*180.0/3.1415 )/5.0));
-   int thetaIndex = (int)( floor((currentTheta*180.0/3.1415)/5.0));
+   int phiIndex =(int)( floor( (currentPhi*180.0/fPi )/5.0));
+   int thetaIndex = (int)( floor((currentTheta*180.0/fPi)/5.0));
    phiIndex = std::max(0,phiIndex);
    thetaIndex = std::max(0,thetaIndex);
    phiIndex = std::min(71,phiIndex);
@@ -1186,6 +1202,8 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
 double colourParamMin = 0;
 double colourParamMax = 0.01;
 
+bool make3D = false;
+
    //final pass: get the set of circles to plot, translating such that in the world-frame the molecule is above the NP and has its minimum point defined relative to the NP center at (0,0,0)
     for( auto& atom: atomList){
 
@@ -1200,11 +1218,97 @@ double colourParamMax = 0.01;
 
 
         std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc ) + beadDelta ,atom.radius, colourParam, doOutLine, atom.charge} ;
+       // qDebug() << QString::number(atom.xc) << " " << QString::number(atom.yc) << QString::number(atom.zc) ;
         zMax = std::max( zMax, (atom.zc ) + beadDelta ); //get the maximum z-coordinate used to redefine the uppermost point for transformation to graphics co-ords
         plotObjects.emplace_back(  plotCircle );
+        int numLines = 8;
+        if(make3D==true){
+            for(int i =1; i<numLines; i++){
+                  double yDelta = i * atom.radius/(numLines + 1);
+                  double localRadius = std::sqrt( atom.radius*atom.radius - yDelta*yDelta);
+                  std::vector<double> plotCircleN{ atom.xc,atom.yc + yDelta,(atom.zc ) + beadDelta , localRadius, colourParam, 0.0, atom.charge} ;
+
+
+
+                  plotObjects.emplace_back( plotCircleN);
+            }
+        }
+
     }
 
     }
+
+    //add in NP objects, remembering to get these in the correct position
+    int numHalfCylinderSegments = 4;
+    int npShapeIndex = this->findChild<QComboBox *>("npShapeBox")->currentIndex();
+    if(npShapeIndex == 1){
+
+        int circlesNeeded =  1 ;//+floor(   cylinderHalfLength/1.0 );
+         double cylinderFaceWidth = std::abs( 2*npRadius * std::sin(screenRotate) ) ;
+         double sideSegmentWidth = std::abs( 1.0 * std::cos(screenRotate) ) ;
+         for(int i= 1; i<=circlesNeeded; i++){
+             double xc1 = std::cos(screenRotate) * cylinderHalfLength*i/circlesNeeded;
+             double yc1 = std::sin(screenRotate)*cylinderHalfLength*i/circlesNeeded;
+             double xc3 = -xc1;
+             double yc3 = -yc1;
+             std::vector<double> plotCircle1{xc1    ,yc1,zMax- npRadius ,npRadius, -1, 1, cylinderFaceWidth/2.0, 0} ;
+             std::vector<double> plotCircle3{xc3,yc3,zMax- npRadius ,npRadius, -1, 1,  cylinderFaceWidth/2.0 , 0} ;
+                  plotObjects.emplace_back(  plotCircle1 );
+                  plotObjects.emplace_back(  plotCircle3 );
+
+         }
+
+         //pc[3] stores the x offset for the lower points, pc[6] stores the z offset for lower points
+
+         int numFaces = 16;
+
+         double deltaPhi = 1.0/numFaces *  2 * fPi;
+         double dl=cylinderHalfLength/(numHalfCylinderSegments);
+         for(int k=-numHalfCylinderSegments+1; k<numHalfCylinderSegments+1; k++){
+         for( int i =0; i< numFaces; i++){
+             double phiAngle = (1.0*i)/numFaces * 2 *  fPi ;
+
+             double zoffset = npRadius * std::sin(phiAngle) ;
+             double zoffset2 = npRadius*std::sin(phiAngle + deltaPhi);
+
+             double xoffset = k*dl * std::cos(screenRotate) - npRadius* std::cos(phiAngle) * std::sin(screenRotate) ;
+             double xoffset2 =  k*dl * std::cos(screenRotate) - npRadius* std::cos(phiAngle+deltaPhi) * std::sin(screenRotate) ;
+
+
+
+             // qDebug() << k << " " <<  k*cylinderHalfLength/(numHalfCylinderSegments) * std::cos(screenRotate);
+             //  double ycentral = npRadius * std::cos(screenRotate)*std::cos(phiAngle) + k*cylinderHalfLength*std::sin(screenRotate);
+              double ycentral = 0.5* (npRadius*std::cos(screenRotate)*( std::cos(phiAngle) + std::cos(phiAngle+deltaPhi)  ) +(dl+k*dl)*std::sin(screenRotate)   );
+
+              double x0 = 0;
+              double z0 = zMax- npRadius ;
+              //qDebug() << phiAngle << " " << deltaPhi <<" " << xoffset << " " << xoffset2<<" " << zoffset << " " << zoffset2;
+         std::vector<double> plotRect1{   xoffset  ,ycentral, z0 + zoffset +npRadius, (xoffset2-xoffset), -1, 1, (zoffset2-zoffset), 1} ;
+            plotObjects.emplace_back(plotRect1);
+        }
+
+
+         }
+        std::vector<double> plotCircle2{0,0,zMax- npRadius ,npRadius, -1, 1,  cylinderFaceWidth/2.0, 0} ;
+
+
+  //   plotObjects.emplace_back(  plotCircle2 );
+
+
+
+    }
+    else{
+        std::vector<double> plotCircle{ 0,0,zMax - npRadius,npRadius, -1, 1, npRadius, 0} ;
+    plotObjects.emplace_back(  plotCircle );
+    for(int i =1; i<maxNPCircles; i++){
+    double npradiusSmall = npRadius  * std::cos(0.5 *  fPi * i/maxNPCircles )  ;
+    double colourParamLocal = -1 -i;
+    std::vector<double> plotCircle2{ 0,sqrt(npRadius*npRadius - npradiusSmall*npradiusSmall),zMax - npradiusSmall,npradiusSmall, colourParamLocal, 1, npradiusSmall, 0} ;
+    plotObjects.emplace_back(  plotCircle2 );
+    }
+
+    }
+
 
  //sort by y-coord to get an approximation of depth
     std::sort(plotObjects.begin(), plotObjects.end(),
@@ -1235,36 +1339,96 @@ bool plottedNP = false;
 
 int alphaVal = this->findChild<QSlider *>("opacitySlider")->value() ;
 
+double cylinderFaceLength =    std::cos(screenRotate)  * cylinderHalfLength/numHalfCylinderSegments;
+
+
 for(const auto& pc: plotObjects){
  //qDebug() << " plotting bead at max-y-value " << pc[2] << "\n";
  double xleft = pc[0] - pc[3];
  double zup =  zMax -pc[2]  - pc[3];
- double colourVal = ( colourParamMax - pc[4]   )/(0.01 +  colourParamMax - colourParamMin ) ;
+
+
+ double colourVal = 0;
+
+ //colour parameter is greater than zero: plot a regular bead
+ if(pc[4] > 0){
+ colourVal = ( colourParamMax - pc[4]   )/(0.01 +  colourParamMax - colourParamMin ) ;
  QBrush colourFill(  QColor(255*colourVal,0,0,alphaVal)  );
  QPen colourPen(  QColor(255*colourVal,0,0)) ;
+ if(pc[5] > 0.5){
+     currentOutline = outlinePen;
+     if( this->findChild<QCheckBox *>("showChargeBox")->isChecked() == true  ){
+     if(pc[6] > 0.5){
+         currentOutline = outlineRed;
+     }
+     else if(pc[6] < -0.5){
+         currentOutline = outlineBlue;
+     }
+     }
+  pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,currentOutline , colourFill);
 
- if(pc[1] > 0 && plottedNP == false){
-     pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
-     plottedNP = true;
+
+ }
+ }
+else{
+     //interpret as a special NP plot item with half-width pc[6]; note that these interpret the pc[2] argument as the upper corner and not the centre.
+     zup = pc[2];
+     xleft = pc[0] - pc[6];
+     // colourparam = -1 should give 160
+
+
+     double colourValNP =  160 + 60 * std::sin( 0.5* (-1   -pc[4] )*fPi/maxNPCircles  );
+     QBrush colourFillNP(  QColor(colourValNP,colourValNP,colourValNP)  );
+     QPen colourOutlineNP(QColor(colourValNP,colourValNP,colourValNP));
+
+
+
+     if(pc[4]>-1.1){
+         colourOutlineNP = outlinePen;
+     }
+     if(pc[7] < 0.5){
+      pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[6]*scaleFactor , 2*pc[3]*scaleFactor  ,colourOutlineNP ,colourFillNP);
+     }
+     else{
+         //add a cylinder face  xleft*scaleFactor, zup*scaleFactor,  pc[3] stores the x offset for the lower points, pc[6] stores the z offset for lower points
+         QPolygonF cylinderFace;
+         xleft = pc[0] - cylinderFaceLength;
+         zup = pc[2];
+         double cdx = pc[3];
+         double cdz = pc[6];
+         cylinderFace << QPointF(xleft*scaleFactor   , zup*scaleFactor) << QPointF( (xleft+cylinderFaceLength)*scaleFactor, zup*scaleFactor  ) << QPointF( (xleft+cylinderFaceLength+cdx)*scaleFactor, (zup+cdz)*scaleFactor ) << QPointF((xleft+cdx)*scaleFactor, (zup+cdz)*scaleFactor) ;
+         pdbScene.addPolygon( cylinderFace ,colourOutlineNP ,colourFillNP);
+     }
+
  }
 
+/*
+ if(pc[1] > 0 && plottedNP == false){
 
-if(pc[5] > 0.5){
-    currentOutline = outlinePen;
-    if( this->findChild<QCheckBox *>("showChargeBox")->isChecked() == true  ){
-    if(pc[6] > 0.5){
-        currentOutline = outlineRed;
-    }
-    else if(pc[6] < -0.5){
-        currentOutline = outlineBlue;
-    }
-    }
- pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,currentOutline , colourFill);
+     if(npShapeIndex == 1){ //plot a cylinder
+         double cylinderFaceWidth = std::abs( 2*npRadius * std::sin(screenRotate) ) ;
+        // npLeft = -cylinderFaceWidth;
+         double cylinderLeft = -cylinderFaceWidth/2.0;
 
-}
-else{
-     pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,colourPen , colourFill);
-}
+         int lowerSign = -1;
+
+         if(screenRotate > 3.1415){
+             lowerSign = 1;
+         }
+
+         pdbScene.addEllipse(  (cylinderLeft + lowerSign * cylinderHalfLength*std::cos(screenRotate))*scaleFactor, npUp*scaleFactor, cylinderFaceWidth*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
+         pdbScene.addEllipse(  cylinderLeft*scaleFactor, npUp*scaleFactor, cylinderFaceWidth*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
+         pdbScene.addEllipse(  (cylinderLeft - lowerSign * cylinderHalfLength*std::cos(screenRotate))*scaleFactor, npUp*scaleFactor, cylinderFaceWidth*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
+     }
+     else{
+     pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,outlinePen ,greyFill);
+     }
+     plottedNP = true;
+ }
+*/
+
+
+
 }
 
 //replot the NP's outline dashed
@@ -1278,8 +1442,18 @@ QPen bluePen(Qt::blue);
 QBrush greenFill(Qt::green);
 QPen greenPen(Qt::green);
 noFillBrush.setStyle(Qt::BrushStyle( Qt::NoBrush));
+if(npShapeIndex == 1){
+    double cylinderOutLineLeft = - cylinderHalfLength * std::abs( std::cos(screenRotate) ) ;
+    pdbScene.addRect( cylinderOutLineLeft*scaleFactor, npUp*scaleFactor, -2*cylinderOutLineLeft*scaleFactor, 2*npRadius*scaleFactor  ,dashedPen, noFillBrush );
+}
+else{
 pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,dashedPen, noFillBrush );
+//add extra wireframe
+//double wfsPhi = 45.0 * 3.1414 / 180.0;
+//double effectiveRadius = npRadius * std::cos(wfsPhi);
+//pdbScene.addEllipse( -effectiveRadius*scaleFactor, npUp*scaleFactor, 2*effectiveRadius*scaleFactor , 2*npRadius*scaleFactor  ,dashedPen, noFillBrush );
 
+}
 
 
 //plot COMs
@@ -1447,12 +1621,12 @@ void MainWindow::on_findBoltzMinButton_clicked()
 
 
 
-    double currentPhi = (  i*5 + 2.5)* 3.1415/180.0;
-    double currentTheta = (j*5 + 2.5)* 3.1415/180.0;
+    double currentPhi = (  i*5 + 2.5)* fPi/180.0;
+    double currentTheta = (j*5 + 2.5)* fPi/180.0;
     double energyVal = energyData[i][j];
     double p = -1.0*currentPhi;
-    double t = 3.1415 - currentTheta;
-    double omega = this->findChild<QDial *>("omegaDial")->value() * 3.1415/180.0;
+    double t = fPi - currentTheta;
+    double omega = this->findChild<QDial *>("omegaDial")->value() * fPi/180.0;
     double extent = 1;
     double minz = 0;
 
@@ -1543,8 +1717,8 @@ void MainWindow::on_colourEnergy_clicked()
 
     showEnergyShrinkWrap = true;
     for( auto& atom: atomList){
-        int i =(int)( floor( (atom.orientationPhi*180.0/3.1415 )/5.0));
-        int j = (int)( floor((atom.orientationTheta*180.0/3.1415)/5.0));
+        int i =(int)( floor( (atom.orientationPhi*180.0/fPi )/5.0));
+        int j = (int)( floor((atom.orientationTheta*180.0/fPi)/5.0));
         i = std::max(0,i);
         j = std::max(0,j);
         i = std::min(71,i);
@@ -1940,6 +2114,12 @@ updateMoleculeBox();
 }
 
 void MainWindow::on_showChargeBox_stateChanged(int arg1)
+{
+    updateMoleculeBox();
+}
+
+
+void MainWindow::on_npShapeBox_currentIndexChanged(int index)
 {
     updateMoleculeBox();
 }

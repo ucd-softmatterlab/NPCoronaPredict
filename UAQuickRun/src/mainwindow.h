@@ -113,6 +113,7 @@ public:
 
     double energyData[72][36] = {{0.0}} ;
     double comData[72][36] = {{-1.0}} ;
+    double currentFileOmega = 0;
     std::vector<Atom> atomList;
     std::vector<Atom> shrinkwrapList;
     int uamBoxHeight = 1;
@@ -120,6 +121,8 @@ public:
     bool showEnergyShrinkWrap = false;
     bool blockMediumColouring = false;
     std::map<std::string, BeadType> beadTypeMap{ {"???", BeadType("???",0.2,-1.0)} };
+    double fPi = 3.14159265;
+
 
 private slots:
     void on_loadUAMButton_clicked();
@@ -203,6 +206,8 @@ private slots:
     void loadBeadSetFile(QString targetFile);
 
     void on_showChargeBox_stateChanged(int arg1);
+
+    void on_npShapeBox_currentIndexChanged(int index);
 
 private:
     Ui::MainWindow *ui;
