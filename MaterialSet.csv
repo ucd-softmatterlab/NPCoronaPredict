@@ -7,7 +7,7 @@ rutile110,surface/TiO2-rut-110,hamaker/TiO2_Rutile.dat,1
 rutile100,surface/TiO2-rut-100,hamaker/TiO2_Rutile.dat,1
 fe2o3,surface/Fe2O3-001O,hamaker/Fe2O3.dat,1
 CdSe,surface/CdSe/Wurtzite/2-10/sca,hamaker/CdSe.dat,1
-gold,surface/Au/100-FullAA,hamaker/Metal.dat,1
+gold-fullAA,surface/Au/100-FullAA,hamaker/Metal.dat,1
 carbonblack,surface/C_amorph-1,hamaker/CarbonAmorph.dat,1
 cnt,surface/CNT15,hamaker/CNTFilm.dat,4
 cntOH4,surface/CNT15-OH-4,hamaker/CNTFilm.dat,4
@@ -43,3 +43,15 @@ bi-graphene-hollow,surface/bi-graphene,hamaker/Null.dat,1
 tri-graphene-hollow,surface/tri-graphene,hamaker/Null.dat,1
 goldcube,surface/Au/FCC/100/sca,hamaker/Metal.dat,3
 peg,surface/PEG,hamaker/PEG.dat,1
+Au100,surface/Au/100,hamaker/Metal.dat,1
+Au110,surface/Au/110,hamaker/Metal.dat,1
+Au111,surface/Au/111,hamaker/Metal.dat,1
+Ag100,surface/Ag/100,hamaker/Metal.dat,1
+Ag110,surface/Ag/110,hamaker/Metal.dat,1
+Ag111,surface/Ag/111,hamaker/Metal.dat,1
+Fe100,surface/FeFCC100,hamaker/Metal.dat,1
+Fe110,surface/FeFCC110,hamaker/Metal.dat,1
+Fe111,surface/FeFCC111,hamaker/Metal.dat,1
+Al100,surface/AlFCC100,hamaker/Metal.dat,1
+Al110,surface/AlFCC110,hamaker/Metal.dat,1
+Al111,surface/AlFCC111,hamaker/Metal.dat,1
