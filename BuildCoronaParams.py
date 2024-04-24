@@ -177,9 +177,17 @@ def projectOntoCylinder(coords,npRadius,beadRadius = 0.5,ccd=-1):
     zOffset = - np.amin(coords[:,2]) + npRadius + beadRadius[  np.argmin(coords[:,2])  ]
     if ccd > -0.1:
         zOffset = - np.mean(coords[:,2] ) + ccd
+    #print(zOffset)
     coords[:,2] = coords[:,2] + zOffset 
     angleCoord = np.arctan2(coords[:,2] , coords[:,1])
-    beadOffsetAngle = np.arcsin( beadRadius/ np.sqrt( coords[:,1]**2 + coords[:,2]**2))
+    #print( beadRadius/ np.sqrt(1e-6 +  coords[:,1]**2 + coords[:,2]**2) )
+    beadOffsetAngle = np.arcsin( beadRadius/ np.sqrt( beadRadius**2 + coords[:,1]**2 + coords[:,2]**2))
+    #print(beadOffsetAngle)
+    if np.any( np.isnan(beadOffsetAngle) ):
+        print( beadOffsetAngle )
+        for i in range(len(coords)):
+            print(ccd, zOffset, coords[i] , 1.0/np.sqrt( beadRadius**2 + coords[i,1]**2 + coords[i,2]**2 ) , np.arcsin( beadRadius[i]/ np.sqrt( beadRadius**2 + coords[i,1]**2 + coords[i,2]**2)) )
+        quit
     beadSet1 =   np.column_stack(( coords[:,0] + beadRadius, angleCoord + beadOffsetAngle   ))
     beadSet2 =   np.column_stack( (coords[:,0] - beadRadius, angleCoord + beadOffsetAngle   ))
     beadSet3 =   np.column_stack( (coords[:,0] + beadRadius, angleCoord - beadOffsetAngle   ))
@@ -360,6 +368,7 @@ for proteinData in concentrationData:
             effectiveRadius = np.sqrt(projectedArea/np.pi) #the equivalent radius of a circle with the same area as the projection
             effectiveRadius3D = ( -npRadius* effectiveRadius**4 + 2*(npRadius**3) *effectiveRadius*(2*effectiveRadius + np.sqrt(4*npRadius**2 - effectiveRadius**2))    )/( (-2*npRadius**2 + effectiveRadius**2 )**2   ) #the radius of the sph$
         elif npShape == 2:
+            #print(theta,phi,omega)
             projectedArea = projectOntoCylinder(rotatedCoords,npRadius,moleculeBeadRadiusSet,ccd)
             radiusApprox = np.sqrt(projectedArea/np.pi)
             #print scopt.root(  cylinderRadiusWrapperFunc, radiusApprox, args=(projectedArea,npRadius) )
