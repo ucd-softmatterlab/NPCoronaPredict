@@ -112,7 +112,7 @@ def rotatePDB(coords,phiVal,thetaVal):
     return finalCoords
 
 
-def rotatePDB3(coords,phiVal,thetaVal,omegaVal):
+def rotatePDB3Old(coords,phiVal,thetaVal,omegaVal):
     phiRotated =  -phiVal
     thetaRotated = np.pi - thetaVal
     omegaRotated = omegaVal
@@ -124,11 +124,42 @@ def rotatePDB3(coords,phiVal,thetaVal,omegaVal):
     finalCoords[:,2] = -1.0 * rotCoords[:,0] * np.sin(thetaRotated) + rotCoords[:,2] * np.cos(thetaRotated)
 
     finalCoords2 = np.copy(finalCoords)
-    finalCoords2[:,0] = finalCoords[:,0] * np.cos(omegaRotated) - finalCoords[:,1] * np.sin(phiRotated)
-    finalCoords2[:,1] = finalCoords[:,0] * np.sin(phiRotated) + finalCoords[:,1] * np.cos(phiRotated)
+    finalCoords2[:,0] = finalCoords[:,0] * np.cos(omegaRotated) - finalCoords[:,1] * np.sin(omegaRotated)
+    finalCoords2[:,1] = finalCoords[:,0] * np.sin(omegaRotated) + finalCoords[:,1] * np.cos(omegaRotated)
 
 
     return finalCoords2
+
+def rotatePDB3(coords,phiVal,thetaVal,omegaVal):
+    phi =  -phiVal
+    theta = np.pi - thetaVal
+    omega = omegaVal
+    rotCoords = np.copy(coords)
+    #rotCoords[:,0] = coords[:,0] * np.cos(phiRotated) - coords[:,1] * np.sin(phiRotated)
+    #rotCoords[:,1] = coords[:,0] * np.sin(phiRotated) + coords[:,1] * np.cos(phiRotated)
+    #finalCoords = np.copy(rotCoords)
+    #finalCoords[:,0] = rotCoords[:,0] * np.cos(thetaRotated) + rotCoords[:,2] * np.sin(thetaRotated)
+    #finalCoords[:,2] = -1.0 * rotCoords[:,0] * np.sin(thetaRotated) + rotCoords[:,2] * np.cos(thetaRotated)
+
+    #finalCoords2 = np.copy(finalCoords)
+    #finalCoords2[:,0] = finalCoords[:,0] * np.cos(omegaRotated) - finalCoords[:,1] * np.sin(phiRotated)
+    #finalCoords2[:,1] = finalCoords[:,0] * np.sin(phiRotated) + finalCoords[:,1] * np.cos(phiRotated)
+    #rxx = np.cos(theta)*np.sin(phi)
+    rxx = np.cos(theta) * np.cos(phi) * np.cos(omega) - np.sin(omega) * np.sin(phi);
+    rxy = -1.0 * np.cos(theta) * np.sin(phi) * np.cos(omega) - np.cos(phi)*np.sin(omega);
+    rxz = np.sin(theta)*np.cos(omega);
+    ryx = np.sin(phi)*np.cos(omega) + np.cos(phi) * np.cos(theta)*np.sin(omega);
+    ryy = np.cos(phi)*np.cos(omega) - np.cos(theta)*np.sin(omega)*np.sin(phi);
+    ryz = np.sin(omega) * np.sin(theta);
+    rzx = -1.0 * np.sin(theta) * np.cos(phi);
+    rzy = np.sin(theta) * np.sin(phi);
+    rzz = np.cos(theta);
+    rotCoords[:,0] = rxx*coords[:,0] + rxy*coords[:,1] + rxz*coords[:,2] 
+    rotCoords[:,1] = ryx*coords[:,0] + ryy*coords[:,1] + ryz*coords[:,2]
+    rotCoords[:,2] = rzx*coords[:,0] + rzy*coords[:,1] + rzz*coords[:,2]
+
+    return rotCoords
+
 
 
 def CalculateBoltzArea(filename,pdbFile):
