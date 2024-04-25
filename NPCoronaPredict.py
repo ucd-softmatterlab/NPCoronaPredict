@@ -58,7 +58,7 @@ parser.add_argument('-N','--npfile',help="Sets a target NP file for use in UA", 
 parser.add_argument('-I','--inneroverride',help="For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use", default=-1,type=int)
 parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
 parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
-
+parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
 
 args = parser.parse_args()
 
@@ -87,6 +87,10 @@ enableBoltz = 0
 if args.boltzmode > 0:
     enableBoltz = 1
 
+overrideShape = False
+if args.shapeoverride > 0:
+    overrideShape = True
+    newShape = args.shapeoverride
 
 setupFailed = False
 predefNP = False
@@ -126,9 +130,20 @@ if predefNP == False and NPMaterial[-5:] == "-pmfp":
 if predefNP == False:
     npShape=int(materialDefs[NPMaterial][3])
 else:
-    print("Predefined NP, assuming spherical. For cylindrical NPs you will need to run commands individually.")
+    print("Predefined NP, assuming spherical. For cylindrical NPs you will need to run commands individually or specify an override shape.")
     npShape = 1
     
+if overrideShape == True:
+    print("Overriding preselected shape to ", newShape)
+    npShape = newShape
+
+
+recognisedShapes = [1,2,3,4,5]
+
+if npShape not in recognisedShapes:
+    print("Shape was not recognised, quitting")
+    quit()
+
 
 if npShape == 2 or  npShape == 4 or npShape == 5:
     isCylinder = True
@@ -279,13 +294,16 @@ UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/
 if predefNP == True:
     #npName = args.npfile[:-3]
     UACommandString += " -N " + args.npfile
+if overrideShape == True:
+    UACommandString += " -S " + str(npShape)
+
 
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
 if args.inneroverride > 0:
     BCPCommandString += " -I "+str(filenameRadius)
-KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)
+KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)+" -n 5"
 
 if isCylinder == True:
     print("Adding cylinder argument")

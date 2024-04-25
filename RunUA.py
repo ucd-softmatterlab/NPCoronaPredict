@@ -42,6 +42,9 @@ parser.add_argument("-H","--hamaker",type=int,default=1,help="Enable Hamaker int
 parser.add_argument("-N","--nps",type=str,default="",help="NP target [file/folder], leave blank for automatic generation from radius/zeta. If enabled this will override radius, zeta, material.")
 parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
 parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
+parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
+
+
 
 args = parser.parse_args()
 
@@ -80,6 +83,23 @@ if args.boltzmode > 0:
 jitterMag = 0
 if args.jitter > 0.001:
     jitterMag = args.jitter
+
+
+tubeCorrectionShapes = [4,5]
+planeCorrectionShapes = [1,2,3]
+
+overrideShape = False
+if args.shapeoverride > 0:
+    overrideShape = True
+    newShape = args.shapeoverride
+    if shape in tubeCorrectionShapes and newShape in planeCorrectionShapes:
+        print("Material is a tube PMF format but you have selected a planar NP shape. Please be aware this may cause errors")
+    if newShape in tubeCorrectionShapes and nshape in planeCorrectionShapes:
+        print("Material is a plane PMF format but you have selected a tube NP  shape. Please be aware this may cause errors")
+    shape = newShape
+
+
+
 
 beadSetFile = open(args.beadset,"r")
 beadNames = []
