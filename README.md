@@ -30,15 +30,19 @@ Install GCC and Boost with development headers (more detailed instructions to co
 Once everything is installed run
 make clean; make
 This will bring up a number of warnings, primarily due to unused parameters which are left as hooks for future versions of the code. These are generally ok to ignore. 
-Boost errors usually indicate that it's not finding the correct version of Boost, which can happen if you have multiple versions installed. Try editing the Makefile to add the
+Boost errors usually indicate that it's not finding the correct version of Boost, which can happen if you have multiple versions installed. Try editing the Makefile to add:
+
 -Lpath/to/recent/boost
-option.
+
 
 Please note that if you have a slightly older version of boost there may be a compilation error:
 src/main.cpp:821:110: error: ‘boost::filesystem::copy_options’ has not been declared
 caused by the line:
+
 boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_options::overwrite_existing);
+
 To fix this either upgrade boost, comment this line out, or change it to :
+
 boost::filesystem::copy_file(configFileIn, config.m_outputDirectory+"/"+configFileIn, boost::filesystem::copy_option::overwrite_if_exists);
 
 
@@ -47,6 +51,7 @@ How to run:
 
 The expected output is a set of .uam (UA Map) files in the results folder named in the config file and a subfolder specific to that NP. Each uam file is named:
 PDBID_(NP radius in nm)_(zeta potential in millivolts)_(angle of rotation of NP in degrees).uam  and contains data in the form
+
 phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts min_COM_COM-dist/nm
 
 The most relevant columns are typically phi, theta, EAds/kbT and the min_COM_COM-dist. The remaining columns are primarily of use for debugging and further analysis.
@@ -102,9 +107,11 @@ The PMFCutoff value is also used for calculating the Hamaker lens potential so m
 Converts UA output to a file suitable for loading into CoronaKMC.
 
 How to run: (requires python 3)
+
 python BuildCoronaParams-P3.py -r [RADIUS] -z [ZETA potential] -f [folder containing UA heatmaps] -s [1 or 2 for sphere or cylinder] -p [protein definition file] -c [coordinate (in PDB form) folder)
 
 This requires a file named ProteinConcs.csv (or whatever you pass using the -p argument)  of the format
+
 protein1name,protein1conc
 protein2name,protein2conc
 
