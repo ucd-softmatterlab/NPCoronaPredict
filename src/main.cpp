@@ -540,8 +540,21 @@ double distance = 0;
                 distance    = std::sqrt((aaY - npY)*(aaY-npY) +     (aaZ - npZ)*(aaZ-npZ) ) - npRadius; // AA Center To NP Surface Distance (originally stop, changed to start)
                 }
                 else if(npType == 3){
-                //for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
-                distance = std::sqrt( (aaZ - npZ)*(aaZ-npZ)   ) - npRadius;
+                //previously: for cubes we consider only the "vertical" distance, i.e. we assume that each bead is approximately at the centre of the cube
+                //distance = std::sqrt( (aaZ - npZ)*(aaZ-npZ)   ) - npRadius;
+                //double cubeDelta = std::min(npR, 1.0);
+                //updated algorithm: x,y components only count if they are further than edge - 1nm 
+                //double ydist =     std::max( 0, aaY - (npY + npRadius - cubeDelta ) ) ;
+                //double ydist1 = std::max(0,  aaY - (npY + npRadius - cubeDelta) );
+                //double ydist2 = std::min(0,  aaY - (npY - npRadius + cubeDelta) );
+                //double ycomponentsq = std::max(  ydist1*ydist1, ydist2*ydist2);
+
+                //double xdist1 = std::max(0,  aaX - (npX + npRadius - cubeDelta) );
+                //double xdist2 = std::min(0,  aaX - (npX - npRadius + cubeDelta) );
+                //double xcomponentsq = std::max(  xdist1*xdist1, xdist2*xdist2);
+
+                distance  = std::sqrt(  std::pow(max(0.0, std::abs(aaX-npX ) - npRadius )  ,2) +  std::pow(max(0.0, std::abs(aaY-npY ) - npRadius )  ,2) +   std::pow(max(0.0, std::abs(aaZ-npZ ) - npRadius )  ,2)   ) ;
+
                 }
                 else{
                 distance    = std::sqrt((aaX - npX)*(aaX-npX) + (aaY - npY)*(aaY-npY) +     (aaZ - npZ)*(aaZ-npZ)   ) - npRadius; // sphere surface to x,y,z distance
