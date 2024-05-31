@@ -52,7 +52,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.0.0"); 
+    static std::string uaVersionID("1.0.1"); 
     return uaVersionID;
 }
 
@@ -664,7 +664,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             double beadDelta = 0.01;
             
        
-            
+            bool useCubeDist = false;
             int xfactor = 1; //used to define if x/y contribute to the distance
             int yfactor = 1;
             if(npType == 2 || npType == 4 || npType==5){
@@ -673,6 +673,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             if(npType == 3){
             xfactor = 0;
             yfactor = 0;
+            useCubeDist = true;
             }
 
             double rClosest = radius;
@@ -694,6 +695,15 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             if(shiftToSeparation == true){
             for( i = 0; i < size; ++i){
              double distSq =  (radius + beadDelta)*(radius + beadDelta)   - (xfactor* x[i]*x[i] + yfactor*y[i]*y[i] );
+             
+             if(useCubeDist == true){
+             //cubes are a special case 
+             if(  std::abs( x[i]) > radius || std::abs( y[i] ) > radius){
+             
+             distSq = -5 ;
+             }
+             }
+             
             double dzNeededI = 0;
              
              
@@ -714,8 +724,8 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             
             }
             
-            //check to see if the bead is outside the NP radius anyway in which case we just skip it
-            if( xfactor*x[i]*x[i] + yfactor*y[i]*y[i] + z[i]*z[i] > radius*radius){
+            //check to see if the bead is outside the NP radius anyway in which case we just skip it - for cubes using getDistance, noting that this returns 0 if the bead is inside the cube and allowing a small epsilon because floats
+            if(   (xfactor*x[i]*x[i] + yfactor*y[i]*y[i] + z[i]*z[i] > radius*radius && useCubeDist == false) || ( useCubeDist == true && getDistance3D(x[i], y[i], z[i], 0.0,0.0,0.0, radius, 3)  > 0.01)    ){
             newRCOM0 = 0;
             }
             
@@ -745,28 +755,6 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             currentOffset = -radius; //let the COMs overlap to handle ring-like proteins and small NPs
             }
             
-
-           /*
-            //next find how far it has to move outwards to bring all beads sufficiently far
-            for( i = 0; i < size; ++i){
-            
-            //apply offset and calculate how much further the bead will need to translate along the z direction so that all beads are at least 2nm away along the z axis
-            
-            //z[i] = z[i] + currentOffset;
-            
-           
-            double trialDelta = delta;
-           
-            double deltaTermSq =  delta*delta + 2*delta*radius + radius*radius ;
-            if(deltaTermSq>0){
-                trialDelta = std::sqrt(deltaTermSq) - (z[i]+currentOffset) - radius;
-            }
-            finalRDelta = std::max( trialDelta, finalRDelta); //this will be at least delta(=2 by default), possibly greater to allow the protein to move further.
-             
-            
-            }
-            
-            */
             
             appliedOffset = currentOffset;
             }
