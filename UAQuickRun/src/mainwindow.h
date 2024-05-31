@@ -209,6 +209,10 @@ private slots:
 
     void on_npShapeBox_currentIndexChanged(int index);
 
+    void on_materialDropdown_currentIndexChanged(int index);
+
+    void on_npTargetShapeOverride_currentIndexChanged(int index);
+
 private:
     Ui::MainWindow *ui;
 };

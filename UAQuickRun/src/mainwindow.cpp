@@ -625,6 +625,11 @@ void MainWindow::on_runUAButton_clicked()
     commandArgs << "0";
     commandArgs << "-j";
     commandArgs << QString::number(jitterMag);
+
+    commandArgs << "-S";
+    commandArgs << QString::number(1 + this->findChild<QComboBox *>("npTargetShapeOverride")->currentIndex());
+
+
     if(localBoltzMode == true){
         commandArgs << "-B";
         commandArgs << "1";
@@ -650,7 +655,8 @@ void MainWindow::on_runUAButton_clicked()
         commandArgs << QString::number(autorunSetting);
         commandArgs << "-j";
         commandArgs << QString::number(jitterMag);
-
+        commandArgs << "-S";
+        commandArgs << QString::number(1 + this->findChild<QComboBox *>("npTargetShapeOverride")->currentIndex());
         if(localBoltzMode == true){
             commandArgs << "-B";
             commandArgs << "1";
@@ -1092,6 +1098,10 @@ double zAbsMax = 0;
         }
 
      double beadDist = sqrt(xFactor* atom.xc2*atom.xc2   + atom.yc2*atom.yc2 + zOffset*zOffset ) - npRadius;
+
+     if(npShapeIndex == 2){
+         beadDist = std::sqrt(  std::pow(std::max(0.0, std::abs(atom.xc2) - npRadius )  ,2) +  std::pow(std::max(0.0, std::abs(atom.yc2 ) - npRadius )  ,2) +   std::pow(std::max(0.0, std::abs(zOffset ) - npRadius )  ,2)   ) ;;
+     }
      atom.dAvn += beadDist * exp(-energyVal)*std::sin(currentTheta);
      atom.dAvd += exp(-energyVal)*std::sin(currentTheta);
 
@@ -1297,6 +1307,79 @@ bool make3D = false;
 
 
     }
+    else if(npShapeIndex == 2){ //make a cube from -R to +R
+        int numSegments = 4;
+        for(int i = -numSegments; i<numSegments; i++){
+           double iFrac = (double)i / (double)numSegments;
+             double i1Frac = (i + 1.0) / (double)numSegments;
+            double x0 =  npRadius*iFrac;
+            double x1 = npRadius*i1Frac ;
+            double y0 = npRadius;
+            double y1 = npRadius;
+            double x0p = std::cos(screenRotate)*x0 - std::sin(screenRotate)*y0 ;
+            double x1p = std::cos(screenRotate)*x1 - std::sin(screenRotate)*y1 ;
+            double y0p = std::sin(screenRotate)*x0 + std::cos(screenRotate)*y0 ;
+            double y1p = std::sin(screenRotate)*x1 + std::cos(screenRotate)*y1 ;
+            double yAv = 0.5*(y0p+y1p);
+            double z0 = zMax - npRadius;
+            double faceColourVal = 160 + 20*yAv/npRadius;
+
+        std::vector<double> plotRect1{   x0p  ,yAv, z0, x1p, -faceColourVal, 1, z0+npRadius*2, 1} ;
+         plotObjects.emplace_back(plotRect1);
+
+         y0 = -npRadius;
+         y1 = -npRadius;
+           x0p = std::cos(screenRotate)*x0 - std::sin(screenRotate)*y0 ;
+           x1p = std::cos(screenRotate)*x1 - std::sin(screenRotate)*y1 ;
+           y0p = std::sin(screenRotate)*x0 + std::cos(screenRotate)*y0 ;
+           y1p = std::sin(screenRotate)*x1 + std::cos(screenRotate)*y1 ;
+           yAv = 0.5*(y0p+y1p);
+
+         double faceColourVal2 = 160 + 20*yAv/npRadius;
+     std::vector<double> plotRect2{   x0p  ,yAv, z0, x1p, -faceColourVal2, 1, z0+npRadius*2, 1} ;
+      plotObjects.emplace_back(plotRect2);
+
+
+      y0 = npRadius*iFrac;
+      y1 = npRadius*i1Frac ;
+      x0 = -npRadius;
+      x1 = -npRadius;
+
+        x0p = std::cos(screenRotate)*x0 - std::sin(screenRotate)*y0 ;
+        x1p = std::cos(screenRotate)*x1 - std::sin(screenRotate)*y1 ;
+        y0p = std::sin(screenRotate)*x0 + std::cos(screenRotate)*y0 ;
+         y1p = std::sin(screenRotate)*x1 + std::cos(screenRotate)*y1 ;
+       yAv = 0.5*(y0p+y1p);
+      double faceColourVal3 = 160 + 20*yAv/npRadius;
+  std::vector<double> plotRect3{   x0p  ,yAv, z0, x1p, -faceColourVal3, 1, z0+npRadius*2, 1} ;
+   plotObjects.emplace_back(plotRect3);
+
+
+
+
+   y0 = npRadius*iFrac;
+   y1 = npRadius*i1Frac ;
+   x0 = npRadius;
+   x1 = npRadius;
+
+     x0p = std::cos(screenRotate)*x0 - std::sin(screenRotate)*y0 ;
+     x1p = std::cos(screenRotate)*x1 - std::sin(screenRotate)*y1 ;
+     y0p = std::sin(screenRotate)*x0 + std::cos(screenRotate)*y0 ;
+      y1p = std::sin(screenRotate)*x1 + std::cos(screenRotate)*y1 ;
+    yAv = 0.5*(y0p+y1p);
+   double faceColourVal4 = 160 + 20*yAv/npRadius;
+
+std::vector<double> plotRect4{   x0p  ,yAv, z0, x1p, -faceColourVal4, 1, z0+npRadius*2, 1} ;
+plotObjects.emplace_back(plotRect4);
+
+
+
+        }
+
+
+
+
+    }
     else{
         std::vector<double> plotCircle{ 0,0,zMax - npRadius,npRadius, -1, 1, npRadius, 0} ;
     plotObjects.emplace_back(  plotCircle );
@@ -1391,6 +1474,16 @@ else{
      }
      else{
          //add a cylinder face  xleft*scaleFactor, zup*scaleFactor,  pc[3] stores the x offset for the lower points, pc[6] stores the z offset for lower points
+         if(npShapeIndex==2){
+          QPolygonF face;
+          double colourValNP =  -pc[4];
+          QBrush colourFillNP(  QColor(colourValNP,colourValNP,colourValNP)  );
+          QPen colourOutlineNP(QColor(colourValNP,colourValNP,colourValNP));
+
+          face << QPointF(pc[0]*scaleFactor, pc[2]*scaleFactor) << QPointF(pc[3]*scaleFactor, pc[2]*scaleFactor) << QPointF(pc[3]*scaleFactor, pc[6]*scaleFactor)<< QPointF(pc[0]*scaleFactor, pc[6]*scaleFactor) ;
+          pdbScene.addPolygon(face, colourOutlineNP,colourFillNP);
+         }
+         else{
          QPolygonF cylinderFace;
          xleft = pc[0] - cylinderFaceLength;
          zup = pc[2];
@@ -1398,6 +1491,7 @@ else{
          double cdz = pc[6];
          cylinderFace << QPointF(xleft*scaleFactor   , zup*scaleFactor) << QPointF( (xleft+cylinderFaceLength)*scaleFactor, zup*scaleFactor  ) << QPointF( (xleft+cylinderFaceLength+cdx)*scaleFactor, (zup+cdz)*scaleFactor ) << QPointF((xleft+cdx)*scaleFactor, (zup+cdz)*scaleFactor) ;
          pdbScene.addPolygon( cylinderFace ,colourOutlineNP ,colourFillNP);
+         }
      }
 
  }
@@ -1445,6 +1539,9 @@ noFillBrush.setStyle(Qt::BrushStyle( Qt::NoBrush));
 if(npShapeIndex == 1){
     double cylinderOutLineLeft = - cylinderHalfLength * std::abs( std::cos(screenRotate) ) ;
     pdbScene.addRect( cylinderOutLineLeft*scaleFactor, npUp*scaleFactor, -2*cylinderOutLineLeft*scaleFactor, 2*npRadius*scaleFactor  ,dashedPen, noFillBrush );
+}
+else if(npShapeIndex == 2){
+    pdbScene.addRect(   -npRadius*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor, 2*npRadius*scaleFactor  ,dashedPen, noFillBrush  );
 }
 else{
 pdbScene.addEllipse( npLeft*scaleFactor, npUp*scaleFactor, 2*npRadius*scaleFactor , 2*npRadius*scaleFactor  ,dashedPen, noFillBrush );
@@ -2122,5 +2219,45 @@ void MainWindow::on_showChargeBox_stateChanged(int arg1)
 void MainWindow::on_npShapeBox_currentIndexChanged(int index)
 {
     updateMoleculeBox();
+}
+
+
+void MainWindow::on_materialDropdown_currentIndexChanged(int index)
+{
+    //make sure the selected NP shape is compatible with the chosen material - if the material is a CNT set the NP to the correct shape, if not default to sphere
+
+    QString currentNPShape = this->findChild<QComboBox *>("npTargetShapeOverride")->currentText();
+
+    QString targetMaterial = this->findChild<QComboBox *>("materialDropdown")->currentText() ;
+
+    if( targetMaterial.contains("mwcnt")){
+        this->findChild<QComboBox *>("npTargetShapeOverride")->setCurrentIndex(4);
+    }
+    else if(targetMaterial.contains("cnt")){
+        this->findChild<QComboBox *>("npTargetShapeOverride")->setCurrentIndex(3);
+    }
+    else{
+        if(currentNPShape=="MWCNT" || currentNPShape=="SWCNT"){
+            this->findChild<QComboBox *>("npTargetShapeOverride")->setCurrentIndex(0);
+        }
+    }
+
+}
+
+
+void MainWindow::on_npTargetShapeOverride_currentIndexChanged(int index)
+{
+    if(index == 0){
+        this->findChild<QComboBox *>("npShapeBox")->setCurrentIndex(  0) ; //set view to sphere
+    }
+    else if(index == 1 || index == 3 || index == 4){
+        this->findChild<QComboBox *>("npShapeBox")->setCurrentIndex(  1); //set view to cylinder
+    }
+    else if(index == 2){
+        this->findChild<QComboBox *>("npShapeBox")->setCurrentIndex(  2) ; //set view to cube
+    }
+    else{
+       this->findChild<QComboBox *>("npShapeBox")->setCurrentIndex(  0) ; //set view to sphere??
+    }
 }
 
