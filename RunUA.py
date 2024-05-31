@@ -94,7 +94,7 @@ if args.shapeoverride > 0:
     newShape = args.shapeoverride
     if shape in tubeCorrectionShapes and newShape in planeCorrectionShapes:
         print("Material is a tube PMF format but you have selected a planar NP shape. Please be aware this may cause errors")
-    if newShape in tubeCorrectionShapes and nshape in planeCorrectionShapes:
+    if newShape in tubeCorrectionShapes and shape in planeCorrectionShapes:
         print("Material is a plane PMF format but you have selected a tube NP  shape. Please be aware this may cause errors")
     shape = newShape
 
