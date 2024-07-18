@@ -218,7 +218,7 @@ def outputStateAll():
     resList.append(resEntry)
 
 
-
+#totalCoverage = 0
 
 def outputState():
     if len(state) > 0:
@@ -230,18 +230,38 @@ def outputState():
     totalCoverage = 0
     uniqueProteinNums = np.zeros(len(uniqueProteins))
     uniqueProteinCoverage = np.zeros(len(uniqueProteins))
-    outString = str(lastUpdate)
-    outStringCoverage = str(lastUpdate)
+    lastUpdateRounded = round(lastUpdate/updateInterval) * updateInterval
+
+    outString = str(lastUpdateRounded)
+    outStringCoverage = str(lastUpdateRounded)
     print(lastUpdate,end=' ' )
-    for id in proteinIDList: #scan through all protein-orientations and sum up the total number of each protein
-        proteinName = proteinNames[id]
-        upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
-        #print upIndex, uniqueProteins[upIndex]
-        numProteins = len(stateArr[stateArr == id])
-        uniqueProteinNums[upIndex] += numProteins
-        uniqueProteinCoverage[upIndex] += numProteins/proteinBindingSites[id]
-        totalProteins += numProteins
-        totalCoverage +=  numProteins/proteinBindingSites[id]
+    #old method: check every possible protein and see if any are bound
+    #new method: only look at bound proteins - this will be quick if nbound < ntypes, which will very usually be true
+    scanBound = True
+    if scanBound == True and len(state) > 0:
+        #print("debug starts here")
+        #print(stateArr)
+        for id in stateArr:
+            #print(id)
+            proteinName = proteinNames[id] 
+            upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
+            uniqueProteinNums[upIndex] += 1
+            uniqueProteinCoverage[upIndex] += 1.0/proteinBindingSites[id]
+            totalProteins += 1
+            totalCoverage += 1.0/proteinBindingSites[id]
+    else:
+        for id in proteinIDList: #scan through all protein-orientations and sum up the total number of each protein
+            proteinName = proteinNames[id]
+            upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
+            #print upIndex, uniqueProteins[upIndex]
+            numProteins = len(stateArr[stateArr == id])
+            uniqueProteinNums[upIndex] += numProteins
+            uniqueProteinCoverage[upIndex] += numProteins/proteinBindingSites[id]
+            totalProteins += numProteins
+            totalCoverage +=  numProteins/proteinBindingSites[id]
+    
+
+
     for upIndex in range(len(uniqueProteins)):
         if coarseGrainAtEnd ==0:
             print(uniqueProteinNums[upIndex]/numNPs,end=' ' )
@@ -265,6 +285,8 @@ def outputState():
     #print( sufficientlyExecuted[:3],end = ' ')
     #print( empiricalAcceptance[:3],end = ' ')
     #print( lastSBEscape, end = ' ')
+    #print(dybeckAlpha)
+    #print(sufficientlyExecuted)
     print(totalProteins/numNPs, " ", totalCoverage/numNPs, deltaGValCoverage, deltaGValNumberAverage,end=' ' )
     print("")
     outString = outString+" "+str(totalProteins/numNPs)+" "+str(totalCoverage/numNPs)+"\n"
@@ -272,8 +294,9 @@ def outputState():
     runningFile.write(outString)
     runningFileCoverage.write(outStringCoverage)
     resList.append(resEntry)
-
-
+    #print( proteinData[:,0] * proteinData[:,2] * proteinBindingSites ) 
+    #print(proteinCollisionEvents)
+    #print(empiricalAcceptance)
 def estimateDeltaG():
     #if coarseGrainAtEnd != 0:
     if len(state) > 0:
@@ -338,11 +361,15 @@ parser.add_argument('-R','--runningfile',help="Save output snapshots", default=0
 parser.add_argument('-b','--boundary',help="Boundary type: 0 = vacuum, 1 = periodic", default=1, type=int)
 parser.add_argument('-D','--displace',help="Allow incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
 parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
+parser.add_argument('-S','--steady', help="Fix the adsorption rate to a constant and adjust desorption rate for same steady-state behaviour", action="store_true")
+
 
 
 doMovie = False
 args = parser.parse_args()
 endTime = args.time*3600
+
+displaceSwitchOff = 0
 
 hardSphereMode = args.hardsphere
 if hardSphereMode == 1:
@@ -354,7 +381,7 @@ if args.displace != 0:
     allowDisplace = True
     print("Enabling displacement, please make sure all binding energies are correct")
     displaceWater = True
-
+    displaceSwitchOff = endTime + 100
 
 useDybeckAcceleration = False
 useDybeckUltra = False
@@ -365,10 +392,24 @@ if args.accelerate > 0:
         useDybeckUltra = True
         print("And then accelerating further with scaling freezing")
     
-    
-    
+forceSteadyState = False
+if args.steady==True:
+    print("Will attempt to find steady state and not time-resolved")
+    #useDybeckAcceleration = True
+    if allowDisplace == True:
+        print("WARNING: Displacement mode will be automatically disabled after pre-seeding is complete and does not need to be manually passed")
+    allowDisplace = True #enables displacement features if not already enabled
+    displaceWater = True
+    forceSteadyState = True
+    displaceSwitchOff =  5 #switches off displacement mode after pre-seeding the NP 
+
+
 updateInterval = args.timedelta
     
+
+#if args.steady==True:
+#    updateInterval = 0.1
+
 npShape = int(args.shape)
 
 if args.demo==1:
@@ -386,7 +427,7 @@ cylinderHalfLength = 10 #end-to-centre length of the cylinder
 hasPBC = False
 #If we're using periodic boundary conditions, set a finite size (to avoid issues with large spheres). Else use the size of the NP.
 if args.boundary == 1:
-    planeHalfLength = 20 
+    planeHalfLength = 40 
     hasPBC = True
 else:
     planeHalfLength = args.radius
@@ -433,6 +474,12 @@ updateNum=0
 
 #define some constants
 kbtVal = 1
+
+baseTemperature = 300 #reference value for binding energies from UA or other sources - it is assumed these are at 300K
+simulationTemp = 300
+tempScaleVal = simulationTemp/baseTemperature #apply a rescaling factor to energies, only used for steady-state mode and only as part of pseudo-simulated-annealing
+
+
 doShuffle = args.diffuse
 
 #define the NP area
@@ -446,60 +493,6 @@ proteinDataOriginal = np.array([
 ["HDL","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)],
 ["HSA","6e-4","4","2.4e3","2e-3","-16.3004",str(np.pi*4**2)],
 ["Fib","8.8e-6","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)]
-
-])
-
-
-proteinDataSlow = np.array([
-
-["HDL","1.5e-5","5","3e4","3e-6", "-20.7233",str(np.pi*5**2)],
-["HSA","6e-4","4","2.4e3","2e-4","-16.3004",str(np.pi*4**2)],
-["Fib","8.8e-6","8.3","2e3","2e-4","-16.1181",str(np.pi*8.3**2)]
-
-])
-
-proteinDataExtra = np.array([
-
-["HDL","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)],
-["HSA","6e-4","4","2.4e3","2e-3","-16.3004",str(np.pi*4**2)],
-["Fib","8.8e-6","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)],
-["FP1","6e-4","8.3","2e3","2e-3","-16.1181",str(np.pi*8.3**2)],
-["FP2","1.5e-5","5.5","3e4","3e-5", "-20.7233",str(np.pi*5.5**2)]
-
-
-])
-
-proteinDataFastA = np.array([
-
-["HDL","1.5e-5","5","3e6","3e-5", "-20.7233",str(np.pi*5**2)],
-["HSA","6e-4","4","2.4e5","2e-3","-16.3004",str(np.pi*4**2)],
-["Fib","8.8e-6","8.3","2e5","2e-3","-16.1181",str(np.pi*8.3**2)]
-
-])
-
-
-proteinDataBigSmall  = np.array([
-
-["Big","1.5e-5","5","3e6","3e-5", "-20.7233",str(np.pi*5**2)],
-["Small","6e-4","1","2.4e5","2e-3","-16.3004",str(np.pi*1**2)]
-
-])
-
-proteinDataOneLarge = np.array([
-
-["HDL","1.5e-5","20","3e4","3e-5", "-20.7233",str(np.pi*20**2)]
-
-])
-proteinDataOne = np.array([
-
-["HDL","1.5e-5","5","3e4","3e-5", "-20.7233",str(np.pi*5**2)]
-
-])
-
-
-proteinDataOneWeak = np.array([
-
-["HDL","1.5e-2","5","3e4","3e4", "0",str(np.pi*5**2)]
 
 ])
 
@@ -529,7 +522,7 @@ if args.loadfile != "":
     precoatFile.close()
 
 if proteinInput == "":
-    proteinDataInput = proteinDataOneWeak
+    proteinDataInput = proteinDataOriginal
 else:
     print("loading from file ", proteinInput)
     proteinDataInput = np.genfromtxt(proteinInput, dtype=str)
@@ -551,6 +544,7 @@ if allowDisplace == True and displaceWater == True:
 
 proteinNamesAll = proteinDataInput[:,0]
 #print(proteinNamesAll)
+print("Producing name list")
 proteinNameList = []
 for proteinNameOrientation in proteinNamesAll:
     nameTerms = proteinNameOrientation.split(":")
@@ -564,6 +558,113 @@ proteinBindingSites = npSurfaceArea /( bindingArea(npRadius, proteinData[:,1]) )
 
 largestProteinRadius = np.amax(proteinData[:,1])
 
+#Rescale the adsorption rate to be uniform and rescale the desorption rate so that it behaves correctly in the steady-state
+if forceSteadyState == True:
+    print(proteinData[:,2]/proteinData[:,3] )
+
+    slowestDesorbIndex = np.argmin( proteinData[:,3] )
+   
+    print("Original min desorption rate: ", proteinNamesAll[ slowestDesorbIndex ] , proteinData[ slowestDesorbIndex]  , (1.0/proteinData[ slowestDesorbIndex,3])/(24*3600.0) )
+    collisionRateConst = 1.0  #/len(proteinData)
+    desorbRateInitial = np.copy( proteinData[:,3] )
+    #collideRateInitial = (proteinData[:,0] * proteinData[:,2] * proteinBindingSites * numNPs)
+    #desorbRateAdjusted = collisionRateConst * desorbRateInitial/collideRateInitial
+    
+    bindingAreaSet = bindingArea(npRadius, proteinData[:,1] )
+    #print(proteinData[:,4] - np.log(proteinData[:,0]) , bindingAreaSet )
+    #energyDensity = (proteinData[:,4] - np.log(proteinData[:,0])  ) * proteinBindingSites #since this is inversely proportionate to area
+    #print(energyDensity)
+    #zeroKelvinProtein = np.argmin( energyDensity)
+    totalEnergyFull =  (proteinData[:,4] - np.log(proteinData[:,0])  )* proteinBindingSites
+    #print(totalEnergyFull)
+    zeroKelvinProtein = np.argmin(totalEnergyFull)
+    #print(np.sqrt(bindingAreaSet/np.pi))
+    #quit()
+    strongBindArea = bindingAreaSet[zeroKelvinProtein]
+    #print(zeroKelvinProtein)
+    steadyStateCoverage = 0.5
+    oneMCov = 1 - steadyStateCoverage
+    areaFactorSq = bindingAreaSet * steadyStateCoverage**2 / strongBindArea**2
+    term1 = bindingAreaSet * steadyStateCoverage/strongBindArea
+    term2 = 2 * np.sqrt(bindingAreaSet) * steadyStateCoverage / np.sqrt(strongBindArea)
+    steadyStateInsertionProb = oneMCov *  np.exp( -1.0*(  areaFactorSq   /  (oneMCov**2)      )    - 1.0*( (term1+term2) /  (oneMCov)   )   ) 
+    print(steadyStateInsertionProb)
+    steadyStateScale = steadyStateInsertionProb/np.amax(steadyStateInsertionProb)
+    print(steadyStateScale)
+    #quit()
+    #quit()
+
+
+    kaInitial = np.copy(proteinData[:,2] )
+    print(collisionRateConst)
+    print(proteinData[:,0])
+    print(proteinBindingSites)
+    kaAdjustFactor = collisionRateConst/(   proteinData[:,0] * proteinBindingSites  * proteinData[:,2] ) 
+    #kaAdjustFactor =  kaAdjustFactor /  steadyStateScale 
+    #kaAdjustFactor = collisionRateConst/( proteinData[:,0] )
+    print("ka adjust: ", kaAdjustFactor)
+    rescaleAdsorption = True
+    if rescaleAdsorption == True:
+        #print("Scaled rates: ", proteinData[:,2] * proteinData[:,0] * proteinBindingSites )
+        #rescale KA to produce approx. equivalent collision rates for all species
+        proteinData[:,2] = proteinData[:,2] * kaAdjustFactor
+        proteinData[:,3] = proteinData[:,3] * kaAdjustFactor
+        #totalIncomingRate = np.sum( proteinData[:,2] * proteinData[:,0] * proteinBindingSites )
+        #extraFactor = totalIncomingRate
+        #print("Rescaled ka: ", proteinData[:,2])
+        #print("Rescaled rates: ", proteinData[:,2] * proteinData[:,0] * proteinBindingSites ) 
+        #proteinData[:,2] = 1e3 *  proteinData[:,2] / totalIncomingRate
+        #proteinData[:,3] = 1e3 *  proteinData[:,3] / totalIncomingRate
+    else:
+        #second option: rescale KD to be constant for all proteins 
+        kdRescale = 1.0/proteinData[:,3] 
+        proteinData[:,2] =  proteinData[:,2] * kdRescale
+        proteinData[:,3] =  proteinData[:,3] * kdRescale
+        
+    totalIncomingRate = np.sum( proteinData[:,2] * proteinData[:,0] * proteinBindingSites )
+    #print("total rate: ", totalIncomingRate)
+    proteinData[:,2] = 1e3 *  proteinData[:,2] / totalIncomingRate
+    proteinData[:,3] = 1e3 *  proteinData[:,3] / totalIncomingRate
+
+
+    #print(proteinData[:,2])
+    #print( proteinData[:,0] * proteinData[:,2] * proteinBindingSites ) 
+    #quit()
+
+    #quit()
+    #then adjust again to account for the protein size, since larger proteins are exponentially suppressed. The leading term in the acceptance probability is exp(-Ri^2/Rj^2) and we set Rj=2 as a baseline
+    #largestRadius = np.amax( proteinData[:,1] )
+    #proteinRescaleFromRadius = np.exp( 1.0 * (proteinData[ :,1]**2) / largestRadius**2)
+    #alternate trial: rescale based on reduction in acceptance at half-coverage for smallest
+    #smallestRadius = max(1.0, np.amin( proteinData[:,1]) )
+    #print(smallestRadius)
+    #proteinRescaleFromRadius = np.exp( 1.0 *   ( 2 * proteinData[:,1] * (smallestRadius + proteinData[:,1])  )/ (smallestRadius**2)    )
+    #proteinRescaleFromRadius = proteinRescaleFromRadius/np.amin(proteinRescaleFromRadius)
+    #proteinRescaleFromRadius = 1.0
+
+    #proteinData[:,2] = proteinData[:,2] * proteinRescaleFromRadius
+    #proteinData[:,3] = proteinData[:,3] * proteinRescaleFromRadius
+    print(proteinData[:,2])
+    print(proteinData[:,3])
+    print("Equil const:" , proteinData[:,2]/proteinData[:,3])
+    finalIncomingRate = np.sum( proteinData[:,2] * proteinData[:,0] * proteinBindingSites ) 
+    print("Final incoming rate: ", finalIncomingRate )
+    print("Recommended timestep per event: ", 1.0/finalIncomingRate )
+    print("Recommended timestep: slowest desorption: ", 1.0/np.amin( proteinData[:,3] ) )
+    print("Recommended timestep: fastest desorption: ", 1.0/np.amax( proteinData[:,3] ) )
+    #quit()
+    #print(proteinRescaleFromRadius) 
+    #quit()
+
+    print(proteinData[:,2]/proteinData[:,3] )
+    print("Final collision rates: ", proteinData[:,0] * proteinData[:,2] * proteinBindingSites)
+    print("Final desorption rates: ", proteinData[:,3] )
+    print("Min. desorption rate: ", np.amin( proteinData[:,3] ) )
+    #quit()
+
+    #(proteinData[:,0] * proteinData[:,2]) * proteinBindingSites * numNPs == collisionRateConst
+    #proteinData[:,3]/collisionRateConst = desorbRateInitial/(proteinData[:,0] * proteinData[:,2] * proteinBindingSites * numNPs)
+
 #print(proteinBindingSites)
 if doAnalytic!=0:
     aCoeffMatrix = np.zeros( (len(proteinData), len(proteinData)))
@@ -576,6 +677,14 @@ if doAnalytic!=0:
 
 #calculate the collision rates used to determine which protein to add = concentration * k_on * NP surface area / protein cross sectional area
 collisionRates = (proteinData[:,0] * proteinData[:,2]) * proteinBindingSites * numNPs
+
+print(collisionRates)
+#quit()
+#To find the steady-state we make everything arrive with the same probability
+#if forceSteadyState == True:
+#    collisionRateFactor = np.copy(collisionRates)
+#    collisionRates = np.zeros_like(collisionRates) + 1.0 
+
 additionProb = np.cumsum(collisionRates)
 
 slowestAdsorber = min(10,np.amin(collisionRates) )
@@ -612,6 +721,9 @@ print("Event queue size: ", dybeckNE)
 
 dybeckNF = 5  #target number of events per superbasin
 
+if forceSteadyState == True:
+    dybeckNF = 20
+
 dybeckAutoNF = True
 
 dybeckMinAlpha = 0.01
@@ -621,8 +733,14 @@ timeInSuperbasin = 1e-20
 proteinAdsorptionEvents = np.zeros( (len(proteinData[:,0]), dybeckNE)) #Nprot x dybeckNE matrix for tracking events, 1 = adsorb, -1 = desorb
 proteinCollisionEvents = np.zeros( (len(proteinData[:,0]), 2)) #Nprot x 2 matrix for tracking collisions, c1 = successful c2 = total
 proteinCollisionEvents[:,:] = 0.0
-proteinCollisionMemory = 0.8
-empiricalAcceptance = proteinCollisionEvents[:,0]/(1e-6 + proteinCollisionEvents[:,1])
+proteinCollisionMemory = 0.999999
+
+
+#proteinCollisionMemory = proteinData[:,2] 
+
+
+
+empiricalAcceptance = 1.0  + proteinCollisionEvents[:,0]/(1e-6 + proteinCollisionEvents[:,1])  #for an empty corona there's a unit chance of acceptance
 
 proteinSBExecutions= np.zeros_like(proteinData[:,0])
 proteinSBExecutionsFormer= np.zeros_like(proteinData[:,0])
@@ -643,11 +761,26 @@ quasiEquil = np.logical_and(  np.abs( np.sum(proteinAdsorptionEvents,axis=1) )/d
 
 sufficientlyExecuted = np.logical_and(  proteinSBExecutions >=dybeckExecutionNumber, quasiEquil)
 
+totalIDs = len(proteinIDList)
+print("Preparing total concentrations")
+
+
+#reverse-engineer the orientation factor applied to each protein so the concentrations are properly adjusted if depletion is enabled
+'''
+numIDsDone = 0
 for id in proteinIDList:
     proteinName = proteinNames[id]
-    #upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
     proteinTotalConcs[ proteinNames == proteinName   ] += proteinData[id,0]
-
+    if numIDsDone % 1000 == 0:
+        print( numIDsDone,"/",totalIDs)
+    numIDsDone += 1
+''' 
+for uniqueName in uniqueProteins:
+    print(uniqueName)
+    nameMask = proteinNames == uniqueName
+    totalNameConc = np.sum(  proteinData[  nameMask     , 0]  )
+    proteinTotalConcs[nameMask] = totalNameConc
+    print("Set all ", uniqueName , " to base total concentration", totalNameConc)
 orientationFactors = proteinData[:,0]/(1e-15+proteinTotalConcs)
 #print(orientationFactors)
 
@@ -722,15 +855,43 @@ if coarseGrainAtEnd != 0:
     print("DeltaG")
 else:
     print("")
+
+localRateRescale = np.ones_like(proteinData[:,0])
+disabledDisplace = False
 #Kinetic Monte Carlo approach
 while t < endTime:
 
+    if disabledDisplace == False and t > displaceSwitchOff:
+        allowDisplace = False
+        displaceWater = False
+        #print(proteinData[:,3])
+        #print(proteinData[:,4], scspec.expit(  -(proteinData[:,4]))
+        proteinData[:,3] = proteinData[:,3] / scspec.expit(  -(proteinData[:,4]) ) #remove the water-displacement-adjustment to KD
+        #print(proteinData[:,3] )
+        disabledDisplace = True
+        print("Displace off, estimated time for settling:" + str(1.0/averageDesorbRate))
+
+    empiricalProbs =  np.where(  proteinCollisionEvents[:,1] < 1, 1.0,  empiricalAcceptance)
+    #localRateRescale = 1.0/np.clip( empiricalProbs, 1e-8, 1.0) #rescale adsorption and desorption rates: proteins being frequently rejected (eP->0) are boosted
+    #localRateRescale = np.clip(empiricalProbs,0.1,1.0)  # frequent rejections are slowed - selected less often but removed less often
+
+    #localRateRescale = 1.0 /( empiricalProbs )  #or rescale so unlikely ones occur more but fall off quicker to try to accelerate convergence
+    #print(empiricalProbs)
+    #print(empiricalProbs * proteinData[:,0] * (proteinData[:,2] / proteinData[:,3] )* proteinBindingSites ) 
+
+    #print(empiricalProbs,localRateRescale)
+
     #dybeck acceleration https://doi.org/10.1021/acs.jctc.6b00859
     resetSuperbasin = False
+    '''
+    if forceSteadyState == True:
+        timeScaleConst = 0.2
+        newTemp  = 300.0 + np.exp( -t/timeScaleConst) * 100.0
+        tempScaleVal = newTemp/300.0
+    '''
     
-    
+        #print("rescaling by ", localRateRescale)
 
-    
     #get the quasi-equilibriated states for all protein-orientations: those which are current approximately equal in terms of adsorption and desorption and which have had a sufficient number of events
     #quasiEquil = np.logical_and(  np.abs( np.sum(proteinAdsorptionEvents,axis=1) )/dybeckNE < dybeckDelta   , np.sum(np.abs(proteinAdsorptionEvents),axis=1) >= dybeckNE ) 
     quasiEquil = np.logical_and(  np.abs( np.sum(proteinAdsorptionEvents,axis=1) )  < dybeckDelta*np.sqrt(dybeckNE)   , np.sum(np.abs(proteinAdsorptionEvents),axis=1) >= dybeckExecutionNumber ) 
@@ -748,7 +909,7 @@ while t < endTime:
         dybeckAlpha = dybeckNFVal*2*dybeckrs/( dybeckRateForwards + dybeckRateBackwards)
         
         #dybeckAlpha = dybeckAlpha*dybeckMinAlpha/np.amin(dybeckAlpha)
-        dybeckAlpha = np.clip(dybeckAlpha,dybeckMinAlpha,1)
+        dybeckAlpha = np.clip(dybeckAlpha,dybeckMinAlpha,1.0)
     elif timeInSuperbasin > 1e-19 and dybeckIsFrozen == True:
         dybeckAlpha = dybeckAlphaFrozen
     else:
@@ -759,7 +920,7 @@ while t < endTime:
     leavingRates = []
     dybeckRateBackwardsTerm[:] = 0
     
-    
+    #print(t)
     stateArr = np.array(state)
     '''
     if len(state) > 0:
@@ -772,20 +933,36 @@ while t < endTime:
     else:
         desorbRates = []
     '''
-    
+    averageDesorbRate = 1e-12
     for i in range(len(state)):
         currentProtein = state[i]
-        
+        deltaG = proteinData[ currentProtein[0], 4] 
         desorbRate = proteinData[ currentProtein[0],3]
+        desorbRate0 = desorbRate
+        if forceSteadyState == True: #for simulated annealing convert to current desorption rate
+            desorbRate = desorbRate * np.exp( deltaG*(1.0  - tempScaleVal)/tempScaleVal )
+            desorbRate = desorbRate * localRateRescale[ currentProtein[0] ] 
+            #print("Adjusted", desorbRate0 , "to", desorbRate, "for", deltaG, " at temp factor", tempScaleVal)
+            #quit()
         if useDybeckAcceleration == True:
             desorbRate = desorbRate * dybeckAlpha[ currentProtein[0] ] 
         leavingRates.append( desorbRate  )
+        averageDesorbRate += desorbRate
         dybeckRateBackwardsTerm[ currentProtein[0] ] += desorbRate
     #print(leavingRates, desorbRates)
-    
+    numAds = len(state)
+    if numAds > 0:
+        averageDesorbRate = averageDesorbRate/numAds
     #leavingRates = desorbRates
     if len(stateArr) < 1:
+        #if forceSteadyState == True:
+        #    collisionrates = proteinData[:,2]
+        #else:
         collisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
+        if forceSteadyState == True:
+            collisionRates = collisionRates * localRateRescale
+
+
         #originalCollisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
     else:
         #boundProteinAll = np.zeros(len(proteinData[:,0]))
@@ -796,11 +973,17 @@ while t < endTime:
         #    boundProteinAll[  proteinNames == proteinName   ] += numProteins
         adjustedConc = (proteinTotalConcs - npConc * boundProteinAll / numNPs)*orientationFactors
         adjustedConc = np.where(adjustedConc > 0, adjustedConc, 0)
-        collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
+        if forceSteadyState == True:
+            collisionRates =  proteinData[:,0]  *   proteinData[:,2] * proteinBindingSites * numNPs * localRateRescale
+            #print(collisionRates)
+        else:
+            collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
         #originalCollisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
     #print boundProteinAll[::600]
+    #print(collisionRates / np.array(leavingRates))
     '''
     uniqueProteinNums = np.zeros(len(uniqueProteins))
+
     for id in proteinIDList: #scan through all protein-orientations and sum up the total number of each protein
         proteinName = proteinNames[id]
         upIndex = np.nonzero(uniqueProteins == proteinName)[0][0]
@@ -835,7 +1018,7 @@ while t < endTime:
     deltatTotal = deltat
     # print deltatTotal
     #print out the state of the system at the specified updating interval, using an empirical correction for the current acceptance rate of each protein type so that Dybeck rates are adsorption and not collision
-    
+    #when forcing steady-state these are also used to rescale rate constants to favour proteins which can actually adsorb
     empiricalAcceptance = proteinCollisionEvents[:,0]/(1e-6 + proteinCollisionEvents[:,1])
     dybeckRateForwards += ( (collisionRates*deltatTotal * empiricalAcceptance)/dybeckAlpha) 
     dybeckRateBackwards += ((dybeckRateBackwardsTerm*deltatTotal)/dybeckAlpha) 
@@ -990,7 +1173,6 @@ while t < endTime:
                     numAttempt+=1
 
 
-
     #this finally brings the system up to the correct point in time for the protein to adsorb or desorb, which is then done.
     #print chosenProcess
     if chosenProcess < len(collisionRates):
@@ -1027,7 +1209,7 @@ while t < endTime:
             else: #
                 enew = proteinData[newProteinID,4] # test to see if the adsorbate can displace water
                 #acceptanceProbability = np.exp( -(enew ))/( np.exp( -(enew)) + 1.0)
-                acceptanceProbability = scspec.expit( -enew)
+                acceptanceProbability = scspec.expit( -enew/tempScaleVal )
                 if np.random.random() < acceptanceProbability:
                     directAccept = True
         
@@ -1052,7 +1234,7 @@ while t < endTime:
             enew = proteinData[newProteinID,4]
             #acceptanceProbability = np.exp( - (proteinData[ newProteinID, 4] - np.sum(blockingProteinEnergies))) 
             #acceptanceProbability = np.exp( -(enew - erep))/( np.exp( -(enew-erep)) + 1.0) #calculate the acceptance probability such that the two states are canonically distributed
-            acceptanceProbability = scspec.expit(  -(enew-erep) )
+            acceptanceProbability = scspec.expit(  -(enew-erep)/tempScaleVal  )
             #print("Total energy:", erep, " new protein energy ", enew , "acceptance probability", acceptanceProbability)
             if   np.random.random() < acceptanceProbability:
                 #print("Replacement occured")
@@ -1076,8 +1258,8 @@ while t < endTime:
                 proteinSBExecutions[newProteinID] +=1
                 if quasiEquil[newProteinID] == False:
                     resetSuperbasin = True
-            else:
-                proteinCollisionEvents[newProteinID,0] = proteinCollisionMemory*proteinCollisionEvents[newProteinID,0]
+        else:
+            proteinCollisionEvents[newProteinID,0] = proteinCollisionMemory*proteinCollisionEvents[newProteinID,0]
     else:
         #remove the protein 
         removedProtein = state.pop( chosenProcess - len(collisionRates)   )
@@ -1117,7 +1299,7 @@ elif npShape == 2:
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1])   , heightAboveSurface * np.sin(stateArray[:,1])  ,stateArray[:,2] ,radiusArray ))
 elif npShape == 3:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + 0)
-    outputArray =  np.vstack( (stateArray[:,0],  stateArray[:,1]   , stateArray[:,2]  ,0 ,radiusArray ))
+    outputArray =  np.vstack( (stateArray[:,0],  stateArray[:,1]   , stateArray[:,2]  ,np.zeros_like(stateArray[:,2]) ,radiusArray ))
 elif npShape == 4:
     heightAboveSurface = (np.array([proteinData[ stateArray[:,0].astype(int)   , 1] ]) + npRadius) 
     outputArray =  np.vstack( (stateArray[:,0],  heightAboveSurface * np.cos(stateArray[:,1]) * np.sin(stateArray[:,2])   , heightAboveSurface * np.sin(stateArray[:,1]) * np.sin(stateArray[:,2]) ,heightAboveSurface * np.cos(stateArray[:,2]) ,radiusArray ))

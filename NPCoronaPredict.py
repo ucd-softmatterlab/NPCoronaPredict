@@ -47,10 +47,10 @@ parser.add_argument('-r','--radius',type=float,help="Radius of the NP [nm]",defa
 parser.add_argument('-z','--zeta',type=float,help="Zeta potential of the NP [mV]",default=0)
 parser.add_argument('-m','--material',type=str,help="Material",default="")
 parser.add_argument('-p','--projectname', type=str,help="Name of project", default="test_project")
-parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, disables auto-finding structures (all proteins wanted must be included)" , default="")
+parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, will attempt to find proteins starting with PDB- or AF-" , default="")
 parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)", default=3)
 parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the live footage in CoronaKMC", default = 0)
-parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in seconds", default = 5e-4)
+parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in seconds", default = 5e-3)
 parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
 parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
 parser.add_argument('-H','--hamaker',help="Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no", default = 1, type = int)
@@ -59,6 +59,8 @@ parser.add_argument('-I','--inneroverride',help="For custom .np files with a man
 parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
 parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
 parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
+parser.add_argument("--steady", action="store_true", help="Attempt to get the steady-state corona")
+
 
 args = parser.parse_args()
 
@@ -69,7 +71,7 @@ NPRadius = int(args.radius) #in nm
 NPZeta = int(args.zeta) #in mV
 NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
-CoronaSimTime = args.time/3600 #1 second in hours
+CoronaSimTime = args.time/3600.0 #1 second in hours
 isCylinder = False
 isPlane = False
 boundaryType = 1
@@ -237,10 +239,22 @@ for protein in OtherProteinSet:
 #        If this succeeds, copy to the working folder
 #        If this fails, print an error and move on to the next protein
 
+
+
+failedProteins = []
 successfulProteins = []
 for proteinLine in AllProteins:
     foundProtein = 0
     proteinID = proteinLine[0]
+    overrideToAF = False
+    overrideToPDB = False
+    proteinID2 = proteinID
+    if proteinID[:5] == "AFDB-":
+        overrideToAF = True #strip the AFDB- tag when requesting a remote file
+        proteinID2 = proteinID[5:]
+    if proteinID[:4] == "PDB-":
+        overrideToPDB = True
+        proteinID2 = proteinID[4:] #strip the PDB- tag when requesting a remote file
     proteinSource = proteinLine[2]
     if os.path.exists( ProteinWorkingFolder+"/"+proteinID+".pdb"  ):
         successfulProteins.append( proteinLine)
@@ -252,19 +266,19 @@ for proteinLine in AllProteins:
         print("Found "+proteinID+" in storage folder, copied to working")
         foundProtein = 1
     else:
-        if proteinSource=="AF" :
+        if proteinSource=="AF" or overrideToAF==True :
             #download from AlphaFold
             try:
-                os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID+'-F1-model_v4.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
+                os.system('wget  https://alphafold.ebi.ac.uk/files/AF-'+proteinID2+'-F1-model_v4.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
                 os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3] +".pdb")
                 foundProtein = 1
             except:
                 print("AlphaFold download failed, please try manually")
                 foundProtein = 0
-        elif proteinSource=="PDB":
+        elif proteinSource=="PDB" or overrideToPDB == True:
             #download from PDB
             try:
-                os.system('wget  https://files.rcsb.org/download/'+proteinID+'.pdb -P '+ProteinStorageFolder)
+                os.system('wget  https://files.rcsb.org/download/'+proteinID2+'.pdb -P '+ProteinStorageFolder)
                 os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3]+   ".pdb")
                 foundProtein = 1
             except:
@@ -272,11 +286,19 @@ for proteinLine in AllProteins:
                 foundProtein = 0
         else:
             print("Could not find a structure for protein "+proteinID)
+            #failedProteins.append(proteinID)
     if foundProtein == 1:
         successfulProteins.append(proteinLine)
-
+    else:
+        failedProteins.append(proteinLine)
 if len(successfulProteins) == 0:
      raise ValueError("No proteins were found. Please check again")
+if len(failedProteins) > 0:
+    print("Failed for: ")
+    for line in failedProteins:
+        print(line)
+    raise ValueError("Please remove these proteins or manually supply structures")
+
 serumFileLocation = BaseStorageFolder+"/"+ProjectName+"/serum.csv"
 
 
@@ -303,7 +325,14 @@ kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
 if args.inneroverride > 0:
     BCPCommandString += " -I "+str(filenameRadius)
-KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta 0.0000001 -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)+" -n 5"
+
+
+appendSteady = ""
+kmcTimeDelta = str(0.0001)
+if args.steady == True:
+    kmcTimeDelta = str(0.1)
+    appendSteady " --steady"
+KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta "+kmcTimeDelta+" -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)+" -n 10"+appendSteady
 
 if isCylinder == True:
     print("Adding cylinder argument")
