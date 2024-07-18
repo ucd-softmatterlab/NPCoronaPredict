@@ -331,7 +331,7 @@ appendSteady = ""
 kmcTimeDelta = str(0.0001)
 if args.steady == True:
     kmcTimeDelta = str(0.1)
-    appendSteady " --steady"
+    appendSteady =  " --steady"
 KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta "+kmcTimeDelta+" -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)+" -n 10"+appendSteady
 
 if isCylinder == True:
