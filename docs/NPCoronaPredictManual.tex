@@ -129,15 +129,41 @@ Each line in this file is required to have a matching structure stored in the al
 \begin{lstlisting}
 python3 NPCoronaPredict.py --help
 \end{lstlisting}
-which lists all the available commands and details about what they do. This script is designed to allow rapid simulation of coronas for well-defined, single-bead NPs as follows:
+which lists all the available commands and details about what they do. This script is designed to allow rapid simulation of coronas for well-defined, single-bead NPs. To do so, perform the following steps:
+
+
 \begin{enumerate}
-\item Get CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist)
+\item Copy CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist)
 \item Create a medium file as described above. Remember that this is ``molecule,concentration[M]'' format and each molecule must have a matching molecule.pdb file in all\textunderscore proteins.
 \item Identify the material you want to use - the standard are all listed in MaterialSet.csv and the machine-learning extended set in surface-pmfp/MaterialSetPMFP.csv
 \item Run NPCoronaPredict.py with a command string as shown above. 
 \end{enumerate}
+
+To save you some time, NPCoronaPredict will attempt to download some protein structures if it can't find them automatically. It can only do so if the name in the medium file looks like either ``PDB-XXXX'', where XXXX is the PDB ID code, or ``AFDB-UNIPROTID'', where UNIPROTID is the UniProtID e.g. P000001 for that protein. If it fails to find a match it will report this as an error
+Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually.
  
 
+\subsection{My first corona prediction}
+Assuming you've already gone through the first tutorial above, you'll already have a protein downloaded into all\textunderscore proteins (if not, pick a protein, get a .pdb structure, and save it there). For convenience, here we assume you have a structure named P02768.pdb present in this folder. We're now going to use the command-line level interface to run a corona prediction.
+The first step is preparing a medium file - the list of proteins and their abundances in the absence of an NP. Open up a text editor and make a file that looks like
+
+\begin{lstlisting}
+#Molecule,Concentration
+P02768,0.001
+\end{lstlisting}
+and save it somewhere in the NPCoronaPredict folder (or a subfolder, if you prefer), e.g. to ``demo\textunderscore medium.csv''. Now open a terminal window, navigate to the NPCoronaPredict folder and run
+
+\begin{lstlisting}
+python3 NPCoronaPredict.py -r 10 -z 0 -m graphene -p corona_predict_demo -t 0.01 -o demo_medium.csv
+\end{lstlisting}
+This will call UnitedAtom, BuildCoronaParams and finally CoronaKMC to predict the corona abundances of P02768 on your NP (here, graphene of radius 10 nm, as a simple if unrealistic demonstration), letting the simulation run for 0.01 seconds and saving all the output to the folder corona\textunderscore predict\textunderscore demo.  
+Try changing the material, timespan for corona predictions, or adding more proteins to demo\textunderscore medium.csv. When it's done, check the resulting output folder - this will contain data about the evolution of the corona and its final contents.
+
+Alternatively, if you want to keep using the GUI, try setting up this run in UAQuickRun. Prepare your list of molecules on the Molecule List Editor tab, making sure you give each a concentration. Run Check Structures and then click "Save" to save out your medium file. Then on the Run tab, check ``Advanced Mode'' then click ``Medium file'' to find the medium file you just made. Then from the drop-down above this go from ``Prepare only'' to ``Prepare + UA + BCP + KMC''. After that, you can define your NP as before. Note that UAQuickRun doesn't have the ability to show corona results other than in the text box.
+
+The above command only requests 0.01 seconds of corona simulation - this is a very short amount of time and nowhere near enough for the corona to reach equilibrium. Try increasing this! You can also try appending --steady to the command string and this will ask CoronaKMC to try to estimate the final state - this might be more useful for comparison to experiment.
+
+ 
  
 \chapter{UnitedAtom}
  \section{Introduction}
@@ -148,6 +174,23 @@ which lists all the available commands and details about what they do. This scri
 \end{lstlisting}
 to start UnitedAtom and then go wait a while (typically, up to a few minutes per protein per NP) until its done. 
 
+
+\subsection{My second UA run}
+The main advantage of running UA directly is that it allows much more flexibility in terms of parameters and the calculations performed. For these direct runs, you need to supply the configuration file mentioned above. 
+To begin, either copy and paste the sample\textunderscore config/sample\textunderscore config.config file to the same folder as the UnitedAtom executable or use the GUI/NPCoronaPredict/RunUA.py to produce a configuration file for your preferred material. Then edit the pdb-target line to target either a specific protein or a whole folder of proteins - UA will run calculations for all of these.
+In this example, we'll ask UA to look at our target proteins on a set of NPs of the same material over a range of radii. Edit the nanoparticle-radius line to read
+\begin{lstlisting}
+nanoparticle-radius = [1.0, 5.0, 10.0]
+\end{lstlisting}
+and we'll also add a slight extra surface potential via the zeta-potential option:
+\begin{lstlisting}
+zeta-potential = [-0.001, 0.0, 0.001] 
+\end{lstlisting}
+Note radii are in nm, zeta potential in V. Save the config file to myconfig.config and run
+\begin{lstlisting}
+./UnitedAtom --config-file=myconfig.config
+\end{lstlisting}
+Then wait for a bit - it'll run UA for every protein on each of the nine NPs generated (R=1, zp = -1mV, R=1, zp = 0mV .... R=10, zp = 1mV). The resulting .uam files are plain-text and can be post-processed using e.g. tools/plotmap to visualise them.
 
 
 \subsection{What's it actually doing?}
@@ -654,7 +697,7 @@ CoronaKMC.py is the main script of interest here. It takes in a set of options a
 \end{enumerate} 
  
  \section{Input}
-CoronaKMC is controlled almost entirely through command-line arguments, unless you need to make very specific tweaks. These arguments can be viewed by running ``python3 CoronaKMC-P3.py --help'' and a summary of their meaning is given below:
+CoronaKMC is controlled almost entirely through command-line arguments, unless you need to make very specific tweaks. These arguments can be viewed by running ``python3 CoronaKMC.py --help'' and a summary of their meaning is given below:
  \begin{itemize}
  \item -r or --radius - the radius of the NP in nm. 
  \item -p or --proteins - The input file defining all adsorbates, see later
@@ -668,9 +711,10 @@ CoronaKMC is controlled almost entirely through command-line arguments, unless y
 \item  -D or --displace - activate the ``displacement mode'' if non-zero, where a protein can displace bound proteins if this is energetically favourable.  See Section \ref{section:coronadisplacement} for more details.
 \item -A or --accelerate - activate Dybeck style acceleration if set non-zero, with 1 giving the classic mode and 2 giving the mode with freezing of rate constants. This may need some tweaking to the code to give sensible results. 
 \item -f or --fileid - optional string to append to output filenames to allow for multiple runs with similar configurations without overwriting each other (e.g. to get better averages).
+\item --steady : Enables steady-state mode. This rescales rate constants such that the dynamical evolution is meaningless,but the steady state should be reached in significantly fewer steps.
 \end{itemize}
 
-Some optional ones are listed below - these tend to be for debugging or more specialised cases 
+Some extra optional ones are listed below - these tend to be for debugging or more specialised cases.
  
  \begin{itemize}
 \item -l or --loadfile - load in a .kmc file from a previous run to precoat the NP in these proteins. Once these desorb they're lost forever. No sanity checks are made to make sure the NP between the two runs match!
