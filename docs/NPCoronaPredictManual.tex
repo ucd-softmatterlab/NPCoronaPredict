@@ -21,7 +21,16 @@ This document is designed to provide an overview of how to run the NPCoronaPredi
 
 Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of component beads.
 
-\section{Installation}
+\section{New Users First Steps}
+\begin{enumerate}
+\item Follow the instructions in Section \ref{section:installation} to install and compile everything you need.
+\item Calculate a protein - NP adsorption energy to get used to the GUI as described in Section \ref{section:myFirstRun} and the general input and output
+\item Simulate a corona using the command-line tools in Section \ref{section:firstCorona}
+\item Compute a whole set of proteins and NPs in Section \ref{section:uaAdvanced}
+\end{enumerate}
+
+
+\section{Installation} \label{section:installation}
 The most recent version of the code can be obtained using git from a repository stored on github:
 \begin{lstlisting}
 git clone https://github.com/ucd-softmatterlab/NPCoronaPredict.git
@@ -139,11 +148,11 @@ which lists all the available commands and details about what they do. This scri
 \item Run NPCoronaPredict.py with a command string as shown above. 
 \end{enumerate}
 
-To save you some time, NPCoronaPredict will attempt to download some protein structures if it can't find them automatically. It can only do so if the name in the medium file looks like either ``PDB-XXXX'', where XXXX is the PDB ID code, or ``AFDB-UNIPROTID'', where UNIPROTID is the UniProtID e.g. P000001 for that protein. If it fails to find a match it will report this as an error
-Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually.
+To save you some time, the NPCoronaPredict script will attempt to download some protein structures if it can't find them automatically. It can only do so if the name in the medium file looks like either ``PDB-XXXX'', where XXXX is the PDB ID code, or ``AFDB-UNIPROTID'', where UNIPROTID is the UniProtID e.g. P000001 for that protein. If it fails to find a match it will report this as an error
+Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. Here there's an important difference: the UAQuickRun GUI doesn't need the PDB- or AFDB- tags in front to find structures, while NPCoronaPredict does. This is so NPCoronaPredict only checks these if you explicitly tell it to.
  
 
-\subsection{My first corona prediction}
+\subsection{My first corona prediction} \label{section:firstCorona}
 Assuming you've already gone through the first tutorial above, you'll already have a protein downloaded into all\textunderscore proteins (if not, pick a protein, get a .pdb structure, and save it there). For convenience, here we assume you have a structure named P02768.pdb present in this folder. We're now going to use the command-line level interface to run a corona prediction.
 The first step is preparing a medium file - the list of proteins and their abundances in the absence of an NP. Open up a text editor and make a file that looks like
 
@@ -151,7 +160,10 @@ The first step is preparing a medium file - the list of proteins and their abund
 #Molecule,Concentration
 P02768,0.001
 \end{lstlisting}
-and save it somewhere in the NPCoronaPredict folder (or a subfolder, if you prefer), e.g. to ``demo\textunderscore medium.csv''. Now open a terminal window, navigate to the NPCoronaPredict folder and run
+and save it somewhere in the NPCoronaPredict folder (or a subfolder, if you prefer), e.g. to ``demo\textunderscore medium.csv''. You can also make these files using the Molecule List Editor in UAQuickRun and saving these out.
+
+
+ Now open a terminal window, navigate to the NPCoronaPredict folder and run
 
 \begin{lstlisting}
 python3 NPCoronaPredict.py -r 10 -z 0 -m graphene -p corona_predict_demo -t 0.01 -o demo_medium.csv
@@ -175,7 +187,7 @@ The above command only requests 0.01 seconds of corona simulation - this is a ve
 to start UnitedAtom and then go wait a while (typically, up to a few minutes per protein per NP) until its done. 
 
 
-\subsection{My second UA run}
+\subsection{My second UA run} \label{section:uaAdvanced}
 The main advantage of running UA directly is that it allows much more flexibility in terms of parameters and the calculations performed. For these direct runs, you need to supply the configuration file mentioned above. 
 To begin, either copy and paste the sample\textunderscore config/sample\textunderscore config.config file to the same folder as the UnitedAtom executable or use the GUI/NPCoronaPredict/RunUA.py to produce a configuration file for your preferred material. Then edit the pdb-target line to target either a specific protein or a whole folder of proteins - UA will run calculations for all of these.
 In this example, we'll ask UA to look at our target proteins on a set of NPs of the same material over a range of radii. Edit the nanoparticle-radius line to read
@@ -711,7 +723,7 @@ CoronaKMC is controlled almost entirely through command-line arguments, unless y
 \item  -D or --displace - activate the ``displacement mode'' if non-zero, where a protein can displace bound proteins if this is energetically favourable.  See Section \ref{section:coronadisplacement} for more details.
 \item -A or --accelerate - activate Dybeck style acceleration if set non-zero, with 1 giving the classic mode and 2 giving the mode with freezing of rate constants. This may need some tweaking to the code to give sensible results. 
 \item -f or --fileid - optional string to append to output filenames to allow for multiple runs with similar configurations without overwriting each other (e.g. to get better averages).
-\item --steady : Enables steady-state mode. This rescales rate constants such that the dynamical evolution is meaningless,but the steady state should be reached in significantly fewer steps.
+\item --steady : Enables steady-state mode. This rescales rate constants such that the dynamical evolution is meaningless, but the steady state should be reached in significantly fewer steps. Displacement mode is activated for a short period and is then disabled, since the rate-rescaling isn't compatible with a displacement mode steady state.
 \end{itemize}
 
 Some extra optional ones are listed below - these tend to be for debugging or more specialised cases.
