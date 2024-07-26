@@ -15,7 +15,7 @@
 
 import os
 import argparse
-
+import sys
 
 
 
@@ -163,6 +163,9 @@ if NPRadius >= planarRadiusCutoff and npShape == 1:
 BaseStorageFolder = "CoronaPredictionProjects"
 ProjectName = args.projectname
 ProteinStorageFolder = "all_proteins"
+
+
+GeneralWorkingFolder = BaseStorageFolder+"/"+ProjectName
 ProteinWorkingFolder = BaseStorageFolder+"/"+ProjectName+"/proteins"
 UAResultsFolderBase =  BaseStorageFolder+"/"+ProjectName+"/results"
 if predefNP == False:
@@ -176,8 +179,8 @@ for folderName in allFolders:
         print("Making folder ",folderName)
         os.makedirs(folderName,exist_ok=True)
 
-
-    
+logFile = open(GeneralWorkingFolder+"/log.txt","w")
+logFile.write( " ".join( sys.argv) + "\n" )
 #Defines the set of proteins that calculations should be run for. 
 #In all cases, if you have no proteins in this category leave the list empty
 #E.g. if you have no proteins with structures from the PDB then leave this as
@@ -347,6 +350,12 @@ elif isPlane == True:
 print(BCPCommandString)
 print(KMCCommandString)
 print("If python3 isn't installed, use python BuildCoronaParams-p2.py, python CoronaKMC-p2.py instead")
+
+
+logFile.write( UACommandString+"\n")
+logFile.write( BCPCommandString+"\n")
+logFile.write( KMCCommandString+"\n")
+logFile.close()
 
 
 # In[15]:

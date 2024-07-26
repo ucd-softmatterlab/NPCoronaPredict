@@ -393,6 +393,9 @@ if args.accelerate > 0:
         print("And then accelerating further with scaling freezing")
     
 forceSteadyState = False
+restoreOldRates = False
+restoredOldRates = False
+
 if args.steady==True:
     print("Will attempt to find steady state and not time-resolved")
     #useDybeckAcceleration = True
@@ -402,7 +405,9 @@ if args.steady==True:
     displaceWater = True
     forceSteadyState = True
     displaceSwitchOff =  5 #switches off displacement mode after pre-seeding the NP 
-
+    #restoreOldRates = True
+    restoredOldRates= False
+    restoreOldRateConstantTime = 50000 #then restore the standard rate constants (experimental)
 
 updateInterval = args.timedelta
     
@@ -558,6 +563,10 @@ proteinBindingSites = npSurfaceArea /( bindingArea(npRadius, proteinData[:,1]) )
 
 largestProteinRadius = np.amax(proteinData[:,1])
 
+kaInitial = np.copy(proteinData[:,2] )
+kdInitial = np.copy(proteinData[:,3] )
+
+
 #Rescale the adsorption rate to be uniform and rescale the desorption rate so that it behaves correctly in the steady-state
 if forceSteadyState == True:
     print(proteinData[:,2]/proteinData[:,3] )
@@ -595,7 +604,8 @@ if forceSteadyState == True:
     #quit()
 
 
-    kaInitial = np.copy(proteinData[:,2] )
+    #kaInitial = np.copy(proteinData[:,2] )
+    #kdInitial = np.copy(proteinData[:,3] )
     print(collisionRateConst)
     print(proteinData[:,0])
     print(proteinBindingSites)
@@ -620,7 +630,7 @@ if forceSteadyState == True:
         kdRescale = 1.0/proteinData[:,3] 
         proteinData[:,2] =  proteinData[:,2] * kdRescale
         proteinData[:,3] =  proteinData[:,3] * kdRescale
-        
+    
     totalIncomingRate = np.sum( proteinData[:,2] * proteinData[:,0] * proteinBindingSites )
     #print("total rate: ", totalIncomingRate)
     proteinData[:,2] = 1e3 *  proteinData[:,2] / totalIncomingRate
@@ -871,6 +881,13 @@ while t < endTime:
         disabledDisplace = True
         print("Displace off, estimated time for settling:" + str(1.0/averageDesorbRate))
 
+    if restoreOldRates == True and restoredOldRates == False and t > restoreOldRateConstantTime:
+        restoredOldRates = True
+        proteinData[:,2] = kaInitial
+        proteinData[:,3] = kdInitial
+        print("Rates reset to original values")
+
+
     empiricalProbs =  np.where(  proteinCollisionEvents[:,1] < 1, 1.0,  empiricalAcceptance)
     #localRateRescale = 1.0/np.clip( empiricalProbs, 1e-8, 1.0) #rescale adsorption and desorption rates: proteins being frequently rejected (eP->0) are boosted
     #localRateRescale = np.clip(empiricalProbs,0.1,1.0)  # frequent rejections are slowed - selected less often but removed less often
@@ -939,11 +956,11 @@ while t < endTime:
         deltaG = proteinData[ currentProtein[0], 4] 
         desorbRate = proteinData[ currentProtein[0],3]
         desorbRate0 = desorbRate
-        if forceSteadyState == True: #for simulated annealing convert to current desorption rate
-            desorbRate = desorbRate * np.exp( deltaG*(1.0  - tempScaleVal)/tempScaleVal )
-            desorbRate = desorbRate * localRateRescale[ currentProtein[0] ] 
-            #print("Adjusted", desorbRate0 , "to", desorbRate, "for", deltaG, " at temp factor", tempScaleVal)
-            #quit()
+        #if forceSteadyState == True: #for simulated annealing convert to current desorption rate
+        #    desorbRate = desorbRate * np.exp( deltaG*(1.0  - tempScaleVal)/tempScaleVal )
+        #    desorbRate = desorbRate * localRateRescale[ currentProtein[0] ] 
+        #    #print("Adjusted", desorbRate0 , "to", desorbRate, "for", deltaG, " at temp factor", tempScaleVal)
+        #    #quit()
         if useDybeckAcceleration == True:
             desorbRate = desorbRate * dybeckAlpha[ currentProtein[0] ] 
         leavingRates.append( desorbRate  )
@@ -959,8 +976,8 @@ while t < endTime:
         #    collisionrates = proteinData[:,2]
         #else:
         collisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
-        if forceSteadyState == True:
-            collisionRates = collisionRates * localRateRescale
+        #if forceSteadyState == True:
+        #    collisionRates = collisionRates * localRateRescale
 
 
         #originalCollisionRates =(proteinData[:,0]  ) * proteinData[:,2] * proteinBindingSites * numNPs
@@ -973,11 +990,13 @@ while t < endTime:
         #    boundProteinAll[  proteinNames == proteinName   ] += numProteins
         adjustedConc = (proteinTotalConcs - npConc * boundProteinAll / numNPs)*orientationFactors
         adjustedConc = np.where(adjustedConc > 0, adjustedConc, 0)
-        if forceSteadyState == True:
-            collisionRates =  proteinData[:,0]  *   proteinData[:,2] * proteinBindingSites * numNPs * localRateRescale
-            #print(collisionRates)
-        else:
-            collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
+        #if forceSteadyState == True:
+        #    collisionRates =  proteinData[:,0]  *   proteinData[:,2] * proteinBindingSites * numNPs * localRateRescale
+        #    #print(collisionRates)
+        #else:
+        #     collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
+        collisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
+
         #originalCollisionRates = adjustedConc * proteinData[:,2] * proteinBindingSites * numNPs
     #print boundProteinAll[::600]
     #print(collisionRates / np.array(leavingRates))

@@ -123,7 +123,7 @@ and then load in the PDB from the same location as before. This will produce res
 
  
  
-\section{High-level pipelines}
+\chapter{NPCoronaPredict: A high-level pipeline}
 A frequent use case is the prediction of the corona for a simple nanoparticle (e.g. a sphere of a predefined material) in a medium consisting of proteins of known concentration. In this case, the provided NPCoronaPredict.py script is designed to automate the process and can be run using a command such as:
 
 \begin{lstlisting}
@@ -142,12 +142,12 @@ Each line in this file is required to have a matching structure stored in the al
 \begin{lstlisting}
 python3 NPCoronaPredict.py --help
 \end{lstlisting}
-which lists all the available commands and details about what they do. This script is designed to allow rapid simulation of coronas for well-defined, single-bead NPs. To do so, perform the following steps:
+which lists all the available commands and details about what they do, see also below. This script is designed to allow rapid simulation of coronas for well-defined, single-bead NPs. To do so, perform the following steps:
 
 
 \begin{enumerate}
-\item Copy CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist)
 \item Create a medium file as described above. Remember that this is ``molecule,concentration[M]'' format and each molecule must have a matching molecule.pdb file in all\textunderscore proteins.
+\item Copy CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist), unless you want them foudn automatically
 \item Identify the material you want to use - the standard are all listed in MaterialSet.csv and the machine-learning extended set in surface-pmfp/MaterialSetPMFP.csv
 \item Run NPCoronaPredict.py with a command string as shown above. 
 \end{enumerate}
@@ -179,7 +179,33 @@ Alternatively, if you want to keep using the GUI, try setting up this run in UAQ
 
 The above command only requests 0.01 seconds of corona simulation - this is a very short amount of time and nowhere near enough for the corona to reach equilibrium. Try increasing this! You can also try appending --steady to the command string and this will ask CoronaKMC to try to estimate the final state - this might be more useful for comparison to experiment.
 
- 
+\section{Options}
+The behaviour of NPCoronaPredict can be fine-tuned using more command-line options
+\begin{itemize}
+\item  -r RADIUS, --radius RADIUS                        Radius of the NP [nm]
+\item  -z ZETA, --zeta ZETA  Zeta potential of the NP [mV]
+\item  -m MATERIAL, --material MATERIAL                        Material
+\item  -p PROJECTNAME, --projectname PROJECTNAME Name of project (output folder)
+\item  -o OTHERPROTEINS, --otherproteins OTHERPROTEINS                        File containing a set of all proteins to include in format ID,concentration, will attempt to find proteins starting with PDB- or AF-
+\item  -a AUTORUN, --autorun AUTORUN                        Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)
+\item  -d DEMONSTRATION, --demonstration DEMONSTRATION                        If non-zero show the live footage in CoronaKMC
+\item  -t TIME, --time TIME  Corona simulation run-time in seconds
+\item  -D DISPLACE, --displace DISPLACE                        Allow incoming protein to displace bound protein, nonzero = yes
+\item  -A ACCELERATE, --accelerate ACCELERATE                        Experimental feature for quasiequilibriation scaling, nonzero = yes
+\item  -H HAMAKER, --hamaker HAMAKER                        Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no
+\item  -N NPFILE, --npfile NPFILE                        Sets a target NP file for use in UA
+\item  -I INNEROVERRIDE, --inneroverride INNEROVERRIDE                        For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use
+\item  -j JITTER, --jitter JITTER                        S. dev. of random noise to apply to each CG bead position per-axis [nm]
+\item  -B BOLTZMODE, --boltzmode BOLTZMODE                        If >0 enables Boltzmann local averaging in UA
+\item  -S SHAPEOVERRIDE, --shapeoverride SHAPEOVERRIDE                        If > 0 overrides the default shape for a given material to the specified shape number
+\item  --steady              Attempt to get the steady-state corona
+\end{itemize}
+
+At a minimum, you need to set a radius, material, project name and a set of proteins. If you're trying to match an experiment then enabling --steady is also a good idea, as CoronaKMC can take a long time to equilibriate when it's simulating full dynamics.
+
+
+If you want to override this behaviour even more, or for more complex cases, it's recommended you run UnitedAtom, BuildCoronaParams and CoronaKMC separately. You can use the suggested command strings as a base to make changes by running NPCoronaPredict with the -a 0 option.
+
  
 \chapter{UnitedAtom}
  \section{Introduction}
@@ -857,8 +883,36 @@ k_d^* =\frac{ 1 }{1 +  e^{-\Delta E/k_B T} }   k_{coll}
 \end{equation}
 c.f. Eq.\eqref{eq:kdbcp}. The two values are essentially equivalent if $E_{ads} < -2 k_B T$, but this produces a change in the rates in the limit $E_{ads} \rightarrow \infty$: $k_d \rightarrow \infty$  while $k_d^* \rightarrow k_{coll}$, but because the equilibrium constant is fixed the steady-state behaviour should be the same. 
  
+\section{Steady-state mode} \label{section:coronaSteadyState}
+Corona evolution takes hours, while collision events are on the order of nanoseconds and successful collisions (adsorptions) may be separated by milliseconds. This leads to some difficulty with simulating a full corona evolution. The -A option employs an algorithm due to Dybeck which attempts to accelerate quasi-equilibriated states, but even this allows only for a few seconds of time within a reasonable computational time. 
+To overcome this, CoronaKMC can be switched to ``steady-state'' mode which rescales all $k_a$ values such that the collision rate is constant for all adsorbates and rescales $k_d$ by the same factor, and displacement mode is briefly enabled for a period of five ``seconds'' to ensure large adsorbates are not immediately blocked by smaller ones, then disabled to ensure the correct steady-state is reached.
+
+In this mode, the per-site adsorbtion rates are redefined to:
+\begin{equation}
+k'_{a,i} = \frac{c_0}{N_{ads} [C_i] n_{i} }
+\end{equation}
+where  $c_0$ is a tunable parameter with units $\mathrm{M}^{-1} s^{-1}$, and $N_{ads}$ is the total number of types of potential adsorbate present, $[C_i]$ is the (orientation-adjusted) concentration of that adsorbate in the medium, and $n_i$ is the number of adsorption sites. The rate of collisions for a given adsorbate is then $k'_{a,i} [C_i] n_i = \frac{c_0}{N_{ads}}$, and the total overall rate of collisions is given by $c_0$. 
+
+
+To maintain the correct equilibrium $k_a/k_d$ , the desorption rates are then set to:
+\begin{equation}
+k'_{d,i} = k_{d,i} \frac{ k'_{a,i} }{ k_{a,i} } 
+\end{equation}
+such that the ratio $k_d/k_a = k'_d/k'_a$ is unchanged. 
+
+%Following this rescaling, the per-site adsorption rate constants are given by $k'_{a,i} = c_0/( [C_i] n_i])$ and per-adsorbate desorption rates are given by $k'_{d,i} = k'_{a,i} k_{d,i} /k_{a,i} $ 
+%Consequently, the collision rate for each adsorbate is then simply given by $c_0$ 
+
+By default $c_0$ is set to an empirically found value of $1000.0$. This value does not alter the steady-state or convergence but defines the effective time units. For $c_0 = 1000$, we generally recommend using a timespan of at least 100 ``seconds'' (e.g. set -t 0.05) and --timedelta 0.1 to make sure the steady state is reached and there is sufficent output to allow averaging. These values can be tuned if the system does not appear properly equilibriated.
+
+
+
+
+
+
+
 \section{Tips and tricks}
-If you're trying to get a match to experimental, match the absolute experimental concentrations as best as you can -- it can be shown that an overall dilution factor changes the steady-state corona composition and high concentrations tend to lead to an increase in more weakly binding proteins (see Rouse and Lobaskin, Biophys J, 2021 for details). 
+If you're trying to get a match to experimental, match the absolute experimental concentrations as best as you can -- it can be shown that an overall dilution factor changes the steady-state corona composition and high concentrations tend to lead to an increase in more weakly binding proteins (see Rouse and Lobaskin, Biophys J, 2021 for details).  And use steady-state mode to skip the metastable dynamic corona.
  
  
 \appendix
