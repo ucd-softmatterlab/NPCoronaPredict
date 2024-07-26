@@ -1,4 +1,7 @@
 ####NPCoronaPredict####
+NPCoronaPredict is a package to allow the prediction of the corona content of a nanoparticle immersed in a mixture of biomolecules via a multiscale coarse-grained approach.
+
+Please refer to the manual included in the /docs folder for detailed information about how to run the programs.
 
 ####Quick installation####
 
@@ -24,7 +27,7 @@ qmake -qt=qt5;
 make;
 cd ../
 
-This will build the required executables including the grahpical interfaces, and ensure the majority of the Python libraries needed are installed.
+This will build the required executables including the graphical interfaces, and ensure the majority of the Python libraries needed are installed.
 
 ####Contents####
 Two main utilities are included in the NPCoronaPredict repository:
