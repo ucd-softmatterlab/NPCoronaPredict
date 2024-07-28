@@ -29,7 +29,7 @@ Throughout, we use the convention that the substrate is a ``nanoparticle'' and t
 \begin{enumerate}
 \item Follow the instructions in Section \ref{section:installation} to install and compile everything you need.
 \item Calculate a protein - NP adsorption energy to get used to the GUI as described in Section \ref{section:myFirstRun} and the general input and output
-\item Simulate a corona using the command-line tools in Section \ref{section:firstCorona}
+\item Simulate a corona using the command-line tools in Section \ref{section:firstCorona} or using the GUI in \ref{section:firstCoronaGUI}
 \item Compute a whole set of proteins and NPs in Section \ref{section:uaAdvanced}
 \end{enumerate}
 
@@ -156,7 +156,7 @@ To save you some time, the NPCoronaPredict script will attempt to download some 
 Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. 
  
 
-\subsection{My first corona prediction} \label{section:firstCorona}
+\subsection{My first corona prediction: command line} \label{section:firstCorona}
 Assuming you've already gone through the first tutorial above, you'll already have a protein downloaded into all\textunderscore proteins (if not, pick a protein, get a .pdb structure, and save it there). For convenience, here we assume you have a structure named P02768.pdb present in this folder. We're now going to use the command-line level interface to run a corona prediction.
 The first step is preparing a medium file - the list of proteins and their abundances in the absence of an NP. Open up a text editor and make a file that looks like
 
@@ -174,10 +174,22 @@ python3 NPCoronaPredict.py -r 10 -z 0 -m graphene -p corona_predict_demo -t 0.01
 \end{lstlisting}
 This will call UnitedAtom, BuildCoronaParams and finally CoronaKMC to predict the corona abundances of P02768 on your NP (here, graphene of radius 10 nm, as a simple if unrealistic demonstration), letting the simulation run for 0.01 seconds and saving all the output to the folder corona\textunderscore predict\textunderscore demo.  
 Try changing the material, timespan for corona predictions, or adding more proteins to demo\textunderscore medium.csv. When it's done, check the resulting output folder - this will contain data about the evolution of the corona and its final contents.
-
-Alternatively, if you want to keep using the GUI, try setting up this run in NPCoronaPredict-GUI. Prepare your list of molecules on the Molecule List Editor tab, making sure you give each a concentration. Run Check Structures and then click "Save" to save out your medium file. Then on the Run tab, check ``Advanced Mode'' then click ``Medium file'' to find the medium file you just made. Then from the drop-down above this go from ``Prepare only'' to ``Prepare + UA + BCP + KMC''. After that, you can define your NP as before. Note that NPCoronaPredict-GUI doesn't have the ability to show corona results other than in the text box.
-
 The above command only requests 0.01 seconds of corona simulation - this is a very short amount of time and nowhere near enough for the corona to reach equilibrium. Try increasing this! You can also try appending --steady to the command string and this will ask CoronaKMC to try to estimate the final state - this might be more useful for comparison to experiment.
+
+
+
+\subsection{My first corona prediction: the GUI} \label{section:firstCoronaGUI}
+
+Alternatively, if you want to keep using the GUI, this can be done in NPCoronaPredict-GUI. Prepare your list of molecules on the Molecule List Editor tab, making sure you give each a concentration. 
+Run Check Structures and then click "Save" to save out your medium file.
+ Then on the Run tab, check ``Advanced Mode'' then click ``Medium file'' to find the medium file you just made. 
+From the drop-down above this go from ``Prepare only'' to ``Prepare + UA + BCP + KMC''. After that, you can define your NP as before. Then click the Run button and wait a little.
+The GUI is set so that it will automatically request the steady-state - this is because dynamical evolution can take quite a long time to converge and we assumed if you're using the GUI you just want to know final contents.
+
+
+
+Note that NPCoronaPredict-GUI doesn't have the ability to show corona results other than in the text box, but the results files will be saved out in the project folder created.
+
 
 \section{Options}
 The behaviour of NPCoronaPredict can be fine-tuned using more command-line options
