@@ -50,7 +50,7 @@ parser.add_argument('-p','--projectname', type=str,help="Name of project", defau
 parser.add_argument('-o','--otherproteins',type=str,help="File containing a set of all proteins to include in format ID,concentration, will attempt to find proteins starting with PDB- or AF-" , default="")
 parser.add_argument('-a','--autorun',type=int,help="Auto-run scripts (0 to disable, 1 = UA only, 2 = UA+BCP, 3 = UA+BCP+CKMC (default)", default=3)
 parser.add_argument('-d','--demonstration',type=int,help="If non-zero show the live footage in CoronaKMC", default = 0)
-parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in seconds", default = 5e-3)
+parser.add_argument('-t','--time',type=float,help="Corona simulation run-time in seconds", default = -5e-3)
 parser.add_argument('-D','--displace',help="Allow  incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
 parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
 parser.add_argument('-H','--hamaker',help="Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no", default = 1, type = int)
@@ -71,7 +71,16 @@ NPRadius = int(args.radius) #in nm
 NPZeta = int(args.zeta) #in mV
 NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
-CoronaSimTime = args.time/3600.0 #1 second in hours
+
+
+if args.time > 0:
+    CoronaSimTime = args.time/3600.0 #1 second in hours
+else:
+    if args.steady == True:
+        CoronaSimTime = 500 #steady-state time is very oddly defined but this seems usually ok
+    else:
+        CoronaSimTime = 5e-3
+
 isCylinder = False
 isPlane = False
 boundaryType = 1

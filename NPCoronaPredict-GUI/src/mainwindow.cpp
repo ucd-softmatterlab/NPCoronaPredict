@@ -644,7 +644,7 @@ void MainWindow::on_runUAButton_clicked()
         int autorunSetting = this->findChild<QComboBox *>("npcpModeOptions")->currentIndex() ;
 
         commandArgs <<"NPCoronaPredict.py";
-
+        //commandArgs << "--steady" ; 
         commandArgs <<"-r";
         commandArgs<< QString::number(targetRadius) ;
         commandArgs <<"-z";
@@ -662,9 +662,10 @@ void MainWindow::on_runUAButton_clicked()
             commandArgs << "1";
         }
 
-
+        
         commandArgs << "-o";
         commandArgs << targetPDB; //targetPDB was overloaded with otherproteins file if this mode is requested
+        commandArgs << "--steady" ;
 
         //construct a project name
         QString autoProjectName = "";
@@ -706,7 +707,7 @@ QString npUAName= "";
        commandArgs << npTarget;
 
     }
-
+   
 this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
     this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText(commandArgs.join(" ")+"\n");
     this->findChild<QPlainTextEdit *>("uaOutputBox")->appendPlainText("---------------------\n");
