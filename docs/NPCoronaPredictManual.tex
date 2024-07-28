@@ -48,7 +48,7 @@ which will require a C++ compiler and the Boost libraries to be installed.
 
 The current version of CoronaKMC is implemented in Python 3 and is the CoronaKMC.py script. An older version (CoronaKMC-P2.py) is provided for Python 2.7 users but is no longer maintained and is lacking a significant amount of functionality compared to more recent versions. 
  
-Some optional GUI tools are included, NPDesigner and UAQuickRun. To install these, install QT:
+Some optional GUI tools are included, NPDesigner and NPCoronaPredict-GUI. To install these, install QT:
 \begin{lstlisting}
 sudo apt install qtchooser qtbase5-dev qt5-qmake 
 \end{lstlisting} 
@@ -74,7 +74,7 @@ pip3 install numpy scipy matplotlib argparse Bio
 make clean
 make
 sudo apt install qtchooser qtbase5-dev qt5-qmake 
-cd UAQuickRun
+cd NPCoronaPredict-GUI
 qmake -qt=qt5
 make
 cd ../NPDesigner
@@ -87,18 +87,18 @@ cd ../
 
 
 \subsection{My first UA Run} \label{section:myFirstRun}
-For new users, it's recommended you use the UAQuickRun utility included in the repository so you can get an immediate feel for how things work without having to edit many text files. 
+For new users, it's recommended you use the NPCoronaPredict-GUI utility included in the repository so you can get an immediate feel for how things work without having to edit many text files. 
 
-First, make sure UA is compiled and python is installed, and you've installed QT following all the instructions above.  If all goes well, you can then run the program either by double-clicking its icon in the UAQuickRun folder, or navigating to this folder in a command window and running
+First, make sure UA is compiled and python is installed, and you've installed QT following all the instructions above.  If all goes well, you can then run the program either by double-clicking its icon in the NPCoronaPredict-GUI folder, or navigating to this folder in a command window and running
 \begin{lstlisting}
-./UAQuickRun
+./NPCoronaPredict-GUI
 \end{lstlisting}
 and if not you likely have an issue with QT - you might need to install more packages to get all the correct headers. Assuming it works, this will bring up a simple GUI for running UA as shown in Figure \ref{fig:uaquickrun_screen}.
 
 \begin{figure} \label{fig:uaquickrun_screen}
     \centering
     \includegraphics[width=0.9\textwidth]{figures/uaquickrun_all_components.png}
-    \caption{The three tabs of UAQuickRun showing the basic functionality for running and viewing UA output.  }
+    \caption{The three tabs of NPCoronaPredict-GUI showing the basic functionality for running and viewing UA output.  }
 \end{figure}
 
  The UA folder should be auto-set  -- if not, use the ``Find UA Folder'' button to find the ``/home/whatever/UnitedAtom/unitedatom'' folder. To begin, we need to find a protein structure. This can be conveniently done using the ``Molecule List Editor'' tab - this has more advanced uses, but for now we'll use it just to demonstrate fetching structures. Navigate to this tab and rightclick on the main window, then select ``Add Molecule'' from the popup. Double click ``NewMolecule'' and type in either a UniProtID or a PDB 4-letter code, then press enter. You'll see this entry is probably highlighted in red, meaning the software didn't find a matching structure (a file named MoleculeID.pdb located in all\_proteins). If you don't have any in mind, ``P02768'' is human serum albumin.  Now click ``CheckStructures'', which will check either the PDB databank (for four letter codes) or the AlphaFold database (for anything else) for your missing protein. Assuming it finds it, it'll download the structure and the highlighting will turn green. Don't worry about the New/Load/Save buttons or setting a concentration - that's for advanced use when you want to do a corona prediction.
@@ -118,7 +118,7 @@ and then load in the PDB from the same location as before. This will produce res
 \begin{figure} \label{fig:uaquickrun_results}
     \centering
     \includegraphics[width=0.9\textwidth]{figures/uaquickrun_screen.png}
-    \caption{Example output from UAQuickRun for HSA adsorbing to a 10 nm nanoparticle. }
+    \caption{Example output from NPCoronaPredict-GUI for HSA adsorbing to a 10 nm nanoparticle. }
 \end{figure}
 
  
@@ -153,7 +153,7 @@ which lists all the available commands and details about what they do, see also 
 \end{enumerate}
 
 To save you some time, the NPCoronaPredict script will attempt to download some protein structures if it can't find them automatically. It can only do so if the name in the medium file looks like either ``PDB-XXXX'', where XXXX is the PDB ID code, or ``AFDB-UNIPROTID'', where UNIPROTID is the UniProtID e.g. P000001 for that protein. If it fails to find a match it will report this as an error
-Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. Here there's an important difference: the UAQuickRun GUI doesn't need the PDB- or AFDB- tags in front to find structures, while NPCoronaPredict does. This is so NPCoronaPredict only checks these if you explicitly tell it to.
+Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. Here there's an important difference: the NPCoronaPredict-GUI GUI doesn't need the PDB- or AFDB- tags in front to find structures, while NPCoronaPredict does. This is so NPCoronaPredict only checks these if you explicitly tell it to.
  
 
 \subsection{My first corona prediction} \label{section:firstCorona}
@@ -164,7 +164,7 @@ The first step is preparing a medium file - the list of proteins and their abund
 #Molecule,Concentration
 P02768,0.001
 \end{lstlisting}
-and save it somewhere in the NPCoronaPredict folder (or a subfolder, if you prefer), e.g. to ``demo\textunderscore medium.csv''. You can also make these files using the Molecule List Editor in UAQuickRun and saving these out.
+and save it somewhere in the NPCoronaPredict folder (or a subfolder, if you prefer), e.g. to ``demo\textunderscore medium.csv''. You can also make these files using the Molecule List Editor in NPCoronaPredict-GUI and saving these out.
 
 
  Now open a terminal window, navigate to the NPCoronaPredict folder and run
@@ -175,7 +175,7 @@ python3 NPCoronaPredict.py -r 10 -z 0 -m graphene -p corona_predict_demo -t 0.01
 This will call UnitedAtom, BuildCoronaParams and finally CoronaKMC to predict the corona abundances of P02768 on your NP (here, graphene of radius 10 nm, as a simple if unrealistic demonstration), letting the simulation run for 0.01 seconds and saving all the output to the folder corona\textunderscore predict\textunderscore demo.  
 Try changing the material, timespan for corona predictions, or adding more proteins to demo\textunderscore medium.csv. When it's done, check the resulting output folder - this will contain data about the evolution of the corona and its final contents.
 
-Alternatively, if you want to keep using the GUI, try setting up this run in UAQuickRun. Prepare your list of molecules on the Molecule List Editor tab, making sure you give each a concentration. Run Check Structures and then click "Save" to save out your medium file. Then on the Run tab, check ``Advanced Mode'' then click ``Medium file'' to find the medium file you just made. Then from the drop-down above this go from ``Prepare only'' to ``Prepare + UA + BCP + KMC''. After that, you can define your NP as before. Note that UAQuickRun doesn't have the ability to show corona results other than in the text box.
+Alternatively, if you want to keep using the GUI, try setting up this run in NPCoronaPredict-GUI. Prepare your list of molecules on the Molecule List Editor tab, making sure you give each a concentration. Run Check Structures and then click "Save" to save out your medium file. Then on the Run tab, check ``Advanced Mode'' then click ``Medium file'' to find the medium file you just made. Then from the drop-down above this go from ``Prepare only'' to ``Prepare + UA + BCP + KMC''. After that, you can define your NP as before. Note that NPCoronaPredict-GUI doesn't have the ability to show corona results other than in the text box.
 
 The above command only requests 0.01 seconds of corona simulation - this is a very short amount of time and nowhere near enough for the corona to reach equilibrium. Try increasing this! You can also try appending --steady to the command string and this will ask CoronaKMC to try to estimate the final state - this might be more useful for comparison to experiment.
 

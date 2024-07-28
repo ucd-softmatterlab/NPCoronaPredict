@@ -8,6 +8,7 @@ where proteinID associates an instance of a protein with its dataset entry, phi,
 
 '''
 import os
+import sys
 import numpy as np
 import scipy as sp
 import scipy.special as scspec
@@ -294,6 +295,9 @@ def outputState():
     runningFile.write(outString)
     runningFileCoverage.write(outStringCoverage)
     resList.append(resEntry)
+    sys.stdout.flush()
+
+
     #print( proteinData[:,0] * proteinData[:,2] * proteinBindingSites ) 
     #print(proteinCollisionEvents)
     #print(empiricalAcceptance)
@@ -870,8 +874,8 @@ localRateRescale = np.ones_like(proteinData[:,0])
 disabledDisplace = False
 #Kinetic Monte Carlo approach
 while t < endTime:
-
-    if disabledDisplace == False and t > displaceSwitchOff:
+    sys.stdout.flush()
+    if allowDisplace == True and disabledDisplace == False and t > displaceSwitchOff:
         allowDisplace = False
         displaceWater = False
         #print(proteinData[:,3])

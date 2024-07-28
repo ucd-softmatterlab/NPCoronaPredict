@@ -359,14 +359,16 @@ logFile.close()
 
 
 # In[15]:
-
+sys.stdout.flush()
 if args.autorun > 0:
     os.system(UACommandString)
+    sys.stdout.flush()
 if args.autorun > 1:
     os.system(BCPCommandString)
+    sys.stdout.flush()
 if args.autorun > 2:
     os.system(KMCCommandString)
-
+    sys.stdout.flush()
 
 # In[ ]:
 

@@ -2071,7 +2071,7 @@ void MainWindow::downloadReplyFinished(QNetworkReply *reply){
     baseDir.mkpath( "all_proteins");
 
     if(reply->error()){
-    QMessageBox::warning(this, tr("UAQuickRun"),  "Failed to find structure for: "+targetFile+" \n"   );
+    QMessageBox::warning(this, tr("NPCoronaPredict-GUI"),  "Failed to find structure for: "+targetFile+" \n"   );
     }
     else{
 
@@ -2088,7 +2088,7 @@ void MainWindow::downloadReplyFinished(QNetworkReply *reply){
         saveFile->close();
     }
       colourStructures();
-      QMessageBox::warning(this, tr("UAQuickRun"),  "Found structure for: "+targetFile+" \n"   );
+      QMessageBox::warning(this, tr("NPCoronaPredict-GUI"),  "Found structure for: "+targetFile+" \n"   );
    delete saveFile;
 
 

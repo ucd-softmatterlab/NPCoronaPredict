@@ -19,7 +19,7 @@ pip3 install numpy scipy matplotlib argparse Bio;
 make clean;
 make;
 sudo apt install qtchooser qtbase5-dev qt5-qmake;
-cd UAQuickRun;
+cd NPCoronaPredict-GUI;
 qmake -qt=qt5;
 make;
 cd ../NPDesigner;
