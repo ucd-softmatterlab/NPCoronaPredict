@@ -62,7 +62,7 @@ This tab is designed to let you look at the results from a UA run quickly and ea
 Molecule List Editor
 ---------------------
 This tab provides a basic editor for the .csv files used to describe a medium with molecules added/removed via right-clicking. Any structures found to match a .pdb file in the all_proteins folder are highlighted in green. Proteins without a match are marked in red.
-If you click "Check Structures", any four-letter protein name is taken to be a PDB ID and the PDB searched for a suitable structure. Anything else is assumed to be a UniprotID and the AlphaFold DB searched. If neither of these work, manually copy a structure into the all_proteins folder.
+If you click "Check Structures", any four-letter protein name preceeded by "PDB-" is taken to be a PDB ID and the PDB searched for a suitable structure. Anything  preceeded by "AFDB-" is assumed to be a UniprotID and the AlphaFold DB searched. If neither of these work, manually copy a structure into the all_proteins folder.
 
 
 
