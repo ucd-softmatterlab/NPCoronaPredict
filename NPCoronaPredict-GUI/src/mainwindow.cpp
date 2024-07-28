@@ -2007,12 +2007,19 @@ void MainWindow::on_checkStructureButton_clicked()
 
         QString pdbName = tableWidget->item(i,0)->text() ;
 
+        bool isPDBDB = false;
+        bool isAFDB = false;
 
-
+        if(pdbName.left(4) =="PDB-"  ){
+        isPDBDB = true ;
+        }
+        if(pdbName.left(5) == "AFDB-"){
+        isAFDB = true ;
+        }
          if(  !QFile::exists( uaGlobalPath+"/all_proteins/"+pdbName+".pdb")){
 
 
-             if(pdbName.size() ==4){
+             if( isPDBDB == true){
                  //do PDB testing
 
 
@@ -2022,7 +2029,7 @@ void MainWindow::on_checkStructureButton_clicked()
                  if(doPDBTest == QMessageBox::Yes){
                      //try to get from PDB, if so set foundStructure = true
 
-                     QUrl afPath("https://files.rcsb.org/download/" +pdbName+ ".pdb");
+                     QUrl afPath("https://files.rcsb.org/download/" +pdbName.mid(4)+ ".pdb");
                       MainWindow::startDownload( afPath) ;
 
                  }
@@ -2030,15 +2037,13 @@ void MainWindow::on_checkStructureButton_clicked()
 
 
              }
-             else{
-         auto doAFTest = QMessageBox::question(this, "Find AlphaFold structure?", "No structure found for "+pdbName+". Check AlphaFoldDB?");
-
-         if(doAFTest == QMessageBox::Yes){
-             //try to get from alphafold, if so set foundStructure = true
-             QUrl afPath("https://alphafold.ebi.ac.uk/files/AF-" +pdbName+ "-F1-model_v4.pdb");
-              MainWindow::startDownload( afPath) ;
-         }
-
+             else if(isAFDB == true){
+                   auto doAFTest = QMessageBox::question(this, "Find AlphaFold structure?", "No structure found for "+pdbName+". Check AlphaFoldDB?");
+                   if(doAFTest == QMessageBox::Yes){
+                   //try to get from alphafold, if so set foundStructure = true
+                   QUrl afPath("https://alphafold.ebi.ac.uk/files/AF-" +pdbName.mid(5)+ "-F1-model_v4.pdb");
+                    MainWindow::startDownload( afPath) ;
+                    }
              }
 
 
@@ -2077,10 +2082,12 @@ void MainWindow::downloadReplyFinished(QNetworkReply *reply){
     else{
 
 
-    if( targetFile.size()!= 8  ){   //assume XXXX.pdb is from PDB and anything else is from AF
-        targetFile = targetFile.split("-")[1]+".pdb";
+    if( targetFile.size()!= 8  ){   //assume XXXX.pdb is from PDB and anything else is from AF 
+        targetFile = "AFDB-"+ targetFile.split("-")[1]+".pdb";   //set AFDB name
     }
-
+    else{
+       targetFile= "PDB-"+targetFile;
+    }
     //save to file
     QFile *saveFile = new QFile(uaGlobalPath+"/all_proteins/"+targetFile);
     if(saveFile->open(QFile::Append)){

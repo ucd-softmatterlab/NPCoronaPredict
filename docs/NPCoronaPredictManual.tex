@@ -153,7 +153,7 @@ which lists all the available commands and details about what they do, see also 
 \end{enumerate}
 
 To save you some time, the NPCoronaPredict script will attempt to download some protein structures if it can't find them automatically. It can only do so if the name in the medium file looks like either ``PDB-XXXX'', where XXXX is the PDB ID code, or ``AFDB-UNIPROTID'', where UNIPROTID is the UniProtID e.g. P000001 for that protein. If it fails to find a match it will report this as an error
-Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. Here there's an important difference: the NPCoronaPredict-GUI GUI doesn't need the PDB- or AFDB- tags in front to find structures, while NPCoronaPredict does. This is so NPCoronaPredict only checks these if you explicitly tell it to.
+Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. 
  
 
 \subsection{My first corona prediction} \label{section:firstCorona}
@@ -206,7 +206,41 @@ At a minimum, you need to set a radius, material, project name and a set of prot
 
 If you want to override this behaviour even more, or for more complex cases, it's recommended you run UnitedAtom, BuildCoronaParams and CoronaKMC separately. You can use the suggested command strings as a base to make changes by running NPCoronaPredict with the -a 0 option.
 
- 
+\section{NPCoronaPredict-GUI}
+An even higher-level interface is available from the NPCoronaPredict-GUI tool. This requires a qt5 installation to build but provides even easier access to the commands for NPCoronaPredict, plus some visualisation tools.
+
+\subsection{Run}
+This tab enables most calculations to be run, although with less control than can be achieved
+The first text box supplies the base folder for NPCoronaPredict, more specifically, the folder with the UA executable. This should be preset but if not use the "Find UA Folder" to set it.
+If advanced mode is unchecked, the second text box is the path to a pdb file - use the ``PDB Target'' button to locate one.
+In advanced mode is checked, this is instead the path to a list of proteins. Advanced mode also enables selecting the set of calculations to run -- typically, Prepare + UA + BCP + KMC to get a corona prediction.
+Note that in advanced mode, the corona employs the steady-state algorithm to try to get the final content rather than time-resolved. If you want to simulate the very initial stages you must use the command line program.
+
+
+If auto-NP is checked, the options next to it allow an NP to be defined. Standard materials are pre-loaded but PMFP (machine-learning) must be loaded in via the ``Load Material Set'' button and loading in ``surface-pmfp/MaterialSetPMFP.csv'' file. Future material sets may also be added!
+
+Jitter magnitude and local Boltzmann averaging can be enabled to allow more rigorous sampling of orientations and account for uncertainity in PDB atom locations.
+
+In unadvanced mode, you can also define a folder to store output. It's recommended you make a new one regularly to avoid accumulating too many proteins in there, as UA will run for all proteins in this folder.
+
+The Run UA/Cancel Run buttons start and stop calculations respectively. Note that in advanced mode ``Run UA'' will also start CoronaKMC.
+\subsection{View UA Results}
+This tab is used to view UA output files. Load .uam and Load .pdb buttons are used to select input. Colour by distance will shade each residue according to their distance to the NP surface at the time of clicking and does not automatically update. Clicking the heatmap sets the protein view to that orientation.
+Colour by energy attempts to show an overall view of the UA heatmap wrapped onto the protein and is a little slow.
+Set to min energy resets the orientation to the most favourable.
+
+The next column provides the current adsorption energy and COM to COM distance for that orientation.
+
+Eads simple and Boltz are provided for reference.
+Show charges highlights charged residues with a blue or red outline depending on charge. 
+\subsection{Molecule List Editor}
+This tab is a simple interface for designing medium input files for use with CoronaKMC and collection of structures.
+Right clicking on the main view allows adding or removing a molcule. New/Load/Save are standard file operations for the set of defined molecules.
+Any protein with a corresponding structure in all\textunderscore proteins is highlighted in green. Proteins highlighted in red do not have a known structure.
+If you click Check Structures, proteins with a prefix of ``PDB-'' are searched for in the Protein Databank, while proteins with a prefix of ``AFDB-'' are searched for in the AlphaFold Database.
+
+Note that concentrations need only be set and the file saved if you want to run corona simulations. For simply getting structures, there is no need to save the file or assign concentrations. 
+
 \chapter{UnitedAtom}
  \section{Introduction}
  In brief, UnitedAtom takes as input a set of potentials representing NP-AA interactions for a specific nanomaterial (e.g. anatase, amorphous carbon), a structure built from a set of AAs, and some variables defining a particular nanoparticle from the underlying nanomaterial (e.g. a 5 nm gold sphere with an extra applied surface potential of $+10$mV). The output is then a table of data representing the adsorption affinity of each orientation of the input structure relative to the surface of the NP, commonly plotted as a heatmap.
