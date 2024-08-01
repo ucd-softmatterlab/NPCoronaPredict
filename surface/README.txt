@@ -35,3 +35,4 @@ Fe-110              Iron, 110 FCC surface								1.0
 Al-100              Aluminum, 100 FCC surface								1.0
 Al-111              Aluminum, 111 FCC surface								1.0
 Al-110              Aluminum, 110 FCC surface								1.0
+PEG-3B		    Three-repeat-unit model of 2.0 nm PEG beads						1.2
