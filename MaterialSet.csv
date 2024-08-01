@@ -42,7 +42,8 @@ graphene-hollow,surface/graphene,hamaker/Null.dat,1
 bi-graphene-hollow,surface/bi-graphene,hamaker/Null.dat,1
 tri-graphene-hollow,surface/tri-graphene,hamaker/Null.dat,1
 goldcube,surface/Au/FCC/100/sca,hamaker/Metal.dat,3
-peg,surface/PEG,hamaker/PEG.dat,1
+peg-3b,surface/PEG-3B,hamaker/PEG.dat,1
+peg-plane,surface/PEG-Plane,hamaker/PEG.dat,1
 Au100,surface/Au/100,hamaker/Metal.dat,1
 Au110,surface/Au/110,hamaker/Metal.dat,1
 Au111,surface/Au/111,hamaker/Metal.dat,1
@@ -55,3 +56,4 @@ Fe111,surface/FeFCC111,hamaker/Metal.dat,1
 Al100,surface/AlFCC100,hamaker/Metal.dat,1
 Al110,surface/AlFCC110,hamaker/Metal.dat,1
 Al111,surface/AlFCC111,hamaker/Metal.dat,1
+graphenecylinder,surface/graphene,hamaker/CNTFilm.dat,2
