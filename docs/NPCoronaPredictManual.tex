@@ -23,7 +23,7 @@
 \chapter{Introduction}
 This document is designed to provide an overview of how to run the NPCoronaPredict pipeline, consisting of the UnitedAtom and CoronaKMC packages, for the prediction of nanoparticle (NP) to protein adsorption energies and the composition of the corona for an NP immersed in a particular environment. It is assumed that you have access to the publications describing the theory behind these tools and so this document will focus more on practical details about running the software packages.
 
-Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of component beads.
+Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of adsorbate beads (AB)
 
 \section{New Users First Steps}
 \begin{enumerate}
@@ -147,7 +147,7 @@ which lists all the available commands and details about what they do, see also 
 
 \begin{enumerate}
 \item Create a medium file as described above. Remember that this is ``molecule,concentration[M]'' format and each molecule must have a matching molecule.pdb file in all\textunderscore proteins.
-\item Copy CG structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist), unless you want them foudn automatically
+\item Copy adsorbate structures for UnitedAtom (from the Protein Databank/AlphaFold/MolToFragment/other) and place in the ``all\textunderscore proteins'' folder (making this if it doesn't exist), unless you want them foudn automatically
 \item Identify the material you want to use - the standard are all listed in MaterialSet.csv and the machine-learning extended set in surface-pmfp/MaterialSetPMFP.csv
 \item Run NPCoronaPredict.py with a command string as shown above. 
 \end{enumerate}
@@ -207,7 +207,7 @@ The behaviour of NPCoronaPredict can be fine-tuned using more command-line optio
 \item  -H HAMAKER, --hamaker HAMAKER                        Enable Hamaker interaction in UA, default = nonzero = yes, 0 = no
 \item  -N NPFILE, --npfile NPFILE                        Sets a target NP file for use in UA
 \item  -I INNEROVERRIDE, --inneroverride INNEROVERRIDE                        For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use
-\item  -j JITTER, --jitter JITTER                        S. dev. of random noise to apply to each CG bead position per-axis [nm]
+\item  -j JITTER, --jitter JITTER                        S. dev. of random noise to apply to each AB position per-axis [nm]
 \item  -B BOLTZMODE, --boltzmode BOLTZMODE                        If >0 enables Boltzmann local averaging in UA
 \item  -S SHAPEOVERRIDE, --shapeoverride SHAPEOVERRIDE                        If > 0 overrides the default shape for a given material to the specified shape number
 \item  --steady              Attempt to get the steady-state corona
@@ -509,7 +509,7 @@ ATOM      9  CA  ILE A  10        9.87    2.35  -0.838  1.00  0.00           C
 ATOM     10  CA  ILE A  11        11.6    5.59   -2.01  1.00  0.00           C
 END
 \end{lstlisting}
-In this output, the remark lines give the CG bead number, long name of the matched fragment, bead code, and the SMILES code for that bead. Bead codes marked with ``!!!'' do not have an already-defined PMF, which must be generated or an alternative method used (-M ForwardsMatching only produces known beads, if this is an issue). The default FragmentSet.csv file assumes that PMFs for a large set of beads are available. If it isn't, you should remove entries from this file to represent only the PMFs you have for the surface of interest (but be aware that ForwardsMatching may fail in this case).
+In this output, the remark lines give the AB number, long name of the matched fragment, bead code, and the SMILES code for that bead. Bead codes marked with ``!!!'' do not have an already-defined PMF, which must be generated or an alternative method used (-M ForwardsMatching only produces known beads, if this is an issue). The default FragmentSet.csv file assumes that PMFs for a large set of beads are available. If it isn't, you should remove entries from this file to represent only the PMFs you have for the surface of interest (but be aware that ForwardsMatching may fail in this case).
 
 The allowed methods are BRICS (uses the standard BRICS) algorithm, EqualParts (attempts to produce fragments with relatively consistent sizes), ForwardsMatching (iteratively builds the molecule up from known beads, does not allow for the generation of new ones) and Exhaustive (considers many different templates, scores and chooses the best, very slow and not recommended). Of the three quick algorithms, BRICS and EqualParts should always produce a CG model but it may need PMFs to be generated. ForwardsMatching may not always work (especially if there are aromatic structures or you have a very limited fragment library) but when it does the result will only use pre-existing PMFs. The other methods may require the generation of new PMFs and provide output suitable for use in the PMFP software package, see Section \ref{section:pmfp}. Output from this package (assigned bead code and SMILES ID) can be added to FragmentSet.csv as needed to extend the range of molecules which can be parameterised.
  
@@ -975,11 +975,11 @@ These points are discussed in the following sections.
 \section{The UA rotation convention} \label{section:uarotations}
 One of the most common pitfalls with UA is misunderstanding how the orientation of a given biomolecule is defined and making this consistent with other software, which leads to misinterpretation of results and people making significant errors later. 
 
-We begin by considering a set of $N$ points, each indexed $i$ and with Cartesian co-ordinates $x_i,y_i,z_i$. These points are assumed to belong to the CG beads in a biomolecule of interest and are defined in the molecule's own reference frame, i.e. read directly from an input file. First, we center the molecule by applying the following transformations to each co-ordinate:
+We begin by considering a set of $N$ points, each indexed $i$ and with Cartesian co-ordinates $x_i,y_i,z_i$. These points are assumed to belong to the ABs in a biomolecule of interest and are defined in the molecule's own reference frame, i.e. read directly from an input file. First, we center the molecule by applying the following transformations to each co-ordinate:
 \begin{equation}
 x_i \rightarrow x_i - \frac{\sum_j x_j }{N}
 \end{equation}
-and likewise for $y,z$. Note that this is similar to the centre of mass, but we treat all beads as having the same mass, and in UA this transformation is applied only to the CG beads obtained from the CA atoms in an input .pdb file, so for external files make sure the displacement is computed only using these.
+and likewise for $y,z$. Note that this is similar to the centre of mass, but we treat all beads as having the same mass, and in UA this transformation is applied only to the ABs obtained from the CA atoms in an input .pdb file, so for external files make sure the displacement is computed only using these.
 
 Next, we consider an NP approaching along the vector defined by $\phi,\theta$ defined by the (new) centre of the biomolecule at $(0,0,0)$ and employing the physics convention such that $(x,y,z) = (r \cos \phi \sin \theta, r \sin \phi \sin \theta, r \cos \theta)$, where $r > 0$ is the length of the vector. This fixes the orientation of the protein relative to the surface of the NP, up to a rotation around that vector which is unimportant for a spherical isotropic NP. Note that any given $\phi,\theta$ will define a different approach for the NP and thus a different orientation of the protein.  For practical purposes, it's useful to instead consider the NP to be fixed in its frame at $(0,0,0)$ and have the biomolecule approach along the $z$ axis from $+z$ to $-z$, normal to the surface, while keeping the biomolecue in the same relative orientation as it was in the original frame. 
 
