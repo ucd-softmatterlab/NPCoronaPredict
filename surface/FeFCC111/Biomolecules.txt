@@ -1,0 +1,24 @@
+   Code  Description            Type        Charge 
+  -------------------------------------------------
+   ALA   Alanine                amino acid       0 
+   ARG   Arginine               amino acid      +1 
+   ASN   Asparagine             amino acid       0 
+   ASP   Aspartic acid          amino acid      -1 
+   CYS   Cysteine               amino acid       0 
+   GLN   Glutamine              amino acid       0 
+   GLU   Glutamic acid          amino acid      -1 
+   HID   Histidine (d)          amino acid       0 
+   HIE   Histidine (e)          amino acid       0 
+   ILE   Isoleucine             amino acid       0 
+   LEU   Leucine                amino acid       0 
+   LYS   Lysine                 amino acid      +1 
+   MET   Methionine             amino acid       0 
+   PHE   Phenylalanine          amino acid       0 
+   SER   Serine                 amino acid       0 
+   THR   Threonine              amino acid       0 
+   TRP   Tryptophan             amino acid       0 
+   TYR   Tyrosine               amino acid       0 
+   VAL   Valine                 amino acid       0 
+   GAN   Glutamic acid neutral  amino acid       0 
+   GLY   Glycine                backbone         0 
+   PRO   Proline                backbone         0  

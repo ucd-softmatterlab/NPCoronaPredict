@@ -41,7 +41,7 @@ redgrapheneoxide-hollow,surface/redgrapheneoxide,hamaker/Null.dat,1
 graphene-hollow,surface/graphene,hamaker/Null.dat,1
 bi-graphene-hollow,surface/bi-graphene,hamaker/Null.dat,1
 tri-graphene-hollow,surface/tri-graphene,hamaker/Null.dat,1
-goldcube,surface/Au/FCC/100/sca,hamaker/Metal.dat,3
+goldcube,surface/Au/100-FullAA,hamaker/Metal.dat,3
 peg-3b,surface/PEG-3B,hamaker/PEG.dat,1
 peg-plane,surface/PEG-Plane,hamaker/PEG.dat,1
 Au100,surface/Au/100,hamaker/Metal.dat,1
