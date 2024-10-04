@@ -3,6 +3,25 @@ NPCoronaPredict is a package to allow the prediction of the corona content of a 
 
 Please refer to the manual included in the /docs folder for detailed information about how to run the programs.
 
+For works published using results generated using scripts in this repository, please cite at least:
+
+    NPCoronaPredict: A Computational Pipeline for the Prediction of the Nanoparticle–Biomolecule Corona
+    Ian Rouse, David Power, Julia Subbotina, and Vladimir Lobaskin
+    Journal of Chemical Information and Modeling Article ASAP
+    DOI: 10.1021/acs.jcim.4c00434 
+
+
+For UnitedAtom the original publication for the current methodology is:
+    
+    David Power et al 2019 Modelling Simul. Mater. Sci. Eng. 27 084003, DOI: 10.1088/1361-651X/ab3b6e
+
+For CoronaKMC cite:
+
+    A hard-sphere model of protein corona formation on spherical and cylindrical nanoparticles
+    Rouse, Ian et al.
+    Biophysical Journal, Volume 120, Issue 20, 4457 - 4471
+
+
 ####Quick installation####
 
 A typical installation runs like:
