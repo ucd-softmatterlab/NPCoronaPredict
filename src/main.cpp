@@ -29,7 +29,7 @@ constexpr double        delta           = 2.0;
 
 bool isUsingDeltaOverride = false;
 //define the angular resolution. These defaults are overrwritten if and only if m_confirmOverrideAngle is set by the appropriate switch AND a new value for angle_delta_deg is supplied in the config file.
-double        angle_delta_deg = 2.0;
+double        angle_delta_deg = 5.0;
 double        angle_delta     = angle_delta_deg * (M_PI / 180.0);
 int           ncols           = 180;
 int           nrows           = 90;
