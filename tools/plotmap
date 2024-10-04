@@ -45,7 +45,7 @@ print("Simple Average   = {:.3f}".format(simpleAverage))
 print("Boltzman Average = {:.3f}".format(boltzmanAverage))
 print("Minimum Value    = {:.3f} @ ({}, {})".format(energy[index], phiData[index], thetaData[index]))
 
-delta           = 5 #phiData[1] - phiData[0]
+delta           = phiData[1] - phiData[0]
 rows            = int(180. / delta)
 cols            = int(360. / delta)
 image           = np.zeros((rows, cols))

@@ -26,22 +26,27 @@
 //constexpr double        gds             = 0.22;
 constexpr double        gds             = 0.0;
 constexpr double        delta           = 2.0;
-constexpr double        angle_delta     = 5.0 * (M_PI / 180.0);
-constexpr int           ncols           = 72;
-constexpr int           nrows           = 36;
-constexpr int           iterations      = nrows * ncols;
-constexpr int           samples         = 128;
-constexpr int           steps           = 512;
+
+bool isUsingDeltaOverride = false;
+//define the angular resolution. These defaults are overrwritten if and only if m_confirmOverrideAngle is set by the appropriate switch AND a new value for angle_delta_deg is supplied in the config file.
+double        angle_delta_deg = 2.0;
+double        angle_delta     = angle_delta_deg * (M_PI / 180.0);
+int           ncols           = 180;
+int           nrows           = 90;
+int           iterations      = nrows * ncols;
+int           samples         = 128; //number of samples per angle bin, it is very strongly recommended that this is unchanged from the default to ensure correct sampling of the standard deviation to provide error estimates.
+constexpr int           steps           = 512; //this is the resolution along the z-axis used for integration. There is no reason to modify this; the default value of 512 produces a resolution of 0.004 nm and the input potentials are less precise than this (or just thermal fluctuations at this resolution)
 constexpr double        dz              = delta / (steps - 1); //for non-uniform NPs this is updated for the integration
 //define the Boltzmann and Avogadro constants for energy conversions
 constexpr double        kbConst       =  1.380649e-23;
 constexpr double        naConst       =  6.02214076e23; 
-
+//m_confirmOverrideAngle
 
 
 std::random_device randomEngineSeed{};
 std::mt19937 randomEngine{ randomEngineSeed()  };
-std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta);
+//std::uniform_real_distribution<double> random_angle_offset(0.0, angle_delta); 
+std::uniform_real_distribution<double> random_angle_offset(0.0, 1.0);
 
 std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 
@@ -52,7 +57,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.0.2"); 
+    static std::string uaVersionID("1.1.0"); 
     return uaVersionID;
 }
 
@@ -126,10 +131,15 @@ else{
     handle << "#Results generated at: " << timestamp  << " using UA version: " << getUAVersion() << "\n";
     handle << "#" << npName << " - " << name << "\n";
     handle << "#RADIUS: "<<radius<<"\n";
+
+
+
+
+
     handle << "#phi-LeftHandEdge theta-LeftHandEdge EAds/kbT=300 SDEV(Eads)/kbT=300 min_surf-surf-dist/nm mfpt*DiffusionCoeff/nm^2 EAds/kJ/mol min_ProtSurf_NPCentre-dist/nm omega NumContacts min_COM_COM-dist/nm\n"; 
     for (int i = 0; i < iterations; ++i) { 
-        phi   = (i % ncols) * 5.0;
-        theta = (i / ncols) * 5.0;
+        phi   = (i % ncols) * angle_delta_deg;
+        theta = (i / ncols) * angle_delta_deg;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << phi;
         handle << std::left << std::setw(7) << std::fixed << std::setprecision(1) << theta;
 
@@ -628,9 +638,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
              //std::cout << sample << "/" << samples << "\n";
     	    // Rotation step - random sampling is enabled if the number of samples to generate is > 1. If not, it just calculates it at the bin center
 
-            if(sample <  samples){
-    	    phi_adjusted   = -1.0 * (phi + random_angle_offset(randomEngine));
-    	    theta_adjusted = M_PI - (theta + random_angle_offset(randomEngine));
+            if(sample <  samples && samples > 1){
+    	    phi_adjusted   = -1.0 * (phi +  angle_delta*random_angle_offset(randomEngine));
+    	    theta_adjusted = M_PI - (theta +  angle_delta*random_angle_offset(randomEngine));
              }
              else{
             phi_adjusted   = -1.0 * (phi  + angle_delta/2);
@@ -1144,6 +1154,36 @@ int main(const int argc, const char* argv[]) {
     TargetList        targetList(config.m_pdbTargets);
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
     PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  , config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound);
+
+
+
+        //angle_delta_deg = 2.0;
+        //angle_delta     = angle_delta_deg * (M_PI / 180.0);
+       if(config.m_confirmOverrideAngle == true){
+        //attempt override
+         int intAngleDeg = int(  config.m_angleDelta ) ;
+         if( 360 % intAngleDeg == 0 && 180 % intAngleDeg == 0 ){
+        
+        angle_delta_deg = config.m_angleDelta; 
+        angle_delta     = angle_delta_deg * (M_PI / 180.0);
+        ncols           = 360/intAngleDeg;
+        nrows           = 180/intAngleDeg;
+
+       samples = config.m_numSamples;
+
+
+
+       
+       std::cout << "Overriding angular resolution. New ncols: " << ncols << " new nrows: "<< nrows << "\n";
+        iterations      = nrows * ncols;
+        }
+        else{
+       std::cout << "Warning: you have chosen an override value of angle-delta with non-zero modulus w.r.t theta or phi \n";
+       std::cout << "Suggested value is 5. \n";
+        }
+        }
+
+
 
     std::vector<double>          omegaAngleSet;
     // config.m_npTargets is a list of strings - targets to look at for .np files 

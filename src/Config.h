@@ -17,6 +17,8 @@ public: // Switches
     bool        m_enableFullScan     = false;
     bool        m_zshiftToPlane = false;
     bool        m_enableLocalBoltz = false;
+    bool        m_confirmOverrideAngle = false;
+
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -35,7 +37,7 @@ public: // Key - vaules
     int         m_simulationSteps       = 10000;
     int         m_potentialSize         = 2000;
     int         m_multiNP               = 0;
-
+    int         m_numSamples            = 128;
     double      m_potentialCutoff       = 10.0;
     double      m_angleDelta            = 5.0;
     double      m_bejerumLength         = 1.0;
@@ -82,6 +84,11 @@ public:
             m_enableLocalBoltz = true;
             }           
             
+            else if(switches[i] == "confirm-override-angle"){
+            std::cout << "Warning: Using angular resolutions other than 5 degrees is not supported by the NPCoronaPredict pipeline. Higher resolutions do not correspond to realistic conformations and the resulting energies must be interpreted with extreme caution.  \n";
+            m_confirmOverrideAngle = true;
+            }
+
             else if(switches[i] == "disable-protein-smartzshift"){
             std::cout << "Warning: disable-protein-smartzshift should not be used for production runs and is provided only for testing purposes.\n" ;
             m_zshiftToPlane = true;
@@ -145,6 +152,14 @@ public:
             }
             else if (keys[i] == "angle-delta") {
                 m_angleDelta = AsDouble(values[i]);
+            }
+            else if (keys[i] == "num-random-samples"){
+                int numSamplesIn = AsInt(values[i]);
+                if( numSamplesIn < 1){
+                std::cout << "Samples must be greater than 0, setting to 1 \n";
+                numSamplesIn = 1;
+                }
+                m_numSamples = numSamplesIn;
             }
             else if (keys[i] == "pmf-cutoff") {
                 m_PMFCutoff = AsDouble(values[i]);
