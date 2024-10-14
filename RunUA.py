@@ -17,13 +17,14 @@ for targetMaterialFile in ["MaterialSet.csv", "surface-pmfp/MaterialSetPMFP.csv"
         if len(lineTerms)<4:
             print("Problem reading material line: ", line)
             continue
-        materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3])]
+        materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3]),float(lineTerms[4])]
         if firstMaterial == "":
             firstMaterial = lineTerms[0]
 if len( materialSet.keys() ) == 0:
     print("No materials found. Please try again")
     quit()        
         
+
 #print(materialSet)
 parser = argparse.ArgumentParser(description="Parameters for UA Config File Generation")
 parser.add_argument('--operation-type', default = "pdb-folder", choices = ['pdb' , 'pdb-folder'], type = str, help = 'Currently only \'pdb\' or pdb-folder are valid')
@@ -55,12 +56,12 @@ canRun = 0
 
 
 if args.material in materialSet:
-    pmfFolder,hamakerFile,shape = materialSet[ args.material]
+    pmfFolder,hamakerFile,shape,pmfLJCutoff = materialSet[ args.material]
     canRun = 1
 elif args.nps != "":
     print("No material found but NP folder set, using default material which may not have sufficient PMFs/Hamaker constants. ")
     canRun = 1
-    pmfFolder, hamakerFile, shape = materialSet[ firstMaterial ]
+    pmfFolder, hamakerFile, shape,pmfLJCutoff = materialSet[ firstMaterial ]
 if canRun == 0:
     print("An error has occured, cancelling run. Please check material name again.")
     print("Input material: ", args.material)
@@ -168,6 +169,8 @@ def writeConfigFile(configOutputLoc):
     outputConfigFile.write("temperature = "+str(round(inputTemp,2))+"\n")
     outputConfigFile.write("zeta-potential = [" + str(args.zeta) + "] \n")
     outputConfigFile.write("pdb-jitter-magnitude = "+str(jitterMag)+" \n")
+    outputConfigFile.write("pmf-cutoff="+str( pmfLJCutoff)+"\n")
+
     if enableBoltz > 0:
         outputConfigFile.write("enable-local-boltz \n")
     if useDefaultBeadSet == 1:

@@ -1106,7 +1106,7 @@ void MainWindow::on_loadMaterialSet_clicked()
              boost::split(results, lineIn, [](char c){return c == ',';});
              //silicaquartz,surface/SiO2-Quartz,hamaker/SiO2_Quartz.dat,1
              //qDebug() << QString::fromStdString(results[0]) << " " << QString::fromStdString(results[1]) << " " <<  QString::fromStdString(results[2] )<< "\n";
-             if(results.size()==4){
+             if(results.size()>=4){
              materialTypes.emplace_back( MaterialType( QString::fromStdString(results[0])   , QString::fromStdString(results[1]) ,QString::fromStdString(results[2])     ) ) ;
              addBeadTypeMaterialBox->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2])) ;
              addShellMaterialBox->addItem( QString::fromStdString(results[0]) ,   QList<QVariant>() <<  QString::fromStdString(results[1]) <<  QString::fromStdString(results[2])) ;
