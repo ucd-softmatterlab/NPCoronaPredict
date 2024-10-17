@@ -33,7 +33,7 @@ void AddBrush::on_buttonBox_accepted()
      int beadTypeID =  this->findChild<QComboBox  *>("brushBeadID")->currentIndex( );
 //qDebug() << " bead type: " << beadTypeID<< "\n";
    // qDebug() << " sending brush \n";
-
+   lastBeadIndex = beadTypeID;
      if(beadTypeID == -1){
          qDebug() << "No valid brush bead selected \n";
 
@@ -72,18 +72,28 @@ this->findChild<QLineEdit *>("densityOutBox")->setText( QString::number(estDensi
 this->findChild<QLineEdit *>("numbeadsOutBox")->setText( QString::number(estNumBeads)    ) ;
 double suggestRadius = beadRadius+currentOuterRadius;
 this->findChild<QLineEdit *>("outerLayerTarget")->setText( QString::number(suggestRadius)    ) ;
+
+
+
 }
 
+
+void AddBrush::setRadialToSuggest(){
+    double suggestRadius = this->findChild<QLineEdit *>("outerLayerTarget")->text().toFloat();
+    this->findChild<QLineEdit *>("brushRadialDist")->setText( QString::number(suggestRadius)    ) ;
+}
 
 void AddBrush::on_brushBeadID_currentIndexChanged(int index)
 {
     updateDensityBox();
+    setRadialToSuggest();
 }
 
 
 void AddBrush::on_brushRadialDist_editingFinished()
 {
     updateDensityBox();
+    setRadialToSuggest();
 }
 
 

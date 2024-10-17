@@ -47,15 +47,18 @@
     <rect>
      <x>280</x>
      <y>150</y>
-     <width>65</width>
+     <width>91</width>
      <height>26</height>
     </rect>
+   </property>
+   <property name="decimals">
+    <number>4</number>
    </property>
    <property name="maximum">
     <double>1.000000000000000</double>
    </property>
    <property name="singleStep">
-    <double>0.100000000000000</double>
+    <double>0.000100000000000</double>
    </property>
    <property name="value">
     <double>1.000000000000000</double>

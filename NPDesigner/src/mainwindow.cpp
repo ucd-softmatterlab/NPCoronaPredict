@@ -55,7 +55,7 @@ this->findChild<QLineEdit *>("uaPath")->setText(this->uaGlobalPath);
 this->materialTypes.emplace_back( MaterialType( "Custom"   , "",""     ) ) ;
 addBeadType->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
 addShell->findChild<QComboBox *>("materialTypeBox")->addItem( "Custom" ,   QList<QVariant>() <<  QString::fromStdString("") <<  QString::fromStdString("")) ;
-
+addBrush->lastBeadIndex = 0;
  }
 
 MainWindow::~MainWindow()
@@ -92,11 +92,15 @@ void MainWindow::on_newBrushButton_clicked()
     QComboBox *brushComboTypes = addBrush->findChild<QComboBox *>("brushBeadID") ;
     brushComboTypes->clear();
 
+   bool lastBrushExists = false;
 
          //   qDebug() << "Updating bead types \n";
     for(int i = 0; i < (int)beadTypes.size(); ++i){
-     //   qDebug() << i << "\n";
+      //  qDebug() << i << " " <<  addBrush->lastBeadIndex << "\n";
      brushComboTypes->addItem( QString::number(i) ) ;
+     if(i == addBrush->lastBeadIndex){
+         lastBrushExists = true;
+     }
 //qDebug() << i << "\n";
     }
    // qDebug() << "Clearing existing bead radii \n";
@@ -106,9 +110,18 @@ void MainWindow::on_newBrushButton_clicked()
         //   qDebug() << "Adding bead radii"   << np.radius  << " done \n";
      addBrush->beadRadii.emplace_back( np.radius   ) ;
 
+
+
     }
+
+
+     if(lastBrushExists){
+         brushComboTypes->setCurrentIndex(addBrush->lastBeadIndex);
+     }
+
     addBrush->currentOuterRadius = npOuterRadius;
     addBrush->updateDensityBox();
+    addBrush->setRadialToSuggest();
     addBrush->exec();
 }
 

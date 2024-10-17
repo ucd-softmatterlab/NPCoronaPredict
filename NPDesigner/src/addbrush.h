@@ -15,8 +15,10 @@ public:
     explicit AddBrush(QWidget *parent = nullptr);
     ~AddBrush();
     void updateDensityBox();
+    void setRadialToSuggest();
     std::vector<double> beadRadii;
     double currentOuterRadius;
+    int lastBeadIndex;
 signals:
     void  sendNewBrush(double brushOccupancy, double brushRadialDist, int beadID, bool forceAttach);
 private slots:
