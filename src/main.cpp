@@ -31,8 +31,8 @@ bool isUsingDeltaOverride = false;
 //define the angular resolution. These defaults are overrwritten if and only if m_confirmOverrideAngle is set by the appropriate switch AND a new value for angle_delta_deg is supplied in the config file.
 double        angle_delta_deg = 5.0;
 double        angle_delta     = angle_delta_deg * (M_PI / 180.0);
-int           ncols           = 180;
-int           nrows           = 90;
+int           ncols           = 72;
+int           nrows           = 36;
 int           iterations      = nrows * ncols;
 int           samples         = 128; //number of samples per angle bin, it is very strongly recommended that this is unchanged from the default to ensure correct sampling of the standard deviation to provide error estimates.
 constexpr int           steps           = 512; //this is the resolution along the z-axis used for integration. There is no reason to modify this; the default value of 512 produces a resolution of 0.004 nm and the input potentials are less precise than this (or just thermal fluctuations at this resolution)
@@ -57,7 +57,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.1.0"); 
+    static std::string uaVersionID("1.1.1"); 
     return uaVersionID;
 }
 
