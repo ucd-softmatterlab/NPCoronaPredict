@@ -34,8 +34,9 @@ thetaData       = rawData[:,1]
 energy          = rawData[:,2]
 #print(rawData)
 
+delta           = phiData[1] - phiData[0]
 
-sinTheta        = np.sin((2.5+thetaData) * np.pi / 180.0)
+sinTheta        = np.sin((delta/2+thetaData) * np.pi / 180.0)
 
 boltzmanAverage = np.sum(energy * sinTheta * np.exp(-1.0 *  energy)) / np.sum(sinTheta * np.exp(-1.0 * energy))
 simpleAverage   = np.sum(sinTheta * energy)/np.sum(sinTheta) # corrected so that it works properly for isotropic proteins and single AAs with E(phi,theta) = E, else we get Esimple =  2E/Pi 
@@ -45,20 +46,28 @@ print("Simple Average   = {:.3f}".format(simpleAverage))
 print("Boltzman Average = {:.3f}".format(boltzmanAverage))
 print("Minimum Value    = {:.3f} @ ({}, {})".format(energy[index], phiData[index], thetaData[index]))
 
-delta           = phiData[1] - phiData[0]
+#delta           = phiData[1] - phiData[0]
 rows            = int(180. / delta)
 cols            = int(360. / delta)
 image           = np.zeros((rows, cols))
+print(rows, cols, delta)
+
 
 for phi, theta, energy, sd in rawData:
-    row             = int(theta / delta)
-    col             = int(phi / delta)
+    row             = int(theta / int(round(delta)))
+    col             = int(phi / int(round(delta)))
+    print(phi, col)
     image[row][col] = energy
 
 
 # Smooth the data
-lon = np.linspace(0, 360, cols)
-lat = np.linspace(0, 180, rows)
+#lon = np.linspace(0, 360, cols)
+#lat = np.linspace(0, 180, rows)
+
+
+lon = np.arange( 0, 360+delta, delta) 
+lat = np.arange(0, 180+delta,delta)
+
 Lon, Lat = np.meshgrid(lon,lat)
 image = sp.ndimage.filters.gaussian_filter(image, sigma = [0.1, 0.1], mode = ['constant', 'wrap'])
 
