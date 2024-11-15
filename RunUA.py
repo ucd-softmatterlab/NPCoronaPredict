@@ -53,14 +53,16 @@ args = parser.parse_args()
 
 
 canRun = 0
-
+checkMaterial =""
 
 if args.material in materialSet:
     pmfFolder,hamakerFile,shape,pmfLJCutoff = materialSet[ args.material]
     canRun = 1
+    checkMaterial = args.material
 elif args.nps != "":
     print("No material found but NP folder set, using default material which may not have sufficient PMFs/Hamaker constants. ")
     canRun = 1
+    checkMaterial = firstMaterial
     pmfFolder, hamakerFile, shape,pmfLJCutoff = materialSet[ firstMaterial ]
 if canRun == 0:
     print("An error has occured, cancelling run. Please check material name again.")
@@ -113,6 +115,12 @@ for line in beadSetFile:
     lineTerms = line.strip().split(",")
     if len(lineTerms) < 3:
         print("Could not read line", line)
+        continue
+    #test if bead exists for this material
+    beadName = lineTerms[0]
+    if not os.path.exists( pmfFolder+"/"+ beadName +".dat" ):
+        print("Bead type ", lineTerms[0], " could not be located for the selected material")
+        print("This will be omitted from the UA input file and may cause issues with ligands or non-AA beads")
         continue
     beadNames.append(lineTerms[0])
     beadCharges.append(lineTerms[1])
