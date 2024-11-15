@@ -648,7 +648,7 @@ void MainWindow::on_runUAButton_clicked()
         commandArgs <<"-r";
         commandArgs<< QString::number(targetRadius) ;
         commandArgs <<"-z";
-        commandArgs <<QString::number(targetZeta) ;
+        commandArgs <<QString::number(targetZetaMV) ; //NPCoronaPredict expects a zeta in mV
         commandArgs <<"-m";
         commandArgs <<targetMaterial ;
         commandArgs << "-a";
