@@ -7,6 +7,7 @@
 #include "TargetList.h"
 #include "Surface.h"
 #include "PDBFile.h"
+#include "LigandFileReader.h"
 
 #include "NPTargetList.h"
 #include "NPFile.h"
@@ -57,7 +58,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.1.1"); 
+    static std::string uaVersionID("1.2.0"); 
     return uaVersionID;
 }
 
@@ -1153,7 +1154,14 @@ int main(const int argc, const char* argv[]) {
     HamakerConstants  hamakerConstants(config.m_hamakerFile);
     TargetList        targetList(config.m_pdbTargets);
     SurfacePMFs       surfaces(config.m_pmfDirectory, config.m_pmfPrefix, config.m_aminoAcids);
-    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  , config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound);
+
+
+    //if(config.m_readLigands == true){
+    LigandMap         ligandMap(config.m_ligandFile);
+    //}
+
+
+    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  ,   ligandMap.m_ligandAALookup, config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound, config.m_readLigands);
 
 
 

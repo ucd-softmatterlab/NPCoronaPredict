@@ -18,7 +18,7 @@ public: // Switches
     bool        m_zshiftToPlane = false;
     bool        m_enableLocalBoltz = false;
     bool        m_confirmOverrideAngle = false;
-
+    bool        m_readLigands = false;
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -34,6 +34,7 @@ public: // Key - vaules
     std::string m_pmfPrefix             = "";
     std::string m_hamakerFile           = "hamaker.dat";
     std::string m_outputDirectory       = "";
+    std::string m_ligandFile            = "";
     int         m_simulationSteps       = 10000;
     int         m_potentialSize         = 2000;
     int         m_multiNP               = 0;
@@ -84,6 +85,8 @@ public:
             m_enableLocalBoltz = true;
             }           
             
+
+
             else if(switches[i] == "confirm-override-angle"){
             std::cout << "Warning: Using angular resolutions other than 5 degrees is not supported by the NPCoronaPredict pipeline. Higher resolutions do not correspond to realistic conformations and the resulting energies must be interpreted with extreme caution.  \n";
             m_confirmOverrideAngle = true;
@@ -114,7 +117,10 @@ public:
                 m_omegaAngles = AsDoubleList(values[i]);
             }
             
-            
+            else if (keys[i] == "ligand-file"){
+                 m_readLigands = true;
+                 m_ligandFile =  values[i] ;
+            }
             
             else if (keys[i] == "amino-acids") {
                 m_aminoAcids = AsStringList(values[i]);

@@ -28,20 +28,23 @@ public:
     {}
 };
 
-PDB ReadPDBFile(const std::string&, const std::unordered_map<std::string, std::size_t>&, const int , const double, const double  );
+PDB ReadPDBFile(const std::string&, const std::unordered_map<std::string, std::size_t>&,     const std::unordered_map<std::string,std::string>&,     const int , const double, const double ,const bool   );
 
 class PDBs : public std::vector<PDB> {
 public:
     PDBs(const std::vector<std::string>& filenames,
-        const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap, const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0) {
+        const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap, 
+        const std::unordered_map<std::string, std::string>& ligandMap,
+
+const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0, const bool readLigands = false) {
         this->reserve(filenames.size());
         for (const auto& filename : filenames) {
-            this->push_back(ReadPDBFile(filename, aminoAcidIdMap,inputDisorderStrat, disorderMin, disorderMax));
+            this->push_back(ReadPDBFile(filename, aminoAcidIdMap, ligandMap, inputDisorderStrat, disorderMin, disorderMax, readLigands));
         }
     }
 };
 
-PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap, const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0) {
+PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap,   const std::unordered_map<std::string,std::string>& ligandMap,   const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0, const bool readLigands=false) {
     std::ifstream handle(filename.c_str());
     if (!handle.is_open()) {
         std::cerr << "Error: Could not find pdb file '" << filename << "'\n";
@@ -51,6 +54,8 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     std::string line;
     std::string tag;
     int disorderStrat = inputDisorderStrat;
+
+    
     std::vector<double> x;
     std::vector<double> y;
     std::vector<double> z;
@@ -58,7 +63,42 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     std::vector<double> occupancy;
     std::vector<double> bfactor;
     while (std::getline(handle, line)) {
-        if(line.size() > 3 && line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA") {
+        bool foundAtom = false;
+        bool atomIsLigand = false;
+        if( line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA" ){
+        foundAtom = true;
+        tag = line.substr(17, 3);
+        StringFormat::Strip(tag);
+
+        }
+        if( line.substr(0,6) == "HETATM" && readLigands == true){
+        foundAtom = true;
+        atomIsLigand = true;
+
+        //attempt to parse line as a potential ligand
+                std::string ligandID = line.substr(17,3);
+                std::string ligandAtomID = line.substr(12,4) ;
+                StringFormat::Strip(ligandID);
+                StringFormat::Strip(ligandAtomID);
+               std::string trialTag = "";
+               if( ligandMap.count( ligandID+"-"+ligandAtomID) == 1 ){
+               trialTag = ligandMap.at(ligandID+"-"+ligandAtomID)  ;
+              }
+              if(trialTag != ""){ 
+              tag = trialTag;
+              //std::cout << "Parsing " << ligandID << "-" << ligandAtomID << " as " << tag << "\n";
+
+              }
+              else{
+              foundAtom = false;
+              }
+  
+              //std::cout << "Not Parsing " << ligandID << "-" << ligandAtomID << " as no CG substitute found found \n";
+              
+        }
+
+
+        if(line.size() > 3 && foundAtom == true) {
             try {
                 x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
                 y.emplace_back(0.1 * std::stod(line.substr(38, 8)));
@@ -69,8 +109,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 occupancy.emplace_back(  std::stod(line.substr(54,6)));
                 bfactor.emplace_back( std::stod(line.substr(60,6)));
                 //tag = line.substr(16, 4); // When using lipids
-                tag = line.substr(17, 3);
-                StringFormat::Strip(tag);
+               
 
                 id.emplace_back(aminoAcidIdMap.at(tag));
             }
