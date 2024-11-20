@@ -59,6 +59,7 @@ parser.add_argument('-I','--inneroverride',help="For custom .np files with a man
 parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
 parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
 parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
+parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 parser.add_argument("--steady", action="store_true", help="Attempt to get the steady-state corona")
 
 
@@ -71,7 +72,7 @@ NPRadius = int(args.radius) #in nm
 NPZeta = int(args.zeta) #in mV
 NPMaterial = args.material
 CGBeadFile = "beadsets/StandardAABeadSet.csv"
-
+print("zeta debugging: ", args.zeta, NPZeta, int(round(NPZeta)) )
 
 if args.time > 0:
     CoronaSimTime = args.time/3600.0 #1 second in hours
@@ -290,7 +291,7 @@ for proteinLine in AllProteins:
         elif proteinSource=="PDB" or overrideToPDB == True:
             #download from PDB
             try:
-                os.system('wget  https://files.rcsb.org/download/'+proteinID2+'.pdb -P '+ProteinStorageFolder)
+                os.system('wget  https://files.rcsb.org/download/'+proteinID2+'.pdb -P '+ProteinStorageFolder+' -O '+ProteinStorageFolder+"/"+proteinID+'.pdb')
                 os.system('cp '+ProteinStorageFolder+"/"+proteinID+".pdb "+ProteinWorkingFolder+"/"+proteinID+"-"+proteinLine[3]+   ".pdb")
                 foundProtein = 1
             except:
@@ -322,8 +323,10 @@ serumOutputFile.close()
 
 print("Now run UnitedAtom with pdbs set to "+ProteinWorkingFolder)
 print("Suggested autorun command: ")
-
-UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)+ " -j "+str( jitterMag ) + " -B "+str(enableBoltz)
+ligandFileStr = ""
+if args.ligand_file != "":
+    ligandFileStr = " -L "+args.ligand_file
+UACommandString = "python3 RunUA.py -r "+str(round(NPRadius))+" -z "+str(NPZeta/1000.0)+" -p "+ProteinWorkingFolder+ " -o "+UAResultsFolderBase+ " -m "+NPMaterial+" --operation-type=pdb-folder -b "+CGBeadFile+" -c "+(BaseStorageFolder+"/"+ProjectName)+" -n "+ProjectName+" -H "+str(args.hamaker)+ " -j "+str( jitterMag ) + " -B "+str(enableBoltz) + ligandFileStr
 
 if predefNP == True:
     #npName = args.npfile[:-3]
@@ -337,7 +340,8 @@ kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
 BCPCommandString = "python3 BuildCoronaParams.py -r "+str(round(NPRadius))+" -z "+str(int(NPZeta))+" -f "+UAResultsFolder+" -p "+ serumFileLocation+" -c "+ProteinWorkingFolder+" -b "+CGBeadFile+" -o "+kmcFileLocation
 if args.inneroverride > 0:
     BCPCommandString += " -I "+str(filenameRadius)
-
+if args.ligand_file != "":
+    BCPCommandString += ligandFileStr
 
 appendSteady = ""
 kmcTimeDelta = str(0.0001)

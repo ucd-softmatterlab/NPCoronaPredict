@@ -44,7 +44,7 @@ parser.add_argument("-N","--nps",type=str,default="",help="NP target [file/folde
 parser.add_argument("-j","--jitter",type=float, help= "S. dev. of random noise to apply to each CG bead position per-axis [nm]", default=0.0)
 parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables Boltzmann local averaging in UA")
 parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
-
+parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 
 
 args = parser.parse_args()
@@ -178,6 +178,9 @@ def writeConfigFile(configOutputLoc):
     outputConfigFile.write("zeta-potential = [" + str(args.zeta) + "] \n")
     outputConfigFile.write("pdb-jitter-magnitude = "+str(jitterMag)+" \n")
     outputConfigFile.write("pmf-cutoff="+str( pmfLJCutoff)+"\n")
+
+    if args.ligand_file != "":
+        outputConfigFile.write("ligand-file = "+args.ligand_file+"\n")
 
     if enableBoltz > 0:
         outputConfigFile.write("enable-local-boltz \n")

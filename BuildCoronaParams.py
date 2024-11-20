@@ -57,11 +57,50 @@ def CalculateBoltz(filename,pdbFile):
     boltz    = np.sum(energy * sinTheta * np.exp(-1.0 * energy)) / np.sum(sinTheta * np.exp(-1.0 * energy))
     return boltz
 
-def getAtomCoords(filename, caOnly=False):
+def readLigandFile(filepath):
+    ligandSet = {}
+    fileIn = open(filepath,"r")
+    seenLigands = []
+    lastLigand = ""
+    for line in fileIn:
+        if line[0] == "#": 
+            continue
+        lineTerms = line.strip().split(",")
+        if len(lineTerms) < 2:
+            continue
+        ligandID = lineTerms[0]
+        ligandType = lineTerms[0].split("-")[0]
+        targetAA = lineTerms[1]
+        if ligandType != lastLigand:
+            #ligand type has changed so register the last one
+            if ligandType not in seenLigands:
+                seenLigands.append(lastLigand)
+            lastLigand = ligandType
+        if ligandType not in seenLigands: 
+            #this ligand type has not been completed so we can append a new version
+            if ligandID not in ligandSet.keys():
+                ligandSet[ligandID] = targetAA
+            else:
+                print("mapping for ", ligandID, " already set, ignoring")
+        else:
+            print("ligand type", ligandType, "already completed, ignoring")
+    fileIn.close()
+    print("Ligand overrides: ", ligandSet)
+    return ligandSet
+
+#ligandData=readLigandFile("ligand-data/testliganddef2.csv")
+#print(ligandData)
+def getAtomCoords(filename, caOnly=False,ligandFile=""):
     fileIn = open(filename,"r")
     coordList = []
     moleculeBeadLabels = []
     moleculeBeadRadiusSet = []
+    print("looking for ligand file", ligandFile)
+    if ligandFile != "":
+        ligandLookup = readLigandFile(ligandFile)
+    else:
+        ligandLookup = {}
+    #ligandLookup = {"NAG-C2":"DGL" }
     for line in fileIn:
         lineData = line.split()
         if lineData[0] == "ATOM" and (  lineData[13:15]=="CA" or caOnly == False  ):
@@ -69,6 +108,17 @@ def getAtomCoords(filename, caOnly=False):
             moleculeBeadLabelIn =  line[17:20]
             moleculeBeadLabels.append( moleculeBeadLabelIn ) # 17, 3
             moleculeBeadRadiusSet.append( beadRadiusSet.get(  moleculeBeadLabelIn, 0.5 ) ) 
+        elif line[:6] == "HETATM":
+            trialLigandID = line[17:20].strip()+"-"+line[12:16].strip()
+            #print(trialLigandID)
+            if trialLigandID in ligandLookup.keys():
+                print("mapping ", trialLigandID, "to", ligandLookup[trialLigandID])
+                ligandBeadName = ligandLookup[trialLigandID]
+                coordList.append([ float(line[30:38]) , float(line[38:46]) , float(line[46:54])])   #x.emplace_back(0.1 * std::stod(line.substr(30, 8)));
+                moleculeBeadLabelIn =  ligandBeadName
+                moleculeBeadLabels.append( moleculeBeadLabelIn ) # 17, 3
+                moleculeBeadRadiusSet.append( beadRadiusSet.get(  moleculeBeadLabelIn, 0.5 ) )
+
     fileIn.close()
     # return np.array(coordList)
     coordData = np.atleast_2d( np.array(coordList) )
@@ -252,6 +302,7 @@ parser.add_argument('-n','--nullfile',type=int,default=0,help="Write out the nul
 parser.add_argument('-b','--beadset',type=str,help="Bead definition file", default="beadsets/StandardAABeadSet.csv" )
 parser.add_argument('-o','--outputname',type=str,help="Name for the output file", default="buildcoronaparams-demo.csv")
 parser.add_argument('-I','--inneroverride',help="For custom .np files with a manually specified inner bound, set this value to the inner bound so BCP can find the correct .uam files, else do not use", default=-1,type=int)
+parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 
 
 args = parser.parse_args()
@@ -357,7 +408,8 @@ for proteinData in concentrationData:
     #print(data[0:2])
  
     singleBeadMode = False
-    rawCoords, beadLabels, moleculeBeadRadiusSet =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb")
+    print("input ligand file", args.ligand_file)
+    rawCoords, beadLabels, moleculeBeadRadiusSet =  getAtomCoords( pdbFolder+"/"+proteinData[0]+".pdb", ligandFile=args.ligand_file)
     rawCoords = rawCoords*0.1
 
 
