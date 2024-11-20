@@ -331,6 +331,20 @@
              </layout>
             </item>
             <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_21">
+              <item>
+               <widget class="QLineEdit" name="ligandFileLine"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="ligandFileButton">
+                <property name="text">
+                 <string>Ligand File</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+            <item>
              <spacer name="verticalSpacer_3">
               <property name="orientation">
                <enum>Qt::Vertical</enum>
@@ -884,7 +898,7 @@
      <x>0</x>
      <y>0</y>
      <width>919</width>
-     <height>22</height>
+     <height>20</height>
     </rect>
    </property>
   </widget>

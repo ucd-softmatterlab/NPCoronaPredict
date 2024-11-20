@@ -5,7 +5,8 @@
 ----------------------
 Introduction
 ----------------------
-NPCoronaPredict-GUI is a simple graphical interface for running UnitedAtom for a single protein - NP pair and visualising the results. Its functionality is very limited by design compared to the full command-line program to make it easy to use for beginners while still allowing corona predicts.
+NPCoronaPredict-GUI is a simple graphical interface for running UnitedAtom for a single protein - NP pair and visualising the results, or running a set of proteins and computing the corona in a very hands-off way.
+Its functionality is very limited by design compared to the full command-line program to make it easy to use for beginners while still allowing corona predicts.
 
 
 
@@ -42,6 +43,8 @@ This tab allows you to do a basic run of UA. To do this, it needs the following 
 2) A PDB file for input for UA (click the PDB target button and find one).
 3) An NP definition. If the auto NP button is checked, an NP will be made for you based on the options set: you can set the radius of the NP, the value of the electrostatic potential at the surface in mV and choose a material from all the ones it found in the MaterialSet.csv . You can load in extra materials with the Load Material Set button if you know what you're doing and have another prepared - "surface-pmfp/MaterialSetPMFP.csv" would be a typical choice here to load in the materials generated via machine learning. More advanced users can uncheck the auto NP button and use the NP file path box and button to find a target NP.
 4) Somewhere to store the results - for quick testing the default location is fine, but if you want to change it click the "Result folder" button.
+5) Optionally, you can set a ligand file. This instructs UA to treat certain HETATM records as if they were CG beads to allow for rapid testing of the effects of ligands, e.g. sugar. If this field is left blank then no ligand patch file will be used.
+   - Note that if a ligand file is loaded, the View Results tab will show ligands from the current file as part-filled circles. If you change the ligand file you will also need to reload the PDB model.
 
 Once all that's done, you can click the "Run UA" button. This will start printing information to the big text box at the bottom of this tab and bring up an alert when it's finished. You can then move to the "View Results" tab.
 

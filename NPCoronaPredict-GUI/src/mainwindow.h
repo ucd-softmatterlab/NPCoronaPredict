@@ -63,7 +63,9 @@ public:
    bool isShrinkWrap = false;
    double radius = 0.5;
    double charge = 0.0;
-    Atom( std::string nameIn, double x, double y, double z, bool swrap = false, double radiusIn = 0.5, double chargeIn = 0.0){
+   double occupancy = 1.0;
+   bool isLigand = false;
+    Atom( std::string nameIn, double x, double y, double z, bool swrap = false, double radiusIn = 0.5, double chargeIn = 0.0, double occupancyIn = 1.0, bool isLigandIn = false){
         atomName = nameIn;
         x0 = x;
         xc = x;
@@ -78,6 +80,8 @@ public:
         isShrinkWrap = swrap;
         radius = radiusIn;
         charge = chargeIn;
+        occupancy = occupancyIn;
+        isLigand = isLigandIn;
     }
 };
 
@@ -122,6 +126,9 @@ public:
     bool blockMediumColouring = false;
     std::map<std::string, BeadType> beadTypeMap{ {"???", BeadType("???",0.2,-1.0)} };
     double fPi = 3.14159265;
+
+    std::map<std::string, std::string> ligandAALookup;
+    std::map<std::string, int> ligandCount;
 
 
 private slots:
@@ -212,6 +219,8 @@ private slots:
     void on_materialDropdown_currentIndexChanged(int index);
 
     void on_npTargetShapeOverride_currentIndexChanged(int index);
+
+    void on_ligandFileButton_clicked();
 
 private:
     Ui::MainWindow *ui;

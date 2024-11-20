@@ -18,6 +18,8 @@
 #include <QProcess>
 #include <map>
 
+
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -169,7 +171,7 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
        int  thetaIndex = (int)thetaVal/angleDelta;
        int phiIndex = (int)phiVal/angleDelta;
      //  qDebug() << "phi " << QString::number(phiVal) << " to index " << QString::number(phiIndex) << "\n";
-       double thetaRad = (thetaVal + 2.5) * piVal/180.0;
+       double thetaRad = (thetaVal + angleDelta/2.0) * piVal/180.0;
        double sinTheta = sin(thetaRad);
        simpleAverageNum += sinTheta*energyVal ;
         boltzAverageNum += sinTheta*energyVal*exp( - energyVal/kbtVal) ;
@@ -187,8 +189,8 @@ double npRadius  = this->findChild<QSpinBox *>("npViewRadius")->value();
 
         if(energyVal < minEnergy){
             minEnergy = energyVal;
-            minPhiVal = phiVal + 2.5;
-            minThetaVal = thetaVal + 2.5;
+            minPhiVal = phiVal + angleDelta/2;
+            minThetaVal = thetaVal + angleDelta/2;
         }
         //minEnergy = std::min(minEnergy,energyVal);
         maxEnergy = std::max(maxEnergy, energyVal);
@@ -574,7 +576,7 @@ void MainWindow::on_runUAButton_clicked()
     int targetRadius = this->findChild<QSpinBox *>("radiusSpinBox")->value() ;
     int targetZetaMV = this->findChild<QSpinBox *>("zetaSpinBox")->value() ;
     QString outputFolder = this->findChild<QLineEdit *>("resultFolderBox")->text();
-
+    QString ligandOverride =  this->findChild<QLineEdit *>("ligandFileLine")->text();
 
     bool doCorona = this->findChild<QCheckBox *>("npcpModeBox")->isChecked();
 
@@ -636,6 +638,10 @@ void MainWindow::on_runUAButton_clicked()
     }
 
 
+    if(ligandOverride != ""){
+        commandArgs << "-L";
+        commandArgs << ligandOverride;
+    }
 
     }
     else{
@@ -648,7 +654,7 @@ void MainWindow::on_runUAButton_clicked()
         commandArgs <<"-r";
         commandArgs<< QString::number(targetRadius) ;
         commandArgs <<"-z";
-        commandArgs <<QString::number(targetZetaMV) ; //NPCoronaPredict expects a zeta in mV
+        commandArgs <<QString::number(targetZetaMV) ;
         commandArgs <<"-m";
         commandArgs <<targetMaterial ;
         commandArgs << "-a";
@@ -666,6 +672,11 @@ void MainWindow::on_runUAButton_clicked()
         commandArgs << "-o";
         commandArgs << targetPDB; //targetPDB was overloaded with otherproteins file if this mode is requested
         commandArgs << "--steady" ;
+
+        if(ligandOverride != ""){
+            commandArgs << "-L";
+            commandArgs << ligandOverride;
+        }
 
         //construct a project name
         QString autoProjectName = "";
@@ -792,22 +803,47 @@ void MainWindow::on_loadPDBButton_clicked()
 
         while(!fileIn.atEnd()){
             std::string lineIn = fileIn.readLine().toStdString();
+               std::string nameIn = "";
+           bool readLine = false;
+           bool isLigand = false;
             if(lineIn.substr(0,4) =="ATOM" && lineIn.substr(13, 2)=="CA") {
+              readLine = true;
+                 nameIn =lineIn.substr(17, 3);
+             }
+            if(lineIn.substr(0,6)=="HETATM"){
 
+                std::string ligandID =  lineIn.substr(17,3) ;
+                std::string ligandAtomID = lineIn.substr(12,4) ;
+                 boost::trim(ligandID);
+                 boost::trim(ligandAtomID);
+                     if( ligandAALookup.count( ligandID+"-"+ligandAtomID) == 1 ){
+                nameIn = ligandAALookup.at(ligandID+"-"+ligandAtomID);
+                readLine = true;
+                isLigand = true;
+                qDebug() << " recognised ligand bead " << QString::fromStdString(ligandID+"-"+ligandAtomID) << " mapping to " << QString::fromStdString(nameIn) << "\n";
+                 }
+                     else{
+                       //  qDebug() << " failed to recognise ligand bead " << QString::fromStdString(ligandID+"-"+ligandAtomID)  << "\n";
+                     }
+            }
+             if(readLine == true){
                 //load in PDB lines
-                std::string nameIn =lineIn.substr(17, 3);
+
                 double x = (0.1 * std::stod(lineIn.substr(30, 8)));
                 double y=(0.1 * std::stod(lineIn.substr(38, 8)));
                 double z=(0.1 * std::stod(lineIn.substr(46, 8)));
                 double radiusVal = 0.5;
                 double chargeVal = 0.0;
+                double occVal =std::stod(lineIn.substr(54, 6));
+
+                //qDebug() << "occupancy " << occVal << "\n";
                 auto beadSearch = beadTypeMap.find(nameIn);
                 if(  beadSearch!=beadTypeMap.end()   ){
                     radiusVal = beadSearch->second.radius;
                     chargeVal = beadSearch->second.charge;
                 }
 
-                  atomList.emplace_back( Atom(nameIn,x,y,z,false,radiusVal,chargeVal)) ;
+                  atomList.emplace_back( Atom(nameIn,x,y,z,false,radiusVal,chargeVal, occVal, isLigand)) ;
                   xcenter += x;
                   ycenter += y;
                   zcenter += z;
@@ -1227,8 +1263,11 @@ bool make3D = false;
             doOutLine = 0.0;
         }
 
-
-        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc ) + beadDelta ,atom.radius, colourParam, doOutLine, atom.charge} ;
+              double ligandFlip = 1.0;
+              if(atom.isLigand == true){
+                  ligandFlip = -1.0;
+              }
+        std::vector<double> plotCircle{ atom.xc,atom.yc,(atom.zc ) + beadDelta ,atom.radius, colourParam, doOutLine, atom.charge, ligandFlip*atom.occupancy} ;
        // qDebug() << QString::number(atom.xc) << " " << QString::number(atom.yc) << QString::number(atom.zc) ;
         zMax = std::max( zMax, (atom.zc ) + beadDelta ); //get the maximum z-coordinate used to redefine the uppermost point for transformation to graphics co-ords
         plotObjects.emplace_back(  plotCircle );
@@ -1237,7 +1276,7 @@ bool make3D = false;
             for(int i =1; i<numLines; i++){
                   double yDelta = i * atom.radius/(numLines + 1);
                   double localRadius = std::sqrt( atom.radius*atom.radius - yDelta*yDelta);
-                  std::vector<double> plotCircleN{ atom.xc,atom.yc + yDelta,(atom.zc ) + beadDelta , localRadius, colourParam, 0.0, atom.charge} ;
+                  std::vector<double> plotCircleN{ atom.xc,atom.yc + yDelta,(atom.zc ) + beadDelta , localRadius, colourParam, 0.0, atom.charge, atom.occupancy} ;
 
 
 
@@ -1262,8 +1301,8 @@ bool make3D = false;
              double yc1 = std::sin(screenRotate)*cylinderHalfLength*i/circlesNeeded;
              double xc3 = -xc1;
              double yc3 = -yc1;
-             std::vector<double> plotCircle1{xc1    ,yc1,zMax- npRadius ,npRadius, -1, 1, cylinderFaceWidth/2.0, 0} ;
-             std::vector<double> plotCircle3{xc3,yc3,zMax- npRadius ,npRadius, -1, 1,  cylinderFaceWidth/2.0 , 0} ;
+             std::vector<double> plotCircle1{xc1    ,yc1,zMax- npRadius ,npRadius, -1, 1, cylinderFaceWidth/2.0, 0,1} ;
+             std::vector<double> plotCircle3{xc3,yc3,zMax- npRadius ,npRadius, -1, 1,  cylinderFaceWidth/2.0 , 0,1} ;
                   plotObjects.emplace_back(  plotCircle1 );
                   plotObjects.emplace_back(  plotCircle3 );
 
@@ -1294,13 +1333,13 @@ bool make3D = false;
               double x0 = 0;
               double z0 = zMax- npRadius ;
               //qDebug() << phiAngle << " " << deltaPhi <<" " << xoffset << " " << xoffset2<<" " << zoffset << " " << zoffset2;
-         std::vector<double> plotRect1{   xoffset  ,ycentral, z0 + zoffset +npRadius, (xoffset2-xoffset), -1, 1, (zoffset2-zoffset), 1} ;
+         std::vector<double> plotRect1{   xoffset  ,ycentral, z0 + zoffset +npRadius, (xoffset2-xoffset), -1, 1, (zoffset2-zoffset), 1,1} ;
             plotObjects.emplace_back(plotRect1);
         }
 
 
          }
-        std::vector<double> plotCircle2{0,0,zMax- npRadius ,npRadius, -1, 1,  cylinderFaceWidth/2.0, 0} ;
+        std::vector<double> plotCircle2{0,0,zMax- npRadius ,npRadius, -1, 1,  cylinderFaceWidth/2.0, 0,1} ;
 
 
   //   plotObjects.emplace_back(  plotCircle2 );
@@ -1325,7 +1364,7 @@ bool make3D = false;
             double z0 = zMax - npRadius;
             double faceColourVal = 160 + 20*yAv/npRadius;
 
-        std::vector<double> plotRect1{   x0p  ,yAv, z0, x1p, -faceColourVal, 1, z0+npRadius*2, 1} ;
+        std::vector<double> plotRect1{   x0p  ,yAv, z0, x1p, -faceColourVal, 1, z0+npRadius*2, 1,1} ;
          plotObjects.emplace_back(plotRect1);
 
          y0 = -npRadius;
@@ -1337,7 +1376,7 @@ bool make3D = false;
            yAv = 0.5*(y0p+y1p);
 
          double faceColourVal2 = 160 + 20*yAv/npRadius;
-     std::vector<double> plotRect2{   x0p  ,yAv, z0, x1p, -faceColourVal2, 1, z0+npRadius*2, 1} ;
+     std::vector<double> plotRect2{   x0p  ,yAv, z0, x1p, -faceColourVal2, 1, z0+npRadius*2, 1,1} ;
       plotObjects.emplace_back(plotRect2);
 
 
@@ -1352,7 +1391,7 @@ bool make3D = false;
          y1p = std::sin(screenRotate)*x1 + std::cos(screenRotate)*y1 ;
        yAv = 0.5*(y0p+y1p);
       double faceColourVal3 = 160 + 20*yAv/npRadius;
-  std::vector<double> plotRect3{   x0p  ,yAv, z0, x1p, -faceColourVal3, 1, z0+npRadius*2, 1} ;
+  std::vector<double> plotRect3{   x0p  ,yAv, z0, x1p, -faceColourVal3, 1, z0+npRadius*2, 1,1} ;
    plotObjects.emplace_back(plotRect3);
 
 
@@ -1370,7 +1409,7 @@ bool make3D = false;
     yAv = 0.5*(y0p+y1p);
    double faceColourVal4 = 160 + 20*yAv/npRadius;
 
-std::vector<double> plotRect4{   x0p  ,yAv, z0, x1p, -faceColourVal4, 1, z0+npRadius*2, 1} ;
+std::vector<double> plotRect4{   x0p  ,yAv, z0, x1p, -faceColourVal4, 1, z0+npRadius*2, 1,1} ;
 plotObjects.emplace_back(plotRect4);
 
 
@@ -1382,12 +1421,12 @@ plotObjects.emplace_back(plotRect4);
 
     }
     else{
-        std::vector<double> plotCircle{ 0,0,zMax - npRadius,npRadius, -1, 1, npRadius, 0} ;
+        std::vector<double> plotCircle{ 0,0,zMax - npRadius,npRadius, -1, 1, npRadius, 0,1} ;
     plotObjects.emplace_back(  plotCircle );
     for(int i =1; i<maxNPCircles; i++){
     double npradiusSmall = npRadius  * std::cos(0.5 *  fPi * i/maxNPCircles )  ;
     double colourParamLocal = -1 -i;
-    std::vector<double> plotCircle2{ 0,sqrt(npRadius*npRadius - npradiusSmall*npradiusSmall),zMax - npradiusSmall,npradiusSmall, colourParamLocal, 1, npradiusSmall, 0} ;
+    std::vector<double> plotCircle2{ 0,sqrt(npRadius*npRadius - npradiusSmall*npradiusSmall),zMax - npradiusSmall,npradiusSmall, colourParamLocal, 1, npradiusSmall, 0,1} ;
     plotObjects.emplace_back(  plotCircle2 );
     }
 
@@ -1425,7 +1464,7 @@ int alphaVal = this->findChild<QSlider *>("opacitySlider")->value() ;
 
 double cylinderFaceLength =    std::cos(screenRotate)  * cylinderHalfLength/numHalfCylinderSegments;
 
-
+//pc[7] is mapped to occupancy for semi-transparant
 for(const auto& pc: plotObjects){
  //qDebug() << " plotting bead at max-y-value " << pc[2] << "\n";
  double xleft = pc[0] - pc[3];
@@ -1437,7 +1476,7 @@ for(const auto& pc: plotObjects){
  //colour parameter is greater than zero: plot a regular bead
  if(pc[4] > 0){
  colourVal = ( colourParamMax - pc[4]   )/(0.01 +  colourParamMax - colourParamMin ) ;
- QBrush colourFill(  QColor(255*colourVal,0,0,alphaVal)  );
+ QBrush colourFill(  QColor(255*colourVal,0,0,alphaVal* abs(pc[7]))  );
  QPen colourPen(  QColor(255*colourVal,0,0)) ;
  if(pc[5] > 0.5){
      currentOutline = outlinePen;
@@ -1449,6 +1488,12 @@ for(const auto& pc: plotObjects){
          currentOutline = outlineBlue;
      }
      }
+
+
+  if(pc[7] < 0.0){
+      colourFill.setStyle(Qt::Dense5Pattern);
+  }
+
   pdbScene.addEllipse(xleft*scaleFactor, zup*scaleFactor, 2*pc[3]*scaleFactor , 2*pc[3]*scaleFactor  ,currentOutline , colourFill);
 
 
@@ -2267,5 +2312,84 @@ void MainWindow::on_npTargetShapeOverride_currentIndexChanged(int index)
     else{
        this->findChild<QComboBox *>("npShapeBox")->setCurrentIndex(  0) ; //set view to sphere??
     }
+}
+
+
+void MainWindow::on_ligandFileButton_clicked()
+{
+    QString targetLigandFile = QFileDialog::getOpenFileName(this, tr("Ligand Override File"),  uaGlobalPath+"/ligand-data",  tr("Ligand file (*.csv)"));
+    this->findChild<QLineEdit *>("ligandFileLine")->setText(targetLigandFile);
+      ligandAALookup.clear();
+       ligandCount.clear();
+    if(targetLigandFile!=""){
+        std::string line;
+        std::string lastLigand = "";
+        bool isNewLigand = false;
+        bool addLine = false;
+        int lineNum = 1;
+        //std::ifstream handle(targetLigandFile.c_str());
+
+        qDebug() << " reading ligand file "<< targetLigandFile << "\n";
+        QFile file(targetLigandFile);
+        if(file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream fileIn(&file);
+
+        while(!fileIn.atEnd()){
+             line = fileIn.readLine().toStdString();
+
+            if (line.empty() || line[0] == '#') {
+                continue;
+            }
+
+            //std::string aminoAcid  = line.substr(0, 7);
+            //std::string kTValueStr = line.substr(7, 10);
+            addLine = false;
+
+            std::vector<std::string> results;
+            boost::split(results, line, [](char c){return c == ',';});
+
+            std::vector<std::string> results2;
+            boost::split(results2, results[0], [](char c){return c == '-';});
+
+            std::string ligandName = results2[0];
+            std::string ligandID = results[0];
+            std::string aaTag = results[1];
+             qDebug() << QString::fromStdString(ligandName) << " " << QString::fromStdString(ligandID) << " " << QString::fromStdString(aaTag) << "\n";
+
+            boost::trim(ligandName);
+            boost::trim(ligandID);
+            boost::trim(aaTag);
+
+            if( ligandName != lastLigand){
+                //if the ligand name changes we assume the previous entry is complete, no further beads will be accepted for this ligand
+                ligandCount.insert( std::pair<std::string, int>(lastLigand,1) );
+
+                //std::cout << "ligand " << ligandName << " different to last  " <<  lastLigand << "\n";
+                lastLigand = ligandName;
+
+            }
+
+            if( ligandCount.count(ligandName) == 0 ){
+           // qDebug() <<  "Mapping " << QString::fromStdString(ligandID)<< " to CG bead " <<QString::fromStdString( aaTag )<< "\n";
+            if( ligandAALookup.count(ligandID) == 0 ){
+                      // qDebug() << "Mapping " << QString::fromStdString(ligandID)<< " to CG bead " << QString::fromStdString(aaTag) << "\n";
+
+            ligandAALookup.insert(std::pair<std::string, std::string>(ligandID,aaTag));
+            }
+             else{
+
+               // qDebug()  << "Warning on line "<< lineNum <<": " << "Mapping for " << ligandID << " already assigned to " << ligandAALookup.at( ligandID) << "\n";
+            }
+
+          }
+          else{
+             //std::cout << "Warning on line "<< lineNum <<": " <<  "An entry for " << ligandName << " has already been registered, skipping \n";
+          }
+        lineNum++;
+      }
+
+
+    }
+  }
 }
 

@@ -34,7 +34,7 @@ parser.add_argument("-z","--zeta", type=float, help="NP zeta potential [V]", def
 parser.add_argument("-o","--outputfolder", default="UAOutput", help="Working folder for results")
 parser.add_argument("-m","--material",  choices =  materialSet.keys() ,help="Chosen material", default="none")
 parser.add_argument("-P", "--postprocess",default = 1, help="Post-process results")
-parser.add_argument("-b","--beadset",default="beadsets/StandardAABeadSet.csv", help="Bead parameter file")
+parser.add_argument("-b","--beadset",default="", help="Bead parameter file, leave blank to auto-chose")
 parser.add_argument("-c","--configloc",default="", help="Location to save the generated configuration file")
 parser.add_argument("-T","--temperature", type=float, default=300.0, help="Nominal temperature")
 parser.add_argument("-i","--ionicstrength",type=float,default=0.15,help="Ionic strength in Mol (one-half * sum:conc*chargeSquared)")
@@ -102,9 +102,23 @@ if args.shapeoverride > 0:
     shape = newShape
 
 
+'''
+if predefNP == False and NPMaterial[-5:] == "-pmfp":
+    print("Auto-detected PMFPredictor output material, changing to extended bead set")
+    CGBeadFile = "pmfp-beadsetdef/PMFP-BeadSet.csv"
+'''
+
+chosenBeadSet =  "beadsets/StandardAABeadSet.csv"
+
+if args.material[-5:] == "-pmfp":
+    chosenBeadSet = "pmfp-beadsetdef/PMFP-BeadSet.csv"
+
+if args.beadset != "":
+    chosenBeadSet = args.beadset
 
 
-beadSetFile = open(args.beadset,"r")
+
+beadSetFile = open(chosenBeadSet,"r")
 beadNames = []
 beadCharges = []
 beadRadii = []
