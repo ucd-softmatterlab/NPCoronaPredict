@@ -2237,7 +2237,7 @@ void MainWindow::loadBeadSetFile(QString targetFile){
         if(lineIn.substr(0,1) != "#"   and lineIn.length()>5){
             std::vector<std::string> results;
              boost::split(results, lineIn, [](char c){return c == ',';}  , boost::token_compress_on   );
-             if(results.size() == 3){
+             if(results.size() >= 3){
                  //qDebug() << "loaded " << QString::fromStdString(results[0] );
                  //BeadType newBead(  "ZZZ", 0.5, -1.0);
                  beadTypeMap[ results[0] ] = BeadType(   results[0],std::stod(results[2]), std::stod(results[1])) ;
