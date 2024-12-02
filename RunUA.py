@@ -17,6 +17,7 @@ for targetMaterialFile in ["MaterialSet.csv", "surface-pmfp/MaterialSetPMFP.csv"
         if len(lineTerms)<4:
             print("Problem reading material line: ", line)
             continue
+        print(lineTerms)
         materialSet[ lineTerms[0]] = [lineTerms[1],lineTerms[2],int(lineTerms[3]),float(lineTerms[4])]
         if firstMaterial == "":
             firstMaterial = lineTerms[0]

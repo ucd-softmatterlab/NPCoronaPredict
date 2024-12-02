@@ -1,4 +1,4 @@
-#Material name, surface folder, Hamaker file, default shape,LJ-cutoff
+#Material name, surface folder, Hamaker file, default shape,LJ cutoff
 AuFCC100-pmfp,surface-pmfp/AuFCC100-pmfp,hamaker-pmfp/AuFCC100-PMFP.dat,1,1
 CdSeWurtzite2-10-pmfp,surface-pmfp/CdSeWurtzite2-10-pmfp,hamaker-pmfp/CdSeWurtzite2-10-PMFP.dat,1,1
 Rutile-100-old-pmfp,surface-pmfp/Rutile-100-old-pmfp,hamaker-pmfp/Rutile-100-old-PMFP.dat,1,1
