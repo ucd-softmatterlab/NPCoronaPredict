@@ -23,7 +23,7 @@
 \chapter{Introduction}
 This document is designed to provide an overview of how to run the NPCoronaPredict pipeline, consisting of the UnitedAtom and CoronaKMC packages, for the prediction of nanoparticle (NP) to protein adsorption energies and the composition of the corona for an NP immersed in a particular environment. It is assumed that you have access to the publications describing the theory behind these tools and so this document will focus more on practical details about running the software packages.
 
-Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of adsorbate beads (AB)
+Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of adsorbate beads (AB).
 
 \section{New Users First Steps}
 \begin{enumerate}
@@ -156,7 +156,7 @@ To save you some time, the NPCoronaPredict script will attempt to download some 
 Note that AlphaFoldDB contains most UniProtIDs unless they've been obsoleted or are longer than 1500 residues - these must be supplied manually. 
  
 
-\subsection{My first corona prediction: command line} \label{section:firstCorona}
+\subsection{Tutorial: My first corona prediction: command line} \label{section:firstCorona}
 Assuming you've already gone through the first tutorial above, you'll already have a protein downloaded into all\textunderscore proteins (if not, pick a protein, get a .pdb structure, and save it there). For convenience, here we assume you have a structure named P02768.pdb present in this folder. We're now going to use the command-line level interface to run a corona prediction.
 The first step is preparing a medium file - the list of proteins and their abundances in the absence of an NP. Open up a text editor and make a file that looks like
 
@@ -178,7 +178,7 @@ The above command only requests 0.01 seconds of corona simulation - this is a ve
 
 
 
-\subsection{My first corona prediction: the GUI} \label{section:firstCoronaGUI}
+\subsection{Tutorial: My first corona prediction: the GUI} \label{section:firstCoronaGUI}
 
 Alternatively, if you want to keep using the GUI, this can be done in NPCoronaPredict-GUI. Prepare your list of molecules on the Molecule List Editor tab, making sure you give each a concentration. 
 Run Check Structures and then click "Save" to save out your medium file.
@@ -263,7 +263,7 @@ Note that concentrations need only be set and the file saved if you want to run 
 to start UnitedAtom and then go wait a while (typically, up to a few minutes per protein per NP) until its done. 
 
 
-\subsection{My second UA run} \label{section:uaAdvanced}
+\subsection{Tutorial: My second UA run} \label{section:uaAdvanced}
 The main advantage of running UA directly is that it allows much more flexibility in terms of parameters and the calculations performed. For these direct runs, you need to supply the configuration file mentioned above. 
 To begin, either copy and paste the sample\textunderscore config/sample\textunderscore config.config file to the same folder as the UnitedAtom executable or use the GUI/NPCoronaPredict/RunUA.py to produce a configuration file for your preferred material. Then edit the pdb-target line to target either a specific protein or a whole folder of proteins - UA will run calculations for all of these.
 In this example, we'll ask UA to look at our target proteins on a set of NPs of the same material over a range of radii. Edit the nanoparticle-radius line to read
@@ -466,7 +466,28 @@ In general, these input structures can be taken directly from the PDB repository
 
 Note that both of the above are combined in the PreprocessProteins.py script.
 
-For the purposes of UA, only lines with the ATOM and CA strings in the correct locations matter. It is strongly recommended that further metadata is included in the file where possible, since it's not a good idea to rely on filenames alone, especially when the same protein may have multiple structures. Provided that all the required structure is in place, UA does not care whether or not the three-letter code corresponds to a traditional AA code (as can be guessed from the use of HIE/HID/HIP above) or even an amino acid at all and so this same format can be used for molecules other than proteins, provided that PMFs are available for all constituent beads. 
+For the purposes of UA, in the absence of a ligand file, only lines with the ATOM and CA strings in the correct locations matter. It is strongly recommended that further metadata is included in the file where possible, since it's not a good idea to rely on filenames alone, especially when the same protein may have multiple structures. Provided that all the required structure is in place, UA does not care whether or not the three-letter code corresponds to a traditional AA code (as can be guessed from the use of HIE/HID/HIP above) or even an amino acid at all and so this same format can be used for molecules other than proteins, provided that PMFs are available for all constituent beads. 
+
+If the optional ligand file is included by setting the appropriate option in the configuration file ``ligand-file = ligand-data/...'', then UA will also attempt to parse lines tagged as HETATM by matching combinations of the ``residue'' tag and the atom label by mapping these to an equivalent CG bead. The ligand definition file consists of a number of entries of the form,
+\begin{lstlisting}
+LIGANDNAME-LIGANDATOM,CGBeadTag
+\end{lstlisting}
+where LIGANDNAME is the PDB code for that ligand, e.g. HEM for heme, ligandatom is a specific atom in that ligand, and CGBeadTag is the CG bead to generate.  For example
+\begin{lstlisting}
+HEM-CBB,ALA
+\end{lstlisting}
+ tells UA ``if a PDB file contains a HEM ligand then place an ALA bead for the CBB atom in that ligand'', such that the entry (taken from PDB-7VDE)
+
+\begin{lstlisting}
+HETATM 4494  CBB HEM C 201      81.630  93.752  88.416  1.00 11.06           C
+\end{lstlisting}
+is effectively interpreted as
+\begin{lstlisting}
+ATOM   4494  CA  ALA C 201      81.630  93.752  88.416  1.00 11.06           C
+\end{lstlisting}
+Note that all other fields are interpreted as usual, e.g. x/y/z co-ordinates, occupancy, b-factor. The CG beads must be defined as usual in terms of PMF, Hamaker constant and config file entries -- all the ligand mapping does is associate specific HETATM records with a CG bead type. This can be any CG bead known by UA. The ligand file may contain any number of entries (one per line) of such override commands to allow for a wide range of ligands to be represented, and we supply these data files for both standard and ML sets of PMFs. Please refer to Section \ref{section:ligandtutorial} for an example of how to use ligands in the GUI interface. 
+
+
 
 Coarse-graining an arbitrary molecule is not straightforward, but approximate models can be constructed using the MolToFragments.py tool located in the tools folder. This is a command-line Python script which takes an input like:
 \begin{lstlisting}
@@ -511,7 +532,7 @@ END
 \end{lstlisting}
 In this output, the remark lines give the AB number, long name of the matched fragment, bead code, and the SMILES code for that bead. Bead codes marked with ``!!!'' do not have an already-defined PMF, which must be generated or an alternative method used (-M ForwardsMatching only produces known beads, if this is an issue). The default FragmentSet.csv file assumes that PMFs for a large set of beads are available. If it isn't, you should remove entries from this file to represent only the PMFs you have for the surface of interest (but be aware that ForwardsMatching may fail in this case).
 
-The allowed methods are BRICS (uses the standard BRICS) algorithm, EqualParts (attempts to produce fragments with relatively consistent sizes), ForwardsMatching (iteratively builds the molecule up from known beads, does not allow for the generation of new ones) and Exhaustive (considers many different templates, scores and chooses the best, very slow and not recommended). Of the three quick algorithms, BRICS and EqualParts should always produce a CG model but it may need PMFs to be generated. ForwardsMatching may not always work (especially if there are aromatic structures or you have a very limited fragment library) but when it does the result will only use pre-existing PMFs. The other methods may require the generation of new PMFs and provide output suitable for use in the PMFP software package, see Section \ref{section:pmfp}. Output from this package (assigned bead code and SMILES ID) can be added to FragmentSet.csv as needed to extend the range of molecules which can be parameterised.
+The allowed methods are BRICS (uses the standard BRICS) algorithm, EqualParts (attempts to produce fragments with relatively consistent sizes), ForwardsMatching (iteratively builds the molecule up from known beads, does not allow for the generation of new ones) and Exhaustive (considers many different templates, scores and chooses the best, very slow and not recommended). Of the three quick algorithms, BRICS and EqualParts should always produce a CG model but it may need PMFs to be generated. ForwardsMatching may not always work (especially if there are aromatic structures or you have a very limited fragment library) but when it does the result will only use pre-existing PMFs. The other methods may require the generation of new PMFs and provide output suitable for use in the PMFP software package, see Section \ref{section:pmfp}. Output from this package (assigned bead code and SMILES ID) can be added to FragmentSet.csv as needed to extend the range of molecules which can be parameterised. Enabling the ``--ligand'' mode produces additional output for use with the ligand definition file. In brief, each CG bead is back-mapped to the closest real atom and this is used to generate an entry for a ligand definition file. 
  
 \section{Output: the .uam file}
 The main output of UA is a .uam file for each protein-NP pair, which has the following format:
@@ -680,6 +701,16 @@ END
 \end{lstlisting}
 which may be used to generate binding energies for small molecules and contains sufficient metadata to identify the molecule used. 
  
+
+\subsection{Tutorial: The GUI  with PMFP and ligands} \label{section:ligandtutorial}
+The main advantage of the PMFP material library is that it covers a much wider range of small molecules than the standard metadynamics libraries. This is especially useful for representing ligands, as there are a large number of these which can't be represented in terms of the twenty SCAs.  In this tutorial, we present a quick overview of how you can begin to compute binding energies for proteins with ligands associated. 
+
+Start by opening up NPCoronaPredict-GUI as normal. Download a PDB file with ligands included through the Molecule List Editor tab as before, then go back to the Run tab and select this as a target. As an example, try 7UI3 - this has multiple ZIQ ligands which should be accessible to a small NP (a few nm or so), and is also defined for non-PMFP materials.    The next step is to tell NPCoronaPredict-GUI that we'd like to use a PMFP material. To do so, click ``Load Material Set'' and load the file ``MaterialSetPMFP.csv'' from the ``surface-pmfp'' folder. When you now look at the material drop-down, you'll see a lot of extra materials with the suffix -pmfp. Select ones of these (e.g. SS304-111 for the (111) face of stainless steel 304 ) and try running it to be sure that the standard run works. Since we haven't supplied a ligand file, UA will ignore all the HETATM coordinates as normal -- ligands are strictly opt-in. Otherwise, PMFP materials act just like regular materials for standard proteins - they have a set of PMFs and Hamaker files and UA treats them identically. 
+
+Once the run is done, change the result folder to a new one, and now click ``Ligand File''. This should open automatically to the ligand-data folder. If you've picked a random PDB, a matching definition is most likely to be in the ``ligandarium\textunderscore apocraypha.csv'' \footnote{A legendarium is a collection of legends, so a ligandarium is a collection of ligands. The canonical ligandarium contains the standard (canonical) 20 AA SCAs only for regular materials, the apocraphya contains entries for all the PMFP materials (non-canonical).} file, so load that. For a generic glycoprotein, ``sugarligands\textunderscore pmfp.csv'' contains some pre-defined glycoylation ligands. For hemoglobin, pick hemeligand\textunderscore pmfp.csv. If you want you can merge all these files together using the command line cat command or a text editor. UA will only learn the first definition it sees for a given ligand, so you can use this to make sure your preferred definition happens first, then the ligandarium is used as a fall-back for anything else.  Once you've selected the file, click run again.
+
+Next, we can visualise results. The .uam heatmap is generated as normal and no extra work is needed there. For the visualisation of the protein, you might notice some half-shaded (dotted) beads have appeared. These are ligand beads, and appear as long as you have a ligand file selected on the Run tab. They will generally have the default radius of 0.5nm and not show up as charged outlines if this is selected, as NPCoronaPredict-GUI doesn't know what they are. To fix this, click ``Reload CG bead data'' and load the file ``pmfp-beadsetdef/PMFP-BeadSet.csv''. Then reload the PDB file and hopefully it will show up correctly. 
+
 
 \section{Source files}
 In this section, the individual source files are discussed in more detail - if you need to modify UA or want to be sure how exactly something works, this is the place to start.
