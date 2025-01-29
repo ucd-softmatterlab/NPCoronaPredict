@@ -21,10 +21,13 @@ public:
     const double                m_length;
     const std::string           m_name;
     const std::vector<double>   m_occupancy;
+    const std::vector<double>   m_rmsd;
+
+
 
     PDB(const std::vector<double>& x, const std::vector<double>& y, const std::vector<double>& z,
-    const std::vector<int>& id, const double length, const std::string& name, const std::vector<double>& occupancy)
-        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_occupancy(occupancy)
+    const std::vector<int>& id, const double length, const std::string& name, const std::vector<double>& occupancy, const std::vector<double>& rmsd)
+        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_occupancy(occupancy), m_rmsd(rmsd)
     {}
 };
 
@@ -62,9 +65,17 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     std::vector<int>    id;
     std::vector<double> occupancy;
     std::vector<double> bfactor;
+    std::vector<double> rmsd;
+    bool bIsAlphaFold = false;
     while (std::getline(handle, line)) {
         bool foundAtom = false;
         bool atomIsLigand = false;
+
+        if( line.find("ALPHAFOLD") != std::string::npos){
+        std::cout <<"ALPHAFOLD detected, assuming this is an AlphaFold structure \n";
+        bIsAlphaFold = true;
+        }
+
         if( line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA" ){
         foundAtom = true;
         tag = line.substr(17, 3);
@@ -109,8 +120,15 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 occupancy.emplace_back(  std::stod(line.substr(54,6)));
                 bfactor.emplace_back( std::stod(line.substr(60,6)));
                 //tag = line.substr(16, 4); // When using lipids
-               
-
+                double rmsdVal = 0;
+                if( bIsAlphaFold == false){
+                rmsdVal = 0.1*sqrt(  std::stod( line.substr(60,6))/( 8.0 * 3.1415 * 3.1415) ) ;
+                }
+                else{
+                rmsdVal = 0.05;
+                }
+                rmsd.emplace_back(rmsdVal);
+                //std::cout << "read AA with bfactor" <<  std::stod(line.substr(60,6)) << " to  rmsd " << rmsdVal << "\n"; 
                 id.emplace_back(aminoAcidIdMap.at(tag));
             }
             catch (const std::invalid_argument& ia) {
@@ -216,7 +234,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
 
     std::string name = TargetList::Filename(filename);
     std::cout << numRes <<  " total CA, total occupancy: " << totalOcc << "\n";
-    return PDB(x, y, z, id, length, name,occupancy);
+    return PDB(x, y, z, id, length, name,occupancy,rmsd);
 }
 
 

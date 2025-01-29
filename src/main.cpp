@@ -58,7 +58,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.2.0"); 
+    static std::string uaVersionID("1.3.0"); 
     return uaVersionID;
 }
 
@@ -925,8 +925,100 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                resHasContacted = 1;
                }
 
-                double noiseEnergy =   pdb.m_occupancy[j]*appliedOverlapPenalty +      pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
+                double noiseEnergy =   pdb.m_occupancy[j]*appliedOverlapPenalty ;   
+                int flexMethod = config.m_flexMethod;
+                 //flex methods: these are ways to allow a small amount of residue flexibility
+                 //0: classic UA, all beads are fixed at their given coordinates
+                 //1: Gaussian smoothing 
+                 //2: minimum in interval with the penalty due to displacement
+                 //3: 
+                 double rmsd = pdb.m_rmsd[j] ;
+
+                 if(rmsd < config.m_flexResolution){
+                 flexMethod = 0; //for very well-defined residues, just return the central value
+                 }
+                 int numSDs = config.m_flexNumSDev;
+                 double flexScanRes = config.m_flexResolution; //step size for flexibility
+                 int numPoints =  ceil( numSDs*rmsd/flexScanRes) ; 
+                 numPoints = std::max( 1, numPoints) ;
+                 double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                
+                 //std::cout << " sampling " << numPoints << "for residue with RMSD " << rmsd << "\n" ;
+
+                if( flexMethod == 0){
+                  noiseEnergy +=   pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
    
+                }
+                else if( flexMethod == 1){
+
+                //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
+                //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                double flexEnergy = 0;
+                double flexEnergyDenom = 0.00000001;
+                for( int di = -numPoints; di < numPoints+1; di++){
+                double dOff = di*rmsd; 
+                 double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
+                 flexEnergy +=  eWeight * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] ));
+                 flexEnergyDenom += eWeight; 
+                }
+                noiseEnergy += pdb.m_occupancy[j] * flexEnergy/flexEnergyDenom;
+
+                }
+                else if( flexMethod == 2){
+
+                //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
+                //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                double flexEnergy = 500;
+                double flexEnergyDenom = 0.00000001;
+                for( int di = -numPoints; di < numPoints+1; di++){
+                double dOff = di*rmsd;
+                double flexPenalty = dOff*dOff/( 2 * sigmaSq);
+                 //double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
+                 double trialEnergy = static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) + flexPenalty;
+                 flexEnergy = min(flexEnergy, trialEnergy) ;
+                }
+                noiseEnergy += pdb.m_occupancy[j] * flexEnergy;
+
+                }
+
+                else if( flexMethod == 3){
+                double midpoint = 0;
+                //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
+                double dr = rmsd;
+                //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                double flexEnergy = 0;
+                double flexEnergyDenom = 0.00000001;
+                for( int di = -numPoints; di < numPoints+1; di++){
+                double dOff = di*dr;
+                //if(di == 0){
+                //   midpoint = static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] ));
+                //}
+                double flexPenalty = dOff*dOff/( 2 * sigmaSq);
+                 //double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
+
+                //std::cout << "distance" << distance << "offset: " << dOff << " component: " << static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) << "penalty: " << flexPenalty << "\n" ; 
+                 double trialEnergy = exp(-1.0 *( static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) + flexPenalty));
+                 //flexEnergy = min(flexEnergy, trialEnergy) ;
+                   flexEnergy += trialEnergy*dr;
+                   flexEnergyDenom += exp(-1.0 * flexPenalty)* dr;  
+                   //std::cout << flexEnergyDenom << "\n"; 
+                }
+                //std::cout << flexEnergy << "/" << flexEnergyDenom << "\n"; 
+                flexEnergy = -log( flexEnergy/flexEnergyDenom) ;
+                //std::cout <<"final: " << distance << ":" <<    flexEnergy << "\n";
+                noiseEnergy += pdb.m_occupancy[j] * flexEnergy;
+
+                }
+
+
+
+                else{
+                   //fall back to default method
+                  noiseEnergy +=   pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
+
+                }
+
+
    /*
                 if(config.m_potNoiseMag > 100){
                  //noiseEnergy +=     unitNormalDist(randomEngine)*  (  std::min( std::fabs(noiseEnergy*0.1) , config.m_potNoiseMag)); //gaussian noise with zero mean and magnitude of 10% of the energy or the value specified in the config file, whichever is smaller

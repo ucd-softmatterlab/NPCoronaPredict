@@ -39,6 +39,10 @@ public: // Key - vaules
     int         m_potentialSize         = 2000;
     int         m_multiNP               = 0;
     int         m_numSamples            = 128;
+    int         m_flexMethod            = 0;
+    int         m_flexNumSDev           = 3;
+    double      m_flexResolution        = 0.02;
+
     double      m_potentialCutoff       = 10.0;
     double      m_angleDelta            = 5.0;
     double      m_bejerumLength         = 1.0;
@@ -224,6 +228,44 @@ public:
             m_savePotentials =AsInt(values[i]) ;
              std::cout <<"Enabled saving UA potentials \n";
             }
+
+            else if(keys[i] == "bead-flexibility-method"){
+                int trialFlexMethod = AsInt(values[i]) ;
+
+               if(trialFlexMethod == 0){
+                 std::cout << "Flex method 0: Biobeads are fixed in place \n ";
+                 m_flexMethod = 0;
+               }
+               else if(trialFlexMethod == 1){
+                 std::cout << "Flex method 1: Gaussian smoothing\n";
+                 m_flexMethod = 1;
+               }
+               else if(trialFlexMethod == 2){
+                 std::cout << "Flex method 2: Gaussian re-sampling of energy\n";
+                 m_flexMethod = 2;
+               }
+               else if(trialFlexMethod == 3){
+                 std::cout << "Flex method 3: Free energy (gaussian re-sampling of probability) \n";
+                 m_flexMethod = 3;
+               }
+               else{
+                  m_flexMethod = 0;
+                  std::cout << "Using default: fixed beads \n";
+               }
+
+
+           }
+           else if( keys[i] == "flex-sdev"){
+            m_flexNumSDev =std::max(0, AsInt(values[i]) );
+            
+             std::cout <<"Using "<< m_flexNumSDev << "standard deviations for flexibility \n";
+            }
+           else if( keys[i] == "flex-resolution"){
+            m_flexResolution = std::max(0.01, AsDouble(values[i])) ;
+             std::cout <<" Flex resolution set to " << m_flexResolution << "  \n";
+            }
+
+
 
            else if( keys[i] == "disorder-strategy"){
             m_disorderStrat =AsInt(values[i]) ;
