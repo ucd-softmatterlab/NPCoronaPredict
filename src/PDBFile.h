@@ -72,7 +72,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
         bool atomIsLigand = false;
 
         if( line.find("ALPHAFOLD") != std::string::npos){
-        std::cout <<"ALPHAFOLD detected, assuming this is an AlphaFold structure \n";
+        //std::cout <<"ALPHAFOLD detected, assuming this is an AlphaFold structure \n";
         bIsAlphaFold = true;
         }
 
