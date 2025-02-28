@@ -48,6 +48,25 @@ cd ../
 
 This will build the required executables including the graphical interfaces, and ensure the majority of the Python libraries needed are installed.
 
+If you are not an administrator, you won't be able to run anything requiring sudo so you will need to make sure your system admin has installed Python, Boost and QT. In this case, you can just run:
+
+mkdir NPCoronaPredict;
+cd NPCoronaPredict;
+git clone https://github.com/ucd-softmatterlab/NPCoronaPredict.git;
+cd NPCoronaPredict;
+pip3 install numpy scipy matplotlib argparse Bio;
+make clean;
+make;
+cd NPCoronaPredict-GUI;
+qmake -qt=qt5;
+make;
+cd ../NPDesigner;
+qmake -qt=qt5;
+make;
+cd ../
+
+
+
 ####Contents####
 Two main utilities are included in the NPCoronaPredict repository:
 
