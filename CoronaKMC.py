@@ -1363,10 +1363,10 @@ print( outputTranspose.shape )
 
 
 coordFileOut = open(coronaSaveDir+"/"+outputTag+"_finalcoords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
-coordFileOut.write("#Protein type, x, y, z \n")
+coordFileOut.write("#Protein type, x, y, z, NP \n")
 for i in range(len(stateArray)):
     coordData = outputTranspose[i] 
-    outputData =[  proteinNamesAll[   stateArray[i,0].astype(int) ] , str(coordData[1]), str(coordData[2]), str(coordData[3] ) ]
+    outputData =[  proteinNamesAll[   stateArray[i,0].astype(int) ] , str(coordData[1]), str(coordData[2]), str(coordData[3] ), str(stateArray[i,3])  ]
     coordFileOut.write( ",".join(outputData) + "\n" )
 coordFileOut.close()
 #proteinDataOneLarge = np.array([
