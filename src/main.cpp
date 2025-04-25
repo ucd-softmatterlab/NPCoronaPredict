@@ -14,6 +14,8 @@
 
 #include "Potentials.h"
 
+#include "RelaxClasses.h"
+
 #include <omp.h>
 #include <cmath>
 #include <random>
@@ -35,7 +37,9 @@ double        angle_delta     = angle_delta_deg * (M_PI / 180.0);
 int           ncols           = 72;
 int           nrows           = 36;
 int           iterations      = nrows * ncols;
-int           samples         = 128; //number of samples per angle bin, it is very strongly recommended that this is unchanged from the default to ensure correct sampling of the standard deviation to provide error estimates.
+int           samples         = 128; //number of samples per angle bin , overwritten by configuration
+int           threadPrintFreq = 1; //print out a symbol every N angles as a crude progress bar
+
 constexpr int           steps           = 512; //this is the resolution along the z-axis used for integration. There is no reason to modify this; the default value of 512 produces a resolution of 0.004 nm and the input potentials are less precise than this (or just thermal fluctuations at this resolution)
 constexpr double        dz              = delta / (steps - 1); //for non-uniform NPs this is updated for the integration
 //define the Boltzmann and Avogadro constants for energy conversions
@@ -58,7 +62,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.3.0"); 
+    static std::string uaVersionID("1.4.0"); 
     return uaVersionID;
 }
 
@@ -289,7 +293,6 @@ inline void JitterPDB (const int size, const double jitterMagnitude, double *x, 
 
 
 }
-
 
 
 
@@ -578,6 +581,650 @@ return distance;
 }
 
 
+//This function is used to relax the initial structure onto the surface of the NP. 
+//It's essentially a very approximate molecular dynamics engine in a Brownian dynamics regime, so we don't even keep track of particle velocities
+//unit convention: all distances are in NM for consistency, energies are KBT as they must interface directly with NP potentials
+inline void RelaxPDB (const int size, double *x, double *y, double *z, const Config& config, const Potentials& potentials ,const PDB& pdb,const NP& np, double radius, int npType,  bool applyFinalShift) {
+   //int numSteps = 10000;
+   bool bSavePDB=false; //this is separate to the global one and used just for testing relaxation code
+
+
+   int numFinalAverageSteps = 200; 
+    double xFin[size];
+    double yFin[size];
+    double zFin[size]; 
+
+    bool doCentralPull = true; //if false, pull is in -z only
+    int numSteps = config.m_relaxSteps;
+    int numPullSteps =  int(numSteps/2);
+    //int numPullSteps = std::min(10,  int( ceil(numSteps/10)) );
+    double dr = 0.01; //step size for numerical gradients - we use central differencing so it ends up being half of this in either direction
+    
+    double initialZGradient = config.m_relaxZPull; //force in kbT per nm to apply  initially
+
+
+
+    double kbTVal = 1.0; 
+    double dtVal = 2e-10;
+    double nominalDiffusionCoeff = 1e5; //kbT/(gamma * mass) 
+    double updateScaleSize = dtVal*nominalDiffusionCoeff/kbTVal; 
+    bool addNoise  =   true;
+
+    
+    double noiseMagnitude = sqrt( 2 * nominalDiffusionCoeff * dtVal);
+
+    double maxDisplacement = 0.2; //set the maximum a bead can displace in a single step - this is mostly to stop explosions 
+    //note that this implies updateScaleSize*force should ideally be less than 
+
+
+    //for stability in the absence of noise, dt*nominalDiffusion =1e-5 is stable
+
+    double proteinMaxDisplace = 1.0;
+    double protMinZ = 0;
+    for(int j=0; j<size; ++j){
+        xFin[j] = x[j];
+        yFin[j] = y[j];
+        zFin[j] = z[j];
+
+        if(z[j] < protMinZ){
+        protMinZ = z[j];
+        }
+    }
+
+
+    //writePDB("test_initial", "pdbouttest", size,  pdb, x, y, z);
+
+
+    proteinMaxDisplace = 0.1 - protMinZ;
+
+    
+    double pullStepMag = initialZGradient*dtVal*nominalDiffusionCoeff ; //displacement along the z axis in nm for each pull step
+    //numPullSteps = int(proteinMaxDisplace/pullStepMag)+1;
+    //std::cout << "would have done " << numPullSteps << " steps \n";
+    //skip the pulling, just allow 1 microsecond of  free evolution
+    //initialZGradient = 0.0;
+    //pullStepMag = 0.0;
+    
+
+
+    //numPullSteps = int( 1e-6 / dtVal ); 
+    //std::cout << "instead:  " << numPullSteps << " steps \n";
+
+    //numSteps = numPullSteps*2;
+
+    //step 1: place the initial offset so that the biomolecule is just in contact with the NP
+    
+
+
+
+
+    std::vector< std::vector<int>  > nbNeighbours;
+    int indexAtom = 0;
+    double indexDist = 500;
+       for(int j = 0; j < size; ++j){
+          std::vector<int> iExclusionsNB;
+           nbNeighbours.emplace_back(iExclusionsNB);
+          double newDist = getDistance3D(x[j],y[j],z[j]+radius ,   0 , 0 , 0 , radius,npType);
+          if(newDist < indexDist){
+          indexAtom = j;
+            indexDist = newDist;
+          }
+       }
+
+
+    double x0init = x[indexAtom];
+    double y0init = y[indexAtom];
+    double z0init = z[indexAtom];
+
+
+    double calcOffset = 0; 
+
+            double currentOffset  = 0;  // -1.0 * (  *std::max_element(z, z + size) );
+            double appliedOffset = 0.0; //store the offset applied in the z-direction relative to the COM
+            bool shiftToSeparation = true; //this should only be set to false if you want to test for compatability with old-style UA
+            bool scanFullProtein = config.m_enableFullScan; //if true (this will be settable via config file) then the start/stop parameters are set to ensure the full protein gets scanned. make sure there is a repulsive potential.
+            bool foundShift = false;
+            double beadDelta = 0.01;
+
+
+            bool useCubeDist = false;
+            int xfactor = 1; //used to define if x/y contribute to the distance
+            int yfactor = 1;
+            if(npType == 2 || npType == 4 || npType==5){
+            xfactor = 0;
+            }
+            if(npType == 3){
+            xfactor = 0;
+            yfactor = 0;
+            useCubeDist = true;
+            }
+
+            double rClosest = radius;
+            if(config.m_zshiftToPlane==true){
+            scanFullProtein = false;
+            shiftToSeparation =  false;
+
+            }
+
+
+
+            //algorithm for finding the offset at closest approach
+            
+            double currentRCOM0 = 0;
+            //double beadDelta = 0.4;
+            //double rInner = radius + appliedOffset; is the closest approach for the RCC value . This means that setting appliedOffset = 0 corresponds to the COM of the protein lies on the NP radius
+            //Next apply a further shift so that the protein can get closer for small NPs, long proteins or concave proteins for which the zmin plane results in a large distance from the NP
+            //the algorithm: for each bead, compute the vertical distance necessary to bring that bead into contact with the NP (distSq < 0 implies no shift will achieve this)
+            currentOffset = -radius; //set a default value such that RCC can take a value of zero
+            if(shiftToSeparation == true){
+            for(int i = 0; i < size; ++i){
+             double distSq =  (radius + beadDelta)*(radius + beadDelta)   - (xfactor* x[i]*x[i] + yfactor*y[i]*y[i] );
+             
+             if(useCubeDist == true){
+             //cubes are a special case 
+             if(  std::abs( x[i]) > radius || std::abs( y[i] ) > radius){
+             
+             distSq = -5 ;
+             }
+             }
+             
+            double dzNeededI = 0;
+             
+             
+            if(distSq >0){
+            
+            
+             if(scanFullProtein == true){
+              double dz1 = - std::sqrt(distSq) - z[i] ; 
+              double dz2 =   std::sqrt(distSq) - z[i] ; 
+              double newRCOM0 = 0;
+              if(dz1 > 0){
+               newRCOM0 = dz1;
+              }
+              else{
+               if(dz2 > 0){
+                newRCOM0 = dz2;
+               }
+            
+              }
+            
+              //check to see if the bead is outside the NP radius anyway in which case we just skip it - for cubes using getDistance, noting that this returns 0 if the bead is inside the cube and allowing a small epsilon because floats
+              if(   (xfactor*x[i]*x[i] + yfactor*y[i]*y[i] + z[i]*z[i] > radius*radius && useCubeDist == false) || ( useCubeDist == true && getDistance3D(x[i], y[i], z[i], 0.0,0.0,0.0, radius, 3)  > 0.01)    ){
+               newRCOM0 = 0;
+              }
+            
+              currentRCOM0 = std::max( currentRCOM0, newRCOM0);
+              currentOffset = currentRCOM0 - radius;
+            
+            
+            
+            }
+            
+            
+            else{
+             dzNeededI = std::sqrt( distSq) -( z[i] + radius ) ; 
+             currentOffset = std::max(currentOffset, dzNeededI);
+            }
+            
+            foundShift = true;
+
+            }
+            
+            
+            }
+            
+            if(foundShift == false){
+            //std::cout << "No distance could be found to bring the protein in contact \n";
+            //std::cout << phi << " " << theta << "\n";
+            currentOffset = -radius; //let the COMs overlap to handle ring-like proteins and small NPs
+            }
+            
+            
+            appliedOffset = currentOffset;
+            }
+            else{
+            appliedOffset = -1.0 * (*std::min_element(z, z + size));   //classic mode: RCC at closest approach will put the lowest point of the protein on the NP radius-plane
+            
+            //ShiftZ(size, z);
+            }
+
+    appliedOffset += 0.2; //this puts the closest residue close to a minima
+    //std::cout << " computed offset: " << appliedOffset << "\n";
+    //std::cout <<" shifting all beads to +z by " << appliedOffset + radius << "\n"; 
+
+
+    //std::cout << "index bead before at: " << x[indexAtom]<<","<<y[indexAtom]<<","<<z[indexAtom]<<": "<<  getDistance3D(x[indexAtom],y[indexAtom],z[indexAtom] ,   0 , 0 , 0 , radius,npType) << "\n";
+
+    //std::cout << "before\n";
+    for(int i = 0; i < size; ++i) {
+
+        z[i] = z[i] + appliedOffset + radius;
+         //std::cout << x[i] << "," << y[i] <<  "," << z[i] << "\n";
+
+    }
+       indexDist = 500;
+       for(int j = 0; j < size; ++j){
+          double newDist = getDistance3D(x[j],y[j],z[j] ,   0 , 0 , 0 , radius,npType);
+           //std::cout << j << ":"<<z[j]<<" " << newDist << " ";
+          if(newDist < indexDist){
+          indexAtom = j;
+            indexDist = newDist;
+          }
+       }
+    x0init = x[indexAtom];
+    y0init = y[indexAtom];
+    z0init = z[indexAtom];
+
+
+
+    //std::cout << "index bead now at: " << x[indexAtom]<<","<<y[indexAtom]<<","<<z[indexAtom]<<": "<<  getDistance3D(x[indexAtom],y[indexAtom],z[indexAtom] ,   0 , 0 , 0 , radius,npType) << "\n";
+
+   
+    //step 2: identify "bonded pairs" of residues  - these are ones we treat as if they are harmonically bonded
+    double bondCutoff = config.m_bondCutoffNM; 
+    //double bondCutoffSq = bondCutoff*bondCutoff;
+    int numBonds = static_cast<int>(pdb.m_bondSet.size());
+    //std::vector<bond> bondSet;
+    //std::vector< std::vector<int>  > nbExclusions;
+
+    //moved to the PDB class 
+    /*
+    for(int i = 0; i< size; ++i){
+        std::vector<int> iExclusions;
+
+        for(int j = i+1; j < size; ++j){
+            
+            double resDist = sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) );
+            if(   resDist < bondCutoff){
+
+                //
+               //std::cout << "adding bond with length " << resDist << "\n" ;
+                double bondRMS = 0.02;
+                if(resDist < 0.4){
+                bondRMS = 0.005;  //extremely short bonds are tagged as backbone bonds and given a lower RMS
+                }
+ 
+                double bondK = 1.0/pow(bondRMS,2);  //100.0/pow(resDist,2)
+                bondSet.emplace_back(bond(i,j,resDist,  bondK  )); 
+                iExclusions.emplace_back( j );
+                numBonds += 1;
+                //std::cout << " Bonding residues: " << i << " and " << j << " distance: " << resDist << " bond const: " << pow(0.5*resDist,2) << "\n";
+            }
+        }
+
+        nbExclusions.emplace_back( iExclusions );
+    }
+    */
+    //exit(1);
+
+   //step 3: overdamped relaxation - no velocity just position updates towards the local minima
+   //the basic equation of interest here is:
+   //xprime = x + deltat * ( sqrt(2 * kbT/gamma*mass) - 1/(gamma*mass) dU/dx )
+   // units:
+   // nanometers = nanometers + seconds*(  sqrt( 2 * kbT * /(kg*seconds)  )- 1/(seconds*kg)  * kbT * energy[kbT]/ nanometers  )
+
+
+   //int numSteps = 1000;
+   //double dt = 1e-12;
+   //double frictionCoeff = 1e-12;
+   //double updateScaleSize = 1e-5 ;  //  dt/frictionCoeff; 
+
+   std::vector<double> xUpdates(size);
+   std::vector<double> yUpdates(size);
+   std::vector<double> zUpdates(size);
+   double wcaEpsilon = 0.25; //kBT
+   double wcaSigma = 0.4; //nm
+    int numNPs = np.m_npBeadType.size() ;
+     if (config.m_sumNPPotentials == true){
+      numNPs = 1;
+        }
+    //writePDB("test_pre", "pdbouttest", size,  pdb, x, y, z);
+
+   int numAverageStepsDone = 0;
+   for(int s = 0; s < numSteps+numFinalAverageSteps ; ++s){
+       //reset all updates for initialisation
+       //xUpdates[:] = 0;
+       //yUpdates[:] = 0;
+       //zUpdates[:] = 0;
+      //std::cout << "cleaning updates \n"; 
+                  std::fill( xUpdates.begin(), xUpdates.end(),0.0 );
+                  std::fill( yUpdates.begin(), yUpdates.end(),0.0 );
+                  std::fill( zUpdates.begin(), zUpdates.end(),0.0 );
+
+            //std::cout << "NP forces \n";
+
+
+       //phase 1: get updates due to the NP-biomolecule potential(s)
+       for(int j = 0; j < size; ++j){
+           double dudx = 0;
+           double dudy = 0;
+           double dudz = 0;
+           double dx1 = 0;
+           double dx0 = 0;
+           double dy1 = 0;
+           double dy0 = 0;
+           double dz1 = 0;
+           double dz0 = 0;
+
+           for(int k=0; k<numNPs; ++k){
+
+
+
+
+              // ForceX  = -d U( h(x,y,z) )/dx 
+              // ForceX  = -  dU/dh * dh/dx
+              if(config.m_sumNPPotentials == false){
+              dx1 = getDistance3D(x[j]+dr/2.0,y[j],z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dx0 = getDistance3D(x[j]-dr/2.0,y[j],z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+ 
+              dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
+
+              dy1 = getDistance3D(x[j],y[j]+dr/2.0,z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dy0 = getDistance3D(x[j],y[j]-dr/2.0,z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dudy += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dy1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dy0, np.m_npBeadType[k] )) )/dr ;
+
+
+              dz1 = getDistance3D(x[j],y[j],z[j]+dr/2.0 ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dz0 = getDistance3D(x[j],y[j],z[j]-dr/2.0 ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dudz += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dz1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dz0, np.m_npBeadType[k] )) )/dr ;
+
+ 
+              }
+              else{
+
+              dx1 = getDistance3D(x[j]+dr/2.0,y[j],z[j] ,   0 , 0 , 0 , radius,npType);
+              dx0 = getDistance3D(x[j]-dr/2.0,y[j],z[j] ,   0 , 0 , 0 , radius,npType);
+              dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
+
+              dy1 = getDistance3D(x[j],y[j]+dr/2.0,z[j] ,   0 , 0 , 0 , radius,npType);
+              dy0 = getDistance3D(x[j],y[j]-dr/2.0,z[j] ,   0 , 0 , 0 , radius,npType);
+              dudy += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dy1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dy0, np.m_npBeadType[k] )) )/dr ;
+
+
+              dz1 = getDistance3D(x[j],y[j],z[j]+dr/2.0 ,   0 , 0 , 0 , radius,npType);
+              dz0 = getDistance3D(x[j],y[j],z[j]-dr/2.0 ,   0 , 0 , 0 , radius,npType);
+              dudz += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dz1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dz0, np.m_npBeadType[k] )) )/dr ;
+              }
+              
+               /*if(j == indexAtom){
+               std::cout << "index bead is at " << x[j] << "," <<  y[j] << ","  << z[j]  << "h : " << dx1 << " with potential " << potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] ) << "\n";
+               std::cout << "estimated gradients: " << dudx << "," << dudy <<"," << dudz << "\n";
+               }
+               */
+
+            }
+               xUpdates[j] -= updateScaleSize * dudx; //potGradX(i,k); 
+               yUpdates[j] -= updateScaleSize * dudy; //potGradY(i,k);
+               zUpdates[j] -= updateScaleSize * dudz; //potGradZ(i,k);
+           }
+       
+        //std::cout << "z updates for index atom after NP" << zUpdates[indexAtom] << "\n";
+
+
+       //phase 2: get updates due to bonded beads
+       for( int k=0; k<numBonds; ++k){
+          
+           int i = pdb.m_bondSet[k].i;
+           int j = pdb.m_bondSet[k].j;
+           //std::cout << "updating bond " << i << " to " << j << "\n";
+           double ijDist =  sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) ); 
+           double bondLength = pdb.m_bondSet[k].length; 
+           double bondMag = pdb.m_bondSet[k].bondk;
+
+           double xForce = -bondMag*( x[i] - x[j] )*( ijDist - bondLength)/ijDist;
+           double yForce = -bondMag*( y[i] - y[j] )*( ijDist - bondLength)/ijDist;
+           double zForce = -bondMag*( z[i] - z[j] )*( ijDist - bondLength)/ijDist;
+           //std::cout << " bond " << k << "eq. length: " << bondLength << " current length  " << ijDist << "bond constant " << bondMag << "\n";
+           //std::cout << x[i] << " to " << x[j] <<     "," <<     y[i] << " to " << y[j] << "," <<z[i] << " to " << z[j] <<           "\n";
+           //std::cout << "forces on atom "<< i <<  xForce << "," << yForce << "," << zForce << "\n";
+
+          
+           xUpdates[i] += updateScaleSize*xForce;
+           yUpdates[i] += updateScaleSize*yForce;
+           zUpdates[i] += updateScaleSize*zForce;
+
+           xUpdates[j] -= updateScaleSize*xForce;
+           yUpdates[j] -= updateScaleSize*yForce;
+           zUpdates[j] -= updateScaleSize*zForce;
+           
+
+       }
+
+        //std::cout << "z updates for index atom after bond "  << zUpdates[indexAtom] << "\n";
+
+
+      //phase 3: nonbonded terms - this is just to prevent overlap
+
+      //first update the neighbour list - once a bead comes within 2nm of another bead, we permanently switch on the NB term
+      int neighbourUpdateFreq = 10;
+       if( s % neighbourUpdateFreq == 0){
+           for(int i = 0; i< size; ++i){
+               for(int j = i+1; j < size; ++j){
+                   if( std::find( pdb.m_nbExclusions[i].begin(),pdb.m_nbExclusions[i].end(), j) == pdb.m_nbExclusions[i].end() ){
+                   //particle is not in the permanent exclusions
+                        if( std::find( nbNeighbours[i].begin(),nbNeighbours[i].end(), j) == nbNeighbours[i].end() ){
+                        //particle is not already a neighbour
+                            double resDist = sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) );
+                            if(resDist < 1.4){
+                                nbNeighbours[i].emplace_back(j);
+                                //std::cout << "step: " << s << ":" << i << "," << j << " have become neighbours \n";
+                            }
+                        }
+                   }
+               }
+           }
+       }
+
+       for(int i = 0; i< size; ++i){
+        for(auto & j: nbNeighbours[i] ){ //only loop over neighbours
+        //std::cout << "computing NB for " << i << "," << j << "\n";
+        //for(int j = i+1; j < size; ++j){
+                         //std::cout << s <<  " computing nonbond " << i << " to " << j << "\n";
+
+            double resDist = sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) );
+             //std::cout << "distance is: " << resDist << "\n";
+            //double wcaCutoff = 
+           //nbExclusions[i]
+              //if find returns the end then it means j is not found in the exclusion list for atom i
+            //if( std::find( pdb.m_nbExclusions[i].begin(),pdb.m_nbExclusions[i].end(), j) == pdb.m_nbExclusions[i].end() &&     resDist < 1.2246 * wcaSigma){
+       
+             //std::cout << s << " applying nonbond " << i << " to " << j << "\n";
+              //std::cout << " getting radii for i,j " << pdb.m_resTag[i] <<  ":" << config.AminoAcidRadius(pdb.m_resTag[i]) << " " <<pdb.m_resTag[j] << ":" << config.AminoAcidRadius(pdb.m_resTag[j]) <<    "\n";
+               wcaSigma =  config.AminoAcidRadius(pdb.m_resTag[i]) +  config.AminoAcidRadius(pdb.m_resTag[j]) ;
+                if(resDist < 1.4){
+
+                //double wcaMag = 4 * wcaEpsilon * pow(wcaSigma,12);
+                 //double wcaForceMag  = wcaMag * 12.0/pow(resDist*resDist,7);
+                 double wcaMag = 4 * wcaEpsilon * pow(wcaSigma,6);
+                 double wcaForceMag = wcaMag * 6.0 / pow(resDist*resDist,4);
+                 double xForce = (x[i] - x[j]) *wcaForceMag;
+                 double yForce = (y[i] - y[j]) *wcaForceMag;
+                 double zForce = (z[i] - z[j]) *wcaForceMag;
+
+ 
+                 xUpdates[i] += updateScaleSize*xForce;
+                 yUpdates[i] += updateScaleSize*yForce;
+                 zUpdates[i] += updateScaleSize*zForce;
+                 xUpdates[j] -= updateScaleSize*xForce;
+                 yUpdates[j] -= updateScaleSize*yForce;
+                 zUpdates[j] -= updateScaleSize*zForce;
+
+            }
+         }
+       }
+
+
+    
+
+
+
+
+
+
+
+   //phase 4: apply an extra pull for the initial few steps (now merged into stage 5) 
+          //std::cout << "z updates for index atom after NP+bond+nonbond " << zUpdates[indexAtom] << "\n";
+
+   //phase 5: apply updates
+   //bool addNoise = true;
+   if(addNoise == true and s > numSteps){
+    addNoise = false; //disable the noise once we reach the final stage
+   }
+
+   for(int i = 0; i< size; ++i){
+        //std::cout << s<< " " << i << "applying updates " << xUpdates[i]<<","<<yUpdates[i]<<","<<zUpdates[i]<< "\n";
+
+            if( s < numPullSteps){
+             if(doCentralPull == true){
+              double centralDist = sqrt( x[i]*x[i] + y[i]*y[i] + z[i]*z[i] ) ;
+              if(centralDist > 1e-5){ 
+               xUpdates[i] -= updateScaleSize*initialZGradient*x[i]/centralDist;
+               yUpdates[i] -= updateScaleSize*initialZGradient*y[i]/centralDist;
+               zUpdates[i] -= updateScaleSize*initialZGradient*z[i]/centralDist;
+              }
+
+
+              }
+              else{
+             zUpdates[i] -= updateScaleSize* initialZGradient; //apply a nominal force of 1 kbT/nm in the negative z direction
+             }
+
+            }
+
+
+        
+        //bool addNoise = true;
+         //add thermal noise
+        if(addNoise==true){
+        xUpdates[i] += noiseMagnitude*unitNormalDist(randomEngine);
+        yUpdates[i] += noiseMagnitude*unitNormalDist(randomEngine);
+        zUpdates[i] += noiseMagnitude*unitNormalDist(randomEngine);
+
+        
+        }
+         /*
+         if(i==indexAtom){
+        std::cout << "Moving bead " << i <<  "("<<x[i]<<","<<y[i]<<","<<z[i]<<") : " << xUpdates[i] <<"," << yUpdates[i] << "," << zUpdates[i] ;
+           if( s < numPullSteps){
+             std::cout << " (pull on) \n";
+           }
+           else{
+             std::cout  << "\n"; 
+            }
+        } */
+        x[i] += std::min( std::max(-maxDisplacement, xUpdates[i]), maxDisplacement)  ;
+        y[i] += std::min( std::max(-maxDisplacement, yUpdates[i]), maxDisplacement);
+        z[i] += std::min( std::max(-maxDisplacement, zUpdates[i]), maxDisplacement); 
+
+         /*
+        if(i==indexAtom){
+        std::cout << std::min( std::max(-maxDisplacement, zUpdates[i]), maxDisplacement) << "\n";
+        }
+         */
+
+        //std::cout << x[i] << "," << y[i] << "," << z[i] << "\n"; 
+     } 
+    
+
+   //if we're in the final stage, compute average positions
+     if(s > numSteps +10){
+      for(int i =0; i<size; ++i){
+        xFin[i] += x[i];
+        yFin[i] += y[i];
+        zFin[i] += z[i];
+      } 
+        numAverageStepsDone += 1;
+        //std::cout << "current: " << x[indexAtom] << "," << y[indexAtom] << "," << z[indexAtom] << "\n";
+        //std::cout << xFin[indexAtom]/numAverageStepsDone << "," <<  yFin[indexAtom]/numAverageStepsDone  << "," << zFin[indexAtom]/numAverageStepsDone  << "\n";
+
+ 
+     }
+
+
+   }
+  // std::cout << "completed relaxation \n";
+    //std::cout << "writing pdb \n";
+    //save the protein out in the final position
+
+    /*
+    if(bSavePDB == true){
+    writePDB("test_post", "pdbouttest", size,  pdb, x, y, z);
+    }
+    */
+    //std::cout <<"pdb done, exiting \n";
+    //std::cout <<  x0init<<","<<y0init<<","<<z0init<<"\n";
+    //exit(1);
+
+    //replace coordinates by the average over the last set of steps to reduce thermal fluctuations
+    if(numAverageStepsDone > 0){
+           for(int i =0; i<size; ++i){
+               x[i] = xFin[i]/numAverageStepsDone;
+               y[i] = yFin[i]/numAverageStepsDone;
+               z[i] = zFin[i]/numAverageStepsDone;
+
+              //yFin[i] += y[i];
+              //zFin[i] += z[i];
+      }
+
+    }
+   //end the stepping - final post-processing
+   //finally shift the protein back to its original z location
+
+    double newZCom = 0;
+    //std::cout << "after\n";
+    for(int i = 0; i < size; ++i) {
+      //   std::cout << x[i] << "," << y[i] <<  "," << z[i] << "\n";
+
+
+        newZCom += z[i]/size;
+    }
+    //exit(0);
+    if(applyFinalShift == true){
+    for(int i = 0; i < size; ++i) {
+        z[i] = z[i] - newZCom;
+
+        //std::cout << x[i] << "," << y[i] <<  "," << z[i] << "\n";
+
+    }
+    }
+
+    //writePDB("test_post_backshift", "pdbouttest", size,  pdb, x, y, z);
+    //std::cout <<"pdb done, exiting \n";
+
+     //exit(1);
+    /*
+    std::cout << "shifted: " << x0init << " to " << x[indexAtom] << "\n";
+    std::cout << "shifted: " << y0init << " to " << y[indexAtom] << "\n";
+    std::cout << "shifted: " << z0init << " to " << z[indexAtom] << "\n";
+    */
+
+}
+
+void SaveSpecificOrientation(double phi, double theta, const int size,  const Config& config, const Potentials& potentials ,const PDB& pdb,
+const NP& np, double radius, int npType, double cylinderAngle, const std::string& pdbname, const std::string& outputdirectory, const std::string& npName, double ccdAtMin) {
+
+    double x[size];
+    double y[size];
+    double z[size];
+    double phi_adjusted   = -1.0 * (phi  + angle_delta/2);
+    double theta_adjusted = M_PI - (theta + angle_delta/2);
+
+     Rotate3(size, phi_adjusted, theta_adjusted,cylinderAngle, pdb.m_x, pdb.m_y, pdb.m_z, x, y, z);
+
+     if(config.m_relaxPDB == true){
+     writePDB(pdbname+"-prelax", outputdirectory+"/"+npName+"/opt_pdbs",  size,  pdb, x, y, z);
+
+     RelaxPDB (size, x, y, z, config, potentials ,pdb, np, radius, npType,  false) ; 
+     }
+     else{
+       for(int i=0; i<size; ++i){ 
+          z[i] += ccdAtMin;  
+     }  
+     } 
+     writePDB(pdbname+"-relax", outputdirectory+"/"+npName+"/opt_pdbs",  size,  pdb, x, y, z);
+
+}
+
 
 void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const Potentials& potentials, const double radius, const double outerRadius,const int angle_offset, const int n_angles, double *adsorption_energy, double *adsorption_error, double *mfpt_val, double *mfpt_err, double *minloc_val, double *minloc_err,  double *numcontacts_val,   double *numcontacts_err,  double *protein_offset_val, double *protein_offset_err,  const std::string& pdbname, const std::string& outputdirectory, const std::string& npName,      int npType = 1, double imaginary_radius = -1, int calculateMFPT = 0, double cylinderAngleDeg=0,double zeta =0,int savePotentials = 0,double temperature=300.0, double overlapPenalty=0.0) { 
 
@@ -621,8 +1268,14 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             if(config.m_sumNPPotentials == false){
             numNPBeadSummation = numNPBeads;
             }
-   
-   
+     // if(angle_offset == 0){
+   //std::cout << "thread 0 starting "  << angle_offset << "\n" << std::flush;
+    //}
+             int maxFlexPoints = ceil( 1.0/config.m_flexResolution);
+            std::vector<double> flexEnergyTerms(maxFlexPoints*2 + 1 );
+            std::vector<double> flexEnergyDenomTerms(maxFlexPoints*2 + 1 );
+
+
 
 
     // Iterate over angles
@@ -631,7 +1284,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
         phi   = ((angle_offset + angle) % ncols) * angle_delta;
         theta = ((angle_offset + angle) / ncols) * angle_delta;
            double cylinderAngle = cylinderAngleDeg * M_PI/180.0;
-
+           //std::cout << "starting: " << phi << " " << theta << "\n";
 
 	    // Sample a angle multiple times.The sample = samples run is not included in averaging but instead used to generate output potentials  
         for (int sample = 0; sample < samples+1 ; ++sample) {
@@ -695,6 +1348,18 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             }
       
       
+
+
+
+            bool bRelaxProtein = config.m_relaxPDB;
+            if(bRelaxProtein == true){
+          //RelaxPDB (const int size, double *x, double *y, double *z, const Config& config, const Potentials& potentials ,const PDB& pdb,const NP& np)
+                RelaxPDB( size, x, y, z, config, potentials, pdb, np, radius,npType,true); //relaxes the protein onto the surface of the NP
+                //std::cout << "relaxation done, returning to main UA \n"; 
+            }
+            
+
+
             
             double currentRCOM0 = 0;
  
@@ -721,36 +1386,36 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             if(distSq >0){
             
             
-            if(scanFullProtein == true){
-            double dz1 = - std::sqrt(distSq) - z[i] ; 
-            double dz2 =   std::sqrt(distSq) - z[i] ; 
-            double newRCOM0 = 0;
-            if(dz1 > 0){
-            newRCOM0 = dz1;
+             if(scanFullProtein == true){
+              double dz1 = - std::sqrt(distSq) - z[i] ; 
+              double dz2 =   std::sqrt(distSq) - z[i] ; 
+              double newRCOM0 = 0;
+              if(dz1 > 0){
+               newRCOM0 = dz1;
+              }
+              else{
+               if(dz2 > 0){
+                newRCOM0 = dz2;
+               }
+            
+              }
+            
+              //check to see if the bead is outside the NP radius anyway in which case we just skip it - for cubes using getDistance, noting that this returns 0 if the bead is inside the cube and allowing a small epsilon because floats
+              if(   (xfactor*x[i]*x[i] + yfactor*y[i]*y[i] + z[i]*z[i] > radius*radius && useCubeDist == false) || ( useCubeDist == true && getDistance3D(x[i], y[i], z[i], 0.0,0.0,0.0, radius, 3)  > 0.01)    ){
+               newRCOM0 = 0;
+              }
+            
+              currentRCOM0 = std::max( currentRCOM0, newRCOM0);
+              currentOffset = currentRCOM0 - radius;
+            
+            
+            
             }
+            
+            
             else{
-            if(dz2 > 0){
-            newRCOM0 = dz2;
-            }
-            
-            }
-            
-            //check to see if the bead is outside the NP radius anyway in which case we just skip it - for cubes using getDistance, noting that this returns 0 if the bead is inside the cube and allowing a small epsilon because floats
-            if(   (xfactor*x[i]*x[i] + yfactor*y[i]*y[i] + z[i]*z[i] > radius*radius && useCubeDist == false) || ( useCubeDist == true && getDistance3D(x[i], y[i], z[i], 0.0,0.0,0.0, radius, 3)  > 0.01)    ){
-            newRCOM0 = 0;
-            }
-            
-            currentRCOM0 = std::max( currentRCOM0, newRCOM0);
-            currentOffset = currentRCOM0 - radius;
-            
-            
-            
-            }
-            
-            
-            else{
-            dzNeededI = std::sqrt( distSq) -( z[i] + radius ) ; 
-            currentOffset = std::max(currentOffset, dzNeededI);
+             dzNeededI = std::sqrt( distSq) -( z[i] + radius ) ; 
+             currentOffset = std::max(currentOffset, dzNeededI);
             }
             
             foundShift = true;
@@ -846,6 +1511,8 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             
             init_energy = 0.0;
 
+
+
             for (i = 0; i < size; ++i) {
             
 
@@ -859,6 +1526,7 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
               else{
               distance = getDistance3D(x[i],y[i],z[i] + start,  0 , 0 , 0 , radius,npType);
               }
+                //std::cout << i << " " << k << " " << distance << "\n"; 
                 double energyAtDist = pdb.m_occupancy[i] *  static_cast<double>(potentials[pdb.m_id[i]].Value(distance, np.m_npBeadType[k] ))  ;
                 if(energyAtDist > 1){
                 //std::cout << "large shift (" << energyAtDist << ") for distance " << distance << "\n";
@@ -886,23 +1554,68 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
             int numContactsAtMin = 0;
             int numContactsAtStep = 0;
             int resHasContacted = 0;
+            double flexEnergyDenom = 0;
+            double flexEnergyTot = 0;
                
-               
-               
-               
-               
+                            int flexMethod = config.m_flexMethod;
+            // int maxFlexPoints = 2;
+            //if( config.m_flexMethod==4){
+            //std::vector<double> flexEnergyTerms(maxFlexPoints*2 + 1 ); 
+            //std::vector<double> flexEnergyDenomTerms(maxFlexPoints*2 + 1 );
+
+            //}
             for (i = 0; i < steps; ++i) {
                 rcc     = start - i * actualDZ; //was SSD - renamed because it didn't actually fit that description and this was making code maintenance difficult.
                // std::cout << rcc << "\n";
                 
                 energy  = 0;
+                flexEnergyTot = 0;
+                flexEnergyDenom = 0;
                  numContactsAtStep = 0;
                 //loop over each residue. loop variables: i = R index, j = residue index. The ssd value itself is given by the radius of the NP plus an offset distance of i*dz
+
+
                 for (j = 0; j < size; ++j) {
+               flexMethod = config.m_flexMethod; //reset the flex method in case we previously dealt with an extremely well-defined residue
                resHasContacted = 0;
  
                double appliedOverlapPenalty = 0.0;
+
+
+                //int flexMethod = config.m_flexMethod;
+                 //flex methods: these are ways to allow a small amount of residue flexibility
+                 //0: classic UA, all beads are fixed at their given coordinates
+                 //1: Gaussian smoothing 
+                 //2: minimum in interval with the penalty due to displacement
+                 //3: local smoothing of potentials by free-energy
+                 //4: free-energy averaging over noise co-ordinate
+
  
+                 double rmsd = pdb.m_rmsd[j] ;
+                 double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                 int numSDs = config.m_flexNumSDev;
+                 double flexScanRes = config.m_flexResolution; //step size for flexibility
+                 int numPoints =  ceil( numSDs*rmsd/flexScanRes) ;
+                 //double totalFlexRange = 2*numPoints*flexRes;
+                 numPoints = std::max( 1, numPoints) ;
+                 numPoints = std::min(numPoints, maxFlexPoints); //cap how far the flexibility can go 
+                 //set up how many points to loop over for this particular central location
+                 if(rmsd < config.m_flexResolution){
+                 flexMethod = 0; //for very well-defined residues, just return the central value
+                 }
+                 if(flexMethod == 0){
+                 numPoints = 0;
+                 }
+                 if(flexMethod == 4){
+                 //energyTerms = vector(float, 2*numPoints+1) ;
+                  std::fill( flexEnergyTerms.begin(), flexEnergyTerms.end(),0.0 );
+                  std::fill( flexEnergyDenomTerms.begin(), flexEnergyDenomTerms.end(),0.0 );
+
+                 }
+                 double totalFlexRange = 2*numPoints*flexScanRes;
+
+
+
                    //loop over each NP component present
                     for(k = 0; k<numNPBeadSummation; ++k) {
               //distance is AA centre to NP (Nominal) surface
@@ -926,26 +1639,12 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                }
 
                 double noiseEnergy =   pdb.m_occupancy[j]*appliedOverlapPenalty ;   
-                int flexMethod = config.m_flexMethod;
-                 //flex methods: these are ways to allow a small amount of residue flexibility
-                 //0: classic UA, all beads are fixed at their given coordinates
-                 //1: Gaussian smoothing 
-                 //2: minimum in interval with the penalty due to displacement
-                 //3: 
-                 double rmsd = pdb.m_rmsd[j] ;
-
-                 if(rmsd < config.m_flexResolution){
-                 flexMethod = 0; //for very well-defined residues, just return the central value
-                 }
-                 int numSDs = config.m_flexNumSDev;
-                 double flexScanRes = config.m_flexResolution; //step size for flexibility
-                 int numPoints =  ceil( numSDs*rmsd/flexScanRes) ; 
-                 numPoints = std::max( 1, numPoints) ;
-                 double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                 
                 
                  //std::cout << " sampling " << numPoints << "for residue with RMSD " << rmsd << "\n" ;
 
                 if( flexMethod == 0){
+                 //std::cout << "using basic fixed model \n";
                   noiseEnergy +=   pdb.m_occupancy[j] * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance, np.m_npBeadType[k] ));
    
                 }
@@ -954,9 +1653,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
                 //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
                 double flexEnergy = 0;
-                double flexEnergyDenom = 0.00000001;
+                //double flexEnergyDenom = 0.00000001;
                 for( int di = -numPoints; di < numPoints+1; di++){
-                double dOff = di*rmsd; 
+                double dOff = di*flexScanRes; 
                  double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
                  flexEnergy +=  eWeight * static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] ));
                  flexEnergyDenom += eWeight; 
@@ -969,9 +1668,9 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
                 //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
                 double flexEnergy = 500;
-                double flexEnergyDenom = 0.00000001;
+                //double flexEnergyDenom = 0.00000001;
                 for( int di = -numPoints; di < numPoints+1; di++){
-                double dOff = di*rmsd;
+                double dOff = di*flexScanRes;
                 double flexPenalty = dOff*dOff/( 2 * sigmaSq);
                  //double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
                  double trialEnergy = static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) + flexPenalty;
@@ -980,6 +1679,38 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 noiseEnergy += pdb.m_occupancy[j] * flexEnergy;
 
                 }
+                /*
+                else if( flexMethod == 3){
+                double midpoint = 0;
+                //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
+                double dr = flexScanRes;
+                //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                double flexEnergy = 0;
+                //flexEnergyDenom = 0
+                //double flexEnergyDenom = 0.00000001;
+                for( int di = -numPoints; di < numPoints+1; di++){
+                double dOff = di*dr;
+                //if(di == 0){
+                //   midpoint = static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] ));
+                //}
+                double flexPenalty = dOff*dOff/( 2 * sigmaSq);
+                 //double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
+
+                //std::cout << "distance" << distance << "offset: " << dOff << " component: " << static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) << "penalty: " << flexPenalty << "\n" ; 
+                 double trialEnergy = exp(-1.0 * pdb.m_occupancy[j] * ( static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) + flexPenalty+appliedOverlapPenalty));
+                 //flexEnergy = min(flexEnergy, trialEnergy) ;
+                   flexEnergy += trialEnergy*dr;
+                   flexEnergyDenom += exp(-1.0 * pdb.m_occupancy[j] *flexPenalty)* dr;  
+                   //std::cout << flexEnergyDenom << "\n"; 
+                }
+                //std::cout << flexEnergy << "/" << flexEnergyDenom << "\n";
+                flexEnergyTot += flexEnergy; 
+                flexEnergy = -log( flexEnergy/flexEnergyDenom) ;
+                //std::cout <<"final: " << distance << ":" <<    flexEnergy << "\n";
+                noiseEnergy +=  flexEnergy;
+
+                }
+                */
 
                 else if( flexMethod == 3){
                 double midpoint = 0;
@@ -996,17 +1727,39 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                 double flexPenalty = dOff*dOff/( 2 * sigmaSq);
                  //double eWeight = exp(-dOff*dOff/(sigmaSq*2) )/ sqrt( 2 * M_PI * sigmaSq) ;
 
-                //std::cout << "distance" << distance << "offset: " << dOff << " component: " << static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) << "penalty: " << flexPenalty << "\n" ; 
+                //std::cout << "distance" << distance << "offset: " << dOff << " component: " << static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) << "penalty: " << flexPenalty << "\n" ;
                  double trialEnergy = exp(-1.0 *( static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) + flexPenalty));
                  //flexEnergy = min(flexEnergy, trialEnergy) ;
                    flexEnergy += trialEnergy*dr;
-                   flexEnergyDenom += exp(-1.0 * flexPenalty)* dr;  
-                   //std::cout << flexEnergyDenom << "\n"; 
+                   flexEnergyDenom += exp(-1.0 * flexPenalty)* dr;
+                   //std::cout << flexEnergyDenom << "\n";
                 }
-                //std::cout << flexEnergy << "/" << flexEnergyDenom << "\n"; 
+                //std::cout << flexEnergy << "/" << flexEnergyDenom << "\n";
                 flexEnergy = -log( flexEnergy/flexEnergyDenom) ;
                 //std::cout <<"final: " << distance << ":" <<    flexEnergy << "\n";
                 noiseEnergy += pdb.m_occupancy[j] * flexEnergy;
+
+                }
+
+
+
+                else if( flexMethod == 4){
+                double midpoint = 0;
+                //double rmsd = 0.05; //in nanometers, typical bfactor of 25 = 0.5 A = 0.05 nm , rmsd^2 = bfactor/8 pi^2
+                double dr = flexScanRes;
+                //double sigmaSq = rmsd*rmsd;   //approximate a Gaussian distribution
+                double flexEnergy = 0;
+                //flexEnergyDenom = 0
+                //double flexEnergyDenom = 0.00000001;
+                for( int di = -numPoints; di < numPoints+1; di++){
+                double dOff = di*dr;
+                double flexPenalty = dOff*dOff/( 2 * sigmaSq);
+                 double trialEnergy =  pdb.m_occupancy[j] * ( static_cast<double>(potentials[ pdb.m_id[j]].Value(distance+dOff, np.m_npBeadType[k] )) + flexPenalty+appliedOverlapPenalty);
+                 //std::cout << " central " << distance << " offset: " << dOff << " index: " << di+numPoints << " contribtion " << trialEnergy << "\n";
+                 flexEnergyTerms[di+numPoints] += trialEnergy;  
+                 flexEnergyDenomTerms[di+numPoints] += pdb.m_occupancy[j] * ( flexPenalty );
+                }
+                noiseEnergy += 0; // pdb.m_occupancy[j] * flexEnergy;
 
                 }
 
@@ -1034,18 +1787,41 @@ void AdsorptionEnergies(const PDB& pdb,const NP& np, const Config& config, const
                     }
 
                 }
-                
+                 
+
+               //loop over k is ended, still have access to the individual residue here
+               if(flexMethod==4){
+                 double flexEnergyNumerator = 0;
+                 flexEnergyDenom = 1e-10;
+                  for( int di = -numPoints; di < numPoints+1; di++){
+                     flexEnergyNumerator += exp( -flexEnergyTerms[di+numPoints] );
+                     flexEnergyDenom += exp( -flexEnergyDenomTerms[di+numPoints] ) ;
+                  }
+
+               //flexEnergyDenom = totalFlexRange;
+                 //if(distance<2){
+                //std::cout << " residue " << j << " at " << distance <<" terms: " << flexEnergyNumerator << "/" << flexEnergyDenom << " final: " << -log( flexEnergyNumerator/flexEnergyDenom) << "\n";
+                //}
+                energy += -log( flexEnergyNumerator/flexEnergyDenom) ;
+               }
+
                 
                 numContactsAtStep += resHasContacted;
                 
-                }
+
+                }//loop over the residue index j ends here
                 
+
+
                  if(config.m_potNoiseMag > 0.01){
                  //std::cout << "adding potential noise \n";
                  energy = energy + unitNormalDist(randomEngine) *config.m_potNoiseMag;
                  //std::cout << "added potential noise \n";
                  }
                 
+
+
+
                 SSD[i]          = rcc;
                 total_energy[i] = energy;
     
@@ -1108,7 +1884,7 @@ cylinderFileNameAppend = "";
 
 
             Integrate(steps, actualDZ, init_energy, total_energy, SSD, &(sample_energy[sample]), temperature);
-
+           //std::cout << "integration done" << sample <<   "\n" ;
          //and also integrate to get the product of the MFPT and the diffusion constant, MFPT*D. 
 
 
@@ -1133,7 +1909,9 @@ cylinderFileNameAppend = "";
         MeanAndSD(samples, &(adsorption_energy[angle_offset + angle]), &(adsorption_error[angle_offset + angle]), sample_energy); 
         }
         
-        
+        if(angle_offset == 0 && (angle + 1) % threadPrintFreq == 0){
+        std::cout << "*"  << std::flush ;
+        }
         MeanAndSD(samples, &(mfpt_val[angle_offset + angle]), &(mfpt_err[angle_offset + angle]), sample_mfpt); 
          MeanAndSD(samples, &(minloc_val[angle_offset + angle]), &(minloc_err[angle_offset + angle]), sample_minloc);
         MeanAndSD(samples, &(numcontacts_val[angle_offset + angle]), &(numcontacts_err[angle_offset + angle]), sample_numcontacts);
@@ -1143,7 +1921,7 @@ cylinderFileNameAppend = "";
 }
 
 void SurfaceScan(const PDB& pdb, const Potentials& potentials, const double zeta, const double radius, const double outerRadius,const Config& config, double omegaAngle, const NP& np) {
-    std::clog << "Info: Processing '" << pdb.m_name << "' (R = " << radius << ")\n";
+    std::clog << "\nInfo: Processing '" << pdb.m_name << "' (R = " << radius << ") NBeads: " << pdb.m_id.size() << "\n";
 
     const double imaginary_radius = config.m_imaginary_radius;
 
@@ -1181,6 +1959,19 @@ int appendAngle = 0;
     const int n_per_thread      = iterations / n_threads;
     const int n_remaining       = iterations % n_threads; 
 
+    int nMaxSymbols = n_per_thread;
+    //int nMaxSymbolsPerThread = ceil( nMaxSymbols/n_threads) ;
+
+    //int iterationsPerSymbol = ceil( n_threads * n_per_thread/nMaxSymbols);
+    threadPrintFreq =   1; // iterationsPerSymbol ;
+
+
+    for(int p =0; p< nMaxSymbols; ++p){
+    std::cout << "-" ;
+    }
+    std::cout << "\n" << std::flush;
+    //std::cout << " total iterations: " << iterations << " threads selected: " << n_threads << "\n";
+    //std::cout << "each thread handles " << n_per_thread << " such that one symbol should be printed every " << iterationsPerSymbol << "\n";
     int thread;
     #ifdef PARALLEL  
     #pragma omp parallel shared(pdb, potentials, adsorption_energy, adsorption_error), private(thread)
@@ -1226,7 +2017,26 @@ int appendAngle = 0;
     }
     
 
-  
+
+    //find minimum
+
+    double thetaMin = 0;
+    double phiMin = 0;
+    double minEnergy = 50;
+    double ccdAtMin = 0;
+    for (int i = 0; i < iterations; ++i) {
+        if(adsorption_energy[i] < minEnergy){
+        minEnergy = adsorption_energy[i];
+       ccdAtMin = minloc_val[i] + radius;
+        thetaMin = (i / ncols) * angle_delta;
+        phiMin = (i % ncols) * angle_delta;
+        }
+    }
+    std::cout << "\nMinimum located at phi=" << phiMin *180.0/M_PI << ", theta="<< thetaMin*180.0/M_PI << " E="<<minEnergy <<"\n";
+    bool bSaveMinimum = config.m_saveOptimumPDB;
+    if(bSaveMinimum==true){
+    SaveSpecificOrientation(phiMin, thetaMin, pdb.m_id.size() ,  config, potentials , pdb,  np, radius, config.m_npType, omegaAngle* M_PI/180.0, pdb.m_name, config.m_outputDirectory, np.m_name, ccdAtMin) ;
+    }
     WriteMapFile(adsorption_energy, adsorption_error, mfpt_val,minloc_val, numcontacts_val, protein_offset_val, radius, zeta, pdb.m_name, config.m_outputDirectory, np.m_name, config.m_temperature,     0,appendAngle,omegaAngle); 
     //WriteMapFile(mfpt_val, mfpt_err, radius, zeta, pdb.m_name, config.m_outputDirectory,1,isCylinder,cylinderAngle); 
     PrintStatistics(adsorption_energy, adsorption_error, radius, pdb.m_name);
@@ -1253,7 +2063,11 @@ int main(const int argc, const char* argv[]) {
     //}
 
 
-    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  ,   ligandMap.m_ligandAALookup, config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound, config.m_readLigands);
+    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  ,   ligandMap.m_ligandAALookup, config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound, config.m_readLigands, config.m_bondCutoffNM);
+
+
+
+       samples = config.m_numSamples;
 
 
 
@@ -1269,8 +2083,6 @@ int main(const int argc, const char* argv[]) {
         ncols           = 360/intAngleDeg;
         nrows           = 180/intAngleDeg;
 
-       samples = config.m_numSamples;
-
 
 
        
@@ -1283,7 +2095,7 @@ int main(const int argc, const char* argv[]) {
         }
         }
 
-
+    std::cout << "Total number of calculations per PDB per NP: " << iterations*samples << "\n"; 
 
     std::vector<double>          omegaAngleSet;
     // config.m_npTargets is a list of strings - targets to look at for .np files 
@@ -1310,7 +2122,8 @@ int main(const int argc, const char* argv[]) {
      
     boost::filesystem::create_directory(config.m_outputDirectory);
     boost::filesystem::create_directory(config.m_outputDirectory+"/nps");
-    
+    boost::filesystem::create_directory(config.m_outputDirectory+"/opt_pdbs");
+
     
     std::string configFileIn = commandLine.ConfigFileName();
     //Uncomment this line to re-enable config file saving

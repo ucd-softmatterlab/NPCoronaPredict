@@ -95,11 +95,11 @@ Potential GeneratePotential(const SurfaceData& surfaceData, const HamakerConstan
     double potentialStart = config.m_potentialStart;
  
 
-    const std::string destination = "pot-dat/" + npComponents.m_name  ; 
+    const std::string destination = config.m_outputDirectory +"/pot-dat/" + npComponents.m_name  ; 
     //const std::string filename = destination + "/" + surfaceData.m_aminoAcid + ".dat";
 
     boost::filesystem::create_directory("pot-dat") ;
-    boost::filesystem::create_directory(destination) ;
+    boost::filesystem::create_directories(destination) ;
 
 
 

@@ -19,6 +19,8 @@ public: // Switches
     bool        m_enableLocalBoltz = false;
     bool        m_confirmOverrideAngle = false;
     bool        m_readLigands = false;
+    bool        m_relaxPDB = false;
+    bool        m_saveOptimumPDB = false;
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -66,6 +68,9 @@ public: // Key - vaules
   double m_disorderMaxBound = 50; //b-factors greater than this value are not recognised as disordered.
   double m_pdbJitterMag = 0.0; //set the magnitude for PDB jittering in nanometers [recommended < 0.1 nm] 
   double m_potNoiseMag = 0.0;
+  double m_bondCutoffNM = 0.8; // 0.551; //default value for the bond cutoff length for relaxation
+   int m_relaxSteps = 400;
+   double m_relaxZPull = 0.0; //gradient of the potential used to pull during the initial relaxation, positive values = pulling to - z
 
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
@@ -88,7 +93,12 @@ public:
             else if(switches[i] == "enable-local-boltz"){
             m_enableLocalBoltz = true;
             }           
-            
+            else if(switches[i] == "enable-pdb-relax"){
+             m_relaxPDB = true;
+            }
+            else if(switches[i] == "save-optimum-pdb"){
+            m_saveOptimumPDB = true;
+           }
 
 
             else if(switches[i] == "confirm-override-angle"){
@@ -245,9 +255,15 @@ public:
                  m_flexMethod = 2;
                }
                else if(trialFlexMethod == 3){
-                 std::cout << "Flex method 3: Free energy (gaussian re-sampling of probability) \n";
+                 std::cout << "Flex method 3: Free energy (gaussian re-sampling of probability, per-potential) \n";
                  m_flexMethod = 3;
                }
+               else if(trialFlexMethod == 4){
+                 std::cout << "Flex method 4: Free energy (gaussian re-sampling of probability, whole molecule) \n";
+                 m_flexMethod = 4;
+               }
+
+
                else{
                   m_flexMethod = 0;
                   std::cout << "Using default: fixed beads \n";
@@ -264,7 +280,18 @@ public:
             m_flexResolution = std::max(0.01, AsDouble(values[i])) ;
              std::cout <<" Flex resolution set to " << m_flexResolution << "  \n";
             }
-
+            else if( keys[i] == "bond-cutoff"){
+             m_bondCutoffNM = std::max(0.0, AsDouble(values[i]) );
+             std::cout << "Bond cutoff for relaxation set to " << m_bondCutoffNM << "\n";
+            }
+            else if( keys[i] == "relax-steps"){
+            m_relaxSteps = std::max(0, AsInt(values[i]) );
+           std::cout << "Using " << m_relaxSteps << " steps to relax structure \n";
+           }
+           else if (keys[i] == "relax-gradient"){
+            m_relaxZPull = AsDouble(values[i]) ;
+            std::cout << "Potential gradient (-force) for relaxation set to " << m_relaxZPull << "\n";
+           }
 
 
            else if( keys[i] == "disorder-strategy"){

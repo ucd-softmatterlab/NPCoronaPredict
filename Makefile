@@ -2,7 +2,7 @@ EXEC=UnitedAtom
 SRC=src
 
 CXX=g++
-CXXFLAGS=-std=c++17 -O3 -lboost_system -lboost_filesystem -fopenmp -lpthread -march=native -mtune=native -Wall -Wextra -Wdisabled-optimization
+CXXFLAGS=-std=c++17 -O3 -lboost_system -lboost_filesystem -fopenmp -lpthread -march=native -mtune=native -Wall -Wextra -Wdisabled-optimization -Wno-unused-variable -Wno-unused-parameter
 
 HEADERS := $(shell find $(SRC) -name "*.h")
 
