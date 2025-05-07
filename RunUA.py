@@ -47,8 +47,10 @@ parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables 
 parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
 parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 parser.add_argument("-f","--flexres", type=float, default = -0.01, help="Resolution for flexible beads if > 0.005, else disabled")
+parser.add_argument("--relaxsteps", type=int, default = 0, help="Number of relaxation steps")
 
 args = parser.parse_args()
+
 
 
 flexOn = False
@@ -56,6 +58,15 @@ flexRes = 0
 if args.flexres > 0.005:
     flexOn = True
     flexRes = args.flexres
+    print("enabling flexibility")
+
+
+relaxOn = False
+relaxSteps = 0
+if args.relaxsteps > 0:
+    relaxSteps = int(args.relaxsteps)
+    print("enabling relaxation (fewer samples will be used in UA)")
+    relaxOn = True
 canRun = 0
 checkMaterial =""
 
@@ -201,8 +212,11 @@ def writeConfigFile(configOutputLoc):
         outputConfigFile.write("bead-flexibility-method=3\n")
         outputConfigFile.write("flex-sdev=3\n")
         outputConfigFile.write("flex-resolution="+str(flexRes)+"\n")
-
-
+    if relaxOn == True:
+        outputConfigFile.write("num-random-samples = 4\n")
+        outputConfigFile.write("enable-local-boltz\n")
+        outputConfigFile.write("relax-steps="+str(relaxSteps)+"\n")
+        outputConfigFile.write("relax-gradient=0.0\n")
     if args.ligand_file != "":
         outputConfigFile.write("ligand-file = "+args.ligand_file+"\n")
 
