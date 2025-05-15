@@ -62,7 +62,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.4.0"); 
+    static std::string uaVersionID("1.4.1"); 
     return uaVersionID;
 }
 
@@ -581,8 +581,112 @@ return distance;
 }
 
 
+double GetEnergy(double *x, double *y, double *z, int j, double dr, bool sumNPs, int numNPs, int size, const PDB& pdb,const NP& np,const Potentials& potentials, double radius, int npType){
+       double totalEnergy = 0;
+       for(int i = 0; i< size; ++i){
+             for(int k=0; k<numNPs; ++k){
+              if(sumNPs == false){
+                  double dist = getDistance3D(x[i],y[i],z[i] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+                  totalEnergy += ( static_cast<double>(potentials[ pdb.m_id[i]].Value(dist, np.m_npBeadType[k] ))) ;
+              }
+              else{
+                  double dist = getDistance3D(x[i],y[i],z[i] ,   0 , 0 , 0 , radius,npType);
+                  totalEnergy += ( static_cast<double>(potentials[ pdb.m_id[i]].Value(dist, np.m_npBeadType[k] ))) ;
+              }
+             }
+       }
+    return totalEnergy;
+}
+
+
+double GetPotGrad(double *x, double *y, double *z, int j, double dr, bool sumNPs, int numNPs, int dir, const PDB& pdb,const NP& np,const Potentials& potentials, double radius, int npType)
+{
+           double dudx = 0;
+           double dx = (dir == 0) ? dr/2:0.0;
+           double dy = (dir == 1) ? dr/2:0.0;
+           double dz = (dir == 2) ? dr/2:0.0;
+           double dx1 = 0;
+           double dx0 = 0;
+
+           for(int k=0; k<numNPs; ++k){
+
+              // ForceX  = -d U( h(x,y,z) )/dx
+              // ForceX  = -  dU/dh * dh/dx
+              if(sumNPs == false){
+              dx1 = getDistance3D(x[j]+dx,y[j]+dy,z[j]+dz ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dx0 = getDistance3D(x[j]-dx,y[j]-dy,z[j]-dz ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+
+              dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
+              }
+              else{
+
+              dx1 = getDistance3D(x[j]+dx,y[j]+dy,z[j]+dz ,   0 , 0 , 0 , radius,npType);
+              dx0 = getDistance3D(x[j]-dx,y[j]-dy,z[j]-dz ,   0 , 0 , 0 , radius,npType);
+              dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
+               }
+            }
+            return dudx;
+}
+
+double GetPotGrad4(double *x, double *y, double *z, int j, double dr, bool sumNPs, int numNPs, int dir, const PDB& pdb,const NP& np,const Potentials& potentials, double radius, int npType)
+{
+           double dudx = 0;
+           double dx = (dir == 0) ? dr/2:0.0;
+           double dy = (dir == 1) ? dr/2:0.0;
+           double dz = (dir == 2) ? dr/2:0.0;
+           double dxp1 = 0;
+           double dxp2 = 0;
+           double dxm1 = 0;
+           double dxm2 = 0;
+           double ep2 = 0;
+           double ep1 = 0;
+           double em1 = 0;
+           double em2 = 0;
+
+           for(int k=0; k<numNPs; ++k){
+
+              // ForceX  = -d U( h(x,y,z) )/dx
+              // ForceX  = -  dU/dh * dh/dx
+              if(sumNPs == false){
+              dxp2 = getDistance3D(x[j]+2*dx,y[j]+2*dy,z[j]+2*dz ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dxp1 = getDistance3D(x[j]+dx,y[j]+dy,z[j]+dz ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dxm1 = getDistance3D(x[j]-dx,y[j]-dy,z[j]-dz ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              dxm2 = getDistance3D(x[j]-2*dx,y[j]-2*dy,z[j]-2*dz ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+              ep2 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxp2, np.m_npBeadType[k] ));
+              ep1 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxp1, np.m_npBeadType[k] ));
+              em1 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxm1, np.m_npBeadType[k] ));
+              em2 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxm2, np.m_npBeadType[k] ));
+
+
+              dudx += ( -1 *ep2 + 8*ep1 - 8*em1 + em2  )/(12.0 * dr) ;
+              }
+              else{
+              dxp2 = getDistance3D(x[j]+2*dx,y[j]+2*dy,z[j]+2*dz ,   0 , 0 , 0 , radius,npType);
+              dxp1 = getDistance3D(x[j]+dx,y[j]+dy,z[j]+dz ,   0 , 0 , 0 , radius,npType);
+              dxm1 = getDistance3D(x[j]-dx,y[j]-dy,z[j]-dz ,   0 , 0 , 0 , radius,npType);
+              dxm1 = getDistance3D(x[j]-2*dx,y[j]-2*dy,z[j]-2*dz ,   0 , 0 , 0 , radius,npType);
+
+              ep2 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxp2, np.m_npBeadType[k] ));
+              ep1 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxp1, np.m_npBeadType[k] ));
+              em1 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxm1, np.m_npBeadType[k] ));
+              em2 = static_cast<double>(potentials[ pdb.m_id[j]].Value(dxm1, np.m_npBeadType[k] ));
+
+
+              dudx += ( -1 *ep2 + 8*ep1 - 8*em1 + em2  )/(12.0 * dr) ;
+
+
+
+              //dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
+               }
+            }
+            return dudx;
+}
+
+
+
 //This function is used to relax the initial structure onto the surface of the NP. 
 //It's essentially a very approximate molecular dynamics engine in a Brownian dynamics regime, so we don't even keep track of particle velocities
+
 //unit convention: all distances are in NM for consistency, energies are KBT as they must interface directly with NP potentials
 inline void RelaxPDB (const int size, double *x, double *y, double *z, const Config& config, const Potentials& potentials ,const PDB& pdb,const NP& np, double radius, int npType,  bool applyFinalShift) {
    //int numSteps = 10000;
@@ -594,25 +698,59 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     double yFin[size];
     double zFin[size]; 
 
-    bool doCentralPull = true; //if false, pull is in -z only
-    int numSteps = config.m_relaxSteps;
+    //store the force associated with timestep N  - only needed for the Langevin dynamics, which is not ready yet
+    /*
+    double xForce[size];
+    double yForce[size];
+    double zForce[size];
+    double vx[size];
+    double vy[size];
+    double vz[size];
+    */
+
+    bool doCentralPull = false; //if false, pull is in -z only
+
+    //partition the total number of steps: the initial pulling force is used for the first half and then equilibrium positions are sampled for the final 10% of steps 
+    int numSteps = std::max(10, config.m_relaxSteps);
     int numPullSteps =  int(numSteps/2);
+    numFinalAverageSteps = std::max(5, int(numSteps/10) ); 
+   
+
     //int numPullSteps = std::min(10,  int( ceil(numSteps/10)) );
-    double dr = 0.01; //step size for numerical gradients - we use central differencing so it ends up being half of this in either direction
+    double dr = 0.001; //step size for numerical gradients - we use central differencing so it ends up being half of this in either direction
     
     double initialZGradient = config.m_relaxZPull; //force in kbT per nm to apply  initially
 
 
 
     double kbTVal = 1.0; 
-    double dtVal = 2e-10;
+    double dtVal = 1e-11;
+
+    //GJF alpha is equal to gamma*mass
+    
+
     double nominalDiffusionCoeff = 1e5; //kbT/(gamma * mass) 
     double updateScaleSize = dtVal*nominalDiffusionCoeff/kbTVal; 
     bool addNoise  =   true;
 
-    
-    double noiseMagnitude = sqrt( 2 * nominalDiffusionCoeff * dtVal);
+    double noiseScale = 1.00 ;
+    double noiseMagnitude = sqrt( 2 * noiseScale* nominalDiffusionCoeff * dtVal);
 
+    //calculate parameters for GJF method
+    /*
+    double gjfMass = 10e-3;
+
+    double gjfDampingRate = 1.0/(200.0*dtVal) ; 
+    double gjfAlpha =  gjfDampingRate*gjfMass ; //kbTVal/nominalDiffusionCoeff ; //friction coefficient - this is equal to kbT/diffusion  
+
+
+    noiseMagnitude = sqrt(2 * kbTVal * gjfAlpha *dtVal); //sdev of noise
+    double gjfB = 1.0/(1.0 + gjfAlpha*dtVal / (2*gjfMass) );
+    double gjfA = (1.0 - gjfAlpha*dtVal/(2*gjfMass))/  (1.0 + gjfAlpha*dtVal/(2*gjfMass)) ;
+    //std::cout << "noise magnitude " << noiseMagnitude << " A:" << gjfA << " B: " << gjfB << "\n";
+    //exit(1);
+
+    */
     double maxDisplacement = 0.2; //set the maximum a bead can displace in a single step - this is mostly to stop explosions 
     //note that this implies updateScaleSize*force should ideally be less than 
 
@@ -638,19 +776,6 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     proteinMaxDisplace = 0.1 - protMinZ;
 
     
-    double pullStepMag = initialZGradient*dtVal*nominalDiffusionCoeff ; //displacement along the z axis in nm for each pull step
-    //numPullSteps = int(proteinMaxDisplace/pullStepMag)+1;
-    //std::cout << "would have done " << numPullSteps << " steps \n";
-    //skip the pulling, just allow 1 microsecond of  free evolution
-    //initialZGradient = 0.0;
-    //pullStepMag = 0.0;
-    
-
-
-    //numPullSteps = int( 1e-6 / dtVal ); 
-    //std::cout << "instead:  " << numPullSteps << " steps \n";
-
-    //numSteps = numPullSteps*2;
 
     //step 1: place the initial offset so that the biomolecule is just in contact with the NP
     
@@ -675,6 +800,10 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     double x0init = x[indexAtom];
     double y0init = y[indexAtom];
     double z0init = z[indexAtom];
+ int numNPs = np.m_npBeadType.size() ;
+     if (config.m_sumNPPotentials == true){
+      numNPs = 1;
+        }
 
 
     double calcOffset = 0; 
@@ -788,7 +917,7 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
             //ShiftZ(size, z);
             }
 
-    appliedOffset += 0.2; //this puts the closest residue close to a minima
+    appliedOffset += 0.0; //this puts the closest residue close to a minima
     //std::cout << " computed offset: " << appliedOffset << "\n";
     //std::cout <<" shifting all beads to +z by " << appliedOffset + radius << "\n"; 
 
@@ -815,47 +944,259 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     y0init = y[indexAtom];
     z0init = z[indexAtom];
 
+   double minEnergy = 200;
+   double minEnergyDZI = 0;
+   double initScanDZ = 0.005;
+   double distFromInit = 1.0;
+   int numDZIPoints = int( distFromInit/initScanDZ );
+ 
+   for(int dzi =0; dzi < numDZIPoints; ++dzi){
+       double totalEnergy = 0;
+       for(int i = 0; i< size; ++i){
+             
+             for(int k=0; k<numNPs; ++k){
+              if(config.m_sumNPPotentials == false){
+                  double dist = getDistance3D(x[i],y[i],z[i]+dzi*initScanDZ ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
+                  totalEnergy += ( static_cast<double>(potentials[ pdb.m_id[i]].Value(dist, np.m_npBeadType[k] ))) ;
+              }
+              else{
+                  double dist = getDistance3D(x[i],y[i],z[i]+dzi*initScanDZ ,   0 , 0 , 0 , radius,npType);
+                  totalEnergy += ( static_cast<double>(potentials[ pdb.m_id[i]].Value(dist, np.m_npBeadType[k] ))) ;
+              }
+             }
+       }
+       //std::cout << dzi << " " << dzi*initScanDZ << " " << totalEnergy << "\n";
+       if(totalEnergy < minEnergy){
+           minEnergy = totalEnergy;
+           minEnergyDZI = dzi;
+       }
+   }
+   //exit(1);
+   //std::cout <<"minima located at " << minEnergyDZI << "setting as initial offset \n";
+
+   //we set it very slightly to the right of the discovered minima - that way we ensure the particle is coming in from infinity
+   for(int i = 0; i< size; ++i){
+     z[i] += (initScanDZ) * (1+minEnergyDZI) ; 
+    }
 
 
+   //step 1b -  optimise the initial  separation
+
+    //writePDB("test_init", "pdbouttest", size,  pdb, x, y, z);
+
+  
+   //step 1c - rigid body optimisation
+    //std::cout << "starting rigid optimisation \n";
+     double initRigidEnergy =  GetEnergy(x, y,z, 0,  dr, config.m_sumNPPotentials,  numNPs, size,  pdb,np, potentials, radius,npType);
+     double lastInitRigid = initRigidEnergy + 1.0;
+     double rigidEnergyEps = 1e-6;
+     bool fixRigidCOMAxis = false;
+    int numRigidSteps =   config.m_rigidSteps;
+    double rigidDT = 5e-4; 
+
+     bool rigidDone = false;
+
+     //if all the particles lie on a plane or a line then the inertia matrix is non-invertible and we can't get accelerations from torque
+     //so we add four virtual particles in a tetrahedron around the COM to prevent this. These particles are etremely lightweight  so they only add trivial damping
+     double fakeTetraSize = 0.05; 
+     double tetraPointsX[4] = { fakeTetraSize*sqrt(8.0/9.0), -1*fakeTetraSize* sqrt(2.0/9.0), -1*fakeTetraSize*sqrt(2.0/9.0), 0.0 };
+     double tetraPointsY[4] = { fakeTetraSize*0, sqrt(2.0/3.0)*fakeTetraSize, -1*fakeTetraSize*sqrt(2.0/3.0), 0.0 };
+     double tetraPointsZ[4] = { -1.0/3.0*fakeTetraSize, -1.0/3.0*fakeTetraSize, -1.0/3.0 * fakeTetraSize, fakeTetraSize*1 };
+
+     double ixxf = 0;
+     double iyyf = 0;
+     double izzf = 0;
+     double ixyf = 0;
+     double ixzf = 0;
+     double iyzf = 0;
+
+      double fakemass = 0.01;
+      for( int j=0; j< 4; ++j){
+          double fakex = tetraPointsX[j];
+          double fakey = tetraPointsY[j];
+          double fakez = tetraPointsZ[j];
+          ixxf += fakemass*(fakey*fakey + fakez*fakez);
+          iyyf += fakemass*(fakex*fakex + fakez*fakez);
+          izzf += fakemass*(fakey*fakey + fakex*fakex);
+          ixyf -=  fakemass*(fakex*fakey);
+          ixzf -=  fakemass*(fakex*fakez);
+          iyzf -=  fakemass*(fakey*fakez);
+     }
+
+
+
+    for( int s=0; s< numRigidSteps; ++s){
+      if(rigidDone == true){
+      //std::cout << " rigid done \n ";
+      break;
+      }
+
+      double taux = 0;
+      double tauy = 0;
+      double tauz = 0;
+
+      double fcomx = 0;
+      double fcomy = 0;
+      double fcomz = 0;
+      double comx = 0;
+      double comy = 0;
+
+
+      double comz = 0;
+      double ixx = ixxf;
+      double iyy = iyyf;
+      double izz = izzf;
+      double ixy = ixyf;
+      double ixz = ixzf;
+      double iyz = iyzf;
+
+
+      for (int j=0; j< size; ++j){
+      comx += x[j]/size;
+      comy += y[j]/size;
+      comz += z[j]/size;
+  
+      }
+
+
+
+
+
+
+      for (int j=0; j< size; ++j){
+      //comz += z[j]/size;
+      ixx += (y[j]-comy)*(y[j]-comy) + (z[j]-comz)*(z[j]-comz);
+      iyy += (x[j]-comx)*(x[j]-comx) + (z[j]-comz)*(z[j]-comz);
+      izz += (y[j]-comy)*(y[j]-comy) + (x[j]-comx)*(x[j]-comx);
+      ixy -=  (x[j]-comx)*(y[j]-comy);
+      ixz -=  (x[j]-comx)*(z[j]-comz);
+      iyz -=  (y[j]-comy)*(z[j]-comz);
+      }
+
+
+      for (int j=0; j< size; ++j){
+        double fxj = -1.0*GetPotGrad4(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, 0,  pdb,np, potentials, radius,npType);
+        double fyj = -1.0*GetPotGrad4(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, 1,  pdb,np, potentials, radius,npType);
+        double fzj = -1.0*GetPotGrad4(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, 2,  pdb,np, potentials, radius,npType);
+        /*
+        bool addRigidNoise = true;
+        double rigidNoiseCoeff = sqrt(2*1e5* rigidDT);
+        if(addRigidNoise == true){
+            fxj += rigidNoiseCoeff*unitNormalDist(randomEngine) ;
+            fyj += rigidNoiseCoeff*unitNormalDist(randomEngine) ;
+            fzj += rigidNoiseCoeff*unitNormalDist(randomEngine) ;
+
+        }   
+        */
+      
+
+        fcomx += fxj;
+        fcomy += fyj;
+        fcomz += fzj;
+        //tau is torque = r x F
+        taux += (y[j]-comy) * fzj - (z[j]-comz)*fyj;
+        tauy += (z[j]-comz) * fxj - (x[j]-comx)*fzj;
+        tauz += (x[j]-comx) * fyj - (y[j]-comy)*fxj;
+      }
+     //std::cout << "Tau: " << taux << "," << tauy << "," << tauz << "\n";
+     //std::cout << "z: " << comz <<   "FZCom: " << fcomz << "\n"; 
+            //double inertiaEpsilon  = 1e-5;
+     double inertiaDenom = (std::pow(ixz,2)*iyy - 2*ixy*ixz*iyz + std::pow(ixy,2)*izz + ixx*(std::pow(iyz,2) - iyy*izz));
+     for (int j =0; j<size; ++j){
+      //double axjold =  -tauz * (y[j]-comy)/izz + tauy * (z[j] - comz)/iyy;
+
+      
+      //double axjold = -tauz * (y[j]-comy)/izz + tauy * (z[j] - comz)/iyy;
+      //double ayjold = tauz * (x[j]-comx)/izz - taux*(z[j]-comz)/ixx;
+      //double azjold = -tauy * (x[j]-comx)/iyy + taux * (y[j]-comy)/ixx;
+      
+     double xrel = x[j] - comx;
+    double yrel =y[j]-comy;
+    double zrel = z[j]-comz;
+       //double inertiaEpsilon  = 1e-5;
+      //conversion from the resultant torque to per-particle components. 
+      double axj =  ((-(ixz*iyy*taux) + ixy*iyz*taux + ixy*ixz*tauy - ixx*iyz*tauy - std::pow(ixy,2)*tauz + ixx*iyy*tauz)*yrel + 
+     (ixy*izz*taux + std::pow(ixz,2)*tauy - ixx*izz*tauy + ixx*iyz*tauz - ixz*(iyz*taux + ixy*tauz))*zrel)/inertiaDenom;
+
+     double ayj = ((ixz*iyy*taux - ixy*iyz*taux - ixy*ixz*tauy + ixx*iyz*tauy + std::pow(ixy,2)*tauz - ixx*iyy*tauz)*xrel + 
+     (-(std::pow(iyz,2)*taux) + iyy*izz*taux + ixz*iyz*tauy - ixy*izz*tauy - ixz*iyy*tauz + ixy*iyz*tauz)*zrel)/inertiaDenom;
+
+
+     double azj = ((ixz*iyz*taux - ixy*izz*taux - std::pow(ixz,2)*tauy + ixx*izz*tauy + ixy*ixz*tauz - ixx*iyz*tauz)*xrel + 
+     (std::pow(iyz,2)*taux - iyy*izz*taux + ixy*izz*tauy + ixz*iyy*tauz - iyz*(ixz*tauy + ixy*tauz))*yrel)/inertiaDenom;
+
+      azj += fcomz/size; //
+
+      if(fixRigidCOMAxis==false){
+      axj += fcomx/size;
+      ayj += fcomy/size;
+      }
+      /*
+      if(j==indexAtom){
+          std::cout <<"acceleration: "<< axj << "  " << ayj << " " << azj << "\n";
+          std::cout << "old acceleration  " << axjold  << " " << ayjold << " " << azjold<< "\n";
+
+       std::cout << x[j] << "," << y[j] << "," << z[j] << " : " << inertiaDenom << "\n";
+       }
+       */
+
+      
+      //if( x[j]*x[j] > 1000 || y[j]*y[j] > 1000 || z[j]*z[j] > 1000 || axj*axj > 1000 || ayj*ayj>1000 || azj*azj>1000){
+      /*
+      if(j==indexAtom){
+          //std::cout << "broke on atom " << j << "\n";
+          std::cout << "before: " << x[j] << " " << y[j] << " " << z[j] << "\n";
+          //std::cout << "old acceleration  " << axjold  << " " << ayjold << " " << azjold<< "\n";
+
+           //for(int k =0; k<size; ++k){
+           //std::cout << k<< ":" << x[k] << " " << y[k] << " " << z[k] << "\n";
+           //}
+          //std::cout << "x denom: " << (std::pow(ixz,2)*iyy - 2*ixy*ixz*iyz + std::pow(ixy,2)*izz + ixx*(std::pow(iyz,2) - iyy*izz)) <<"\n"; 
+          //std::cout << "y denom: " << (std::pow(ixz,2)*iyy - 2*ixy*ixz*iyz + std::pow(ixy,2)*izz + ixx*(std::pow(iyz,2) - iyy*izz)) <<"\n"; 
+          //std::cout << "z denom: " << (std::pow(ixz,2)*iyy - 2*ixy*ixz*iyz + std::pow(ixy,2)*izz + ixx*(std::pow(iyz,2) - iyy*izz)) <<"\n";
+
+          //std::cout << ixx << " " << iyy << " " << izz << "\n";
+          //std::cout << ixy << " " << ixz << " " << iyz << "\n";
+
+          std::cout <<"acceleration: "<< axj << "  " << ayj << " " << azj << "\n";
+          //std::cout << "old acceleration  " << axjold  << " " << ayjold << " " << azjold<< "\n";
+
+
+          //exit(1);
+      }
+       
+       */
+      //for brownian motion: x' = x + dt*diffusion/kbT 
+      
+
+      x[j] += axj * rigidDT;
+      y[j] += ayj * rigidDT;
+      z[j] += azj * rigidDT;
+      if(j==indexAtom){
+          double currentTotalEnergy = GetEnergy(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, size,  pdb,np, potentials, radius,npType);
+           double eDelta = lastInitRigid - currentTotalEnergy; //positive if energy is decreasing
+          //std::cout << "updated to: " << x[j] << " " << y[j] << " " << z[j] << "current energy: " << currentTotalEnergy << " current delta: " <<  eDelta << "\n"; 
+          //std::cout << "COMS: " << comx << " " << comy << " " << comz << "\n";
+          if( eDelta < rigidEnergyEps  ){
+          //std::cout << " probably converged, saving \n";
+          rigidDone = true;
+          }
+          lastInitRigid  = std::min(lastInitRigid, currentTotalEnergy);
+      }
+     }
+
+
+    }
+    double postRigidEnergy = GetEnergy(x, y,z, 0,  dr, config.m_sumNPPotentials,  numNPs, size,  pdb,np, potentials, radius,npType) ; 
+    //std::cout << "Rigid mechanics: Initial energy: " << initRigidEnergy << " updated to " << GetEnergy(x, y,z, 0,  dr, config.m_sumNPPotentials,  numNPs, size,  pdb,np, potentials, radius,npType) << "\n"; 
     //std::cout << "index bead now at: " << x[indexAtom]<<","<<y[indexAtom]<<","<<z[indexAtom]<<": "<<  getDistance3D(x[indexAtom],y[indexAtom],z[indexAtom] ,   0 , 0 , 0 , radius,npType) << "\n";
-
+    //writePDB("test_post_rigid", "pdbouttest", size,  pdb, x, y, z);
+    //exit(1);
    
     //step 2: identify "bonded pairs" of residues  - these are ones we treat as if they are harmonically bonded
     double bondCutoff = config.m_bondCutoffNM; 
     //double bondCutoffSq = bondCutoff*bondCutoff;
     int numBonds = static_cast<int>(pdb.m_bondSet.size());
-    //std::vector<bond> bondSet;
-    //std::vector< std::vector<int>  > nbExclusions;
-
-    //moved to the PDB class 
-    /*
-    for(int i = 0; i< size; ++i){
-        std::vector<int> iExclusions;
-
-        for(int j = i+1; j < size; ++j){
-            
-            double resDist = sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) );
-            if(   resDist < bondCutoff){
-
-                //
-               //std::cout << "adding bond with length " << resDist << "\n" ;
-                double bondRMS = 0.02;
-                if(resDist < 0.4){
-                bondRMS = 0.005;  //extremely short bonds are tagged as backbone bonds and given a lower RMS
-                }
- 
-                double bondK = 1.0/pow(bondRMS,2);  //100.0/pow(resDist,2)
-                bondSet.emplace_back(bond(i,j,resDist,  bondK  )); 
-                iExclusions.emplace_back( j );
-                numBonds += 1;
-                //std::cout << " Bonding residues: " << i << " and " << j << " distance: " << resDist << " bond const: " << pow(0.5*resDist,2) << "\n";
-            }
-        }
-
-        nbExclusions.emplace_back( iExclusions );
-    }
-    */
-    //exit(1);
 
    //step 3: overdamped relaxation - no velocity just position updates towards the local minima
    //the basic equation of interest here is:
@@ -874,14 +1215,25 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
    std::vector<double> zUpdates(size);
    double wcaEpsilon = 0.25; //kBT
    double wcaSigma = 0.4; //nm
-    int numNPs = np.m_npBeadType.size() ;
-     if (config.m_sumNPPotentials == true){
-      numNPs = 1;
-        }
-    //writePDB("test_pre", "pdbouttest", size,  pdb, x, y, z);
+       //writePDB("test_pre", "pdbouttest", size,  pdb, x, y, z);
 
    int numAverageStepsDone = 0;
-   for(int s = 0; s < numSteps+numFinalAverageSteps ; ++s){
+
+
+
+
+    //set initial forces to zero and velocities to thermal noise
+
+    /*for(int i=0; i<size; i++){
+    vx[i] = 0.0;
+    vy[i] = 0.0;
+    vz[i] = 0.0;
+    xForce[i] = 0.0;
+    yForce[i] = 0.0;
+    zForce[i] = 0.0;
+    }
+   */
+   for(int s = 0; s < numSteps ; ++s){
        //reset all updates for initialisation
        //xUpdates[:] = 0;
        //yUpdates[:] = 0;
@@ -896,66 +1248,13 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
 
        //phase 1: get updates due to the NP-biomolecule potential(s)
        for(int j = 0; j < size; ++j){
-           double dudx = 0;
-           double dudy = 0;
-           double dudz = 0;
-           double dx1 = 0;
-           double dx0 = 0;
-           double dy1 = 0;
-           double dy0 = 0;
-           double dz1 = 0;
-           double dz0 = 0;
-
-           for(int k=0; k<numNPs; ++k){
-
-
-
-
-              // ForceX  = -d U( h(x,y,z) )/dx 
-              // ForceX  = -  dU/dh * dh/dx
-              if(config.m_sumNPPotentials == false){
-              dx1 = getDistance3D(x[j]+dr/2.0,y[j],z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
-              dx0 = getDistance3D(x[j]-dr/2.0,y[j],z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
- 
-              dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
-
-              dy1 = getDistance3D(x[j],y[j]+dr/2.0,z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
-              dy0 = getDistance3D(x[j],y[j]-dr/2.0,z[j] ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
-              dudy += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dy1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dy0, np.m_npBeadType[k] )) )/dr ;
-
-
-              dz1 = getDistance3D(x[j],y[j],z[j]+dr/2.0 ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
-              dz0 = getDistance3D(x[j],y[j],z[j]-dr/2.0 ,  np.m_x[k] , np.m_y[k] , np.m_z[k] , np.m_radius[np.m_npBeadType[k]]    ,np.m_shape[np.m_npBeadType[k]]);
-              dudz += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dz1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dz0, np.m_npBeadType[k] )) )/dr ;
-
- 
-              }
-              else{
-
-              dx1 = getDistance3D(x[j]+dr/2.0,y[j],z[j] ,   0 , 0 , 0 , radius,npType);
-              dx0 = getDistance3D(x[j]-dr/2.0,y[j],z[j] ,   0 , 0 , 0 , radius,npType);
-              dudx += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dx0, np.m_npBeadType[k] )) )/dr ;
-
-              dy1 = getDistance3D(x[j],y[j]+dr/2.0,z[j] ,   0 , 0 , 0 , radius,npType);
-              dy0 = getDistance3D(x[j],y[j]-dr/2.0,z[j] ,   0 , 0 , 0 , radius,npType);
-              dudy += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dy1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dy0, np.m_npBeadType[k] )) )/dr ;
-
-
-              dz1 = getDistance3D(x[j],y[j],z[j]+dr/2.0 ,   0 , 0 , 0 , radius,npType);
-              dz0 = getDistance3D(x[j],y[j],z[j]-dr/2.0 ,   0 , 0 , 0 , radius,npType);
-              dudz += ( static_cast<double>(potentials[ pdb.m_id[j]].Value(dz1, np.m_npBeadType[k] )) - static_cast<double>(potentials[ pdb.m_id[j]].Value(dz0, np.m_npBeadType[k] )) )/dr ;
-              }
-              
-               /*if(j == indexAtom){
-               std::cout << "index bead is at " << x[j] << "," <<  y[j] << ","  << z[j]  << "h : " << dx1 << " with potential " << potentials[ pdb.m_id[j]].Value(dx1, np.m_npBeadType[k] ) << "\n";
-               std::cout << "estimated gradients: " << dudx << "," << dudy <<"," << dudz << "\n";
-               }
-               */
-
-            }
-               xUpdates[j] -= updateScaleSize * dudx; //potGradX(i,k); 
-               yUpdates[j] -= updateScaleSize * dudy; //potGradY(i,k);
-               zUpdates[j] -= updateScaleSize * dudz; //potGradZ(i,k);
+          
+              double dudx = GetPotGrad4(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, 0,  pdb,np, potentials, radius,npType);
+              double dudy = GetPotGrad4(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, 1,  pdb,np, potentials, radius,npType);
+              double dudz = GetPotGrad4(x, y,z, j,  dr, config.m_sumNPPotentials,  numNPs, 2,  pdb,np, potentials, radius,npType);
+               xUpdates[j] -=  dudx; //potGradX(i,k); 
+               yUpdates[j] -=  dudy; //potGradY(i,k);
+               zUpdates[j] -=  dudz; //potGradZ(i,k);
            }
        
         //std::cout << "z updates for index atom after NP" << zUpdates[indexAtom] << "\n";
@@ -971,21 +1270,21 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
            double bondLength = pdb.m_bondSet[k].length; 
            double bondMag = pdb.m_bondSet[k].bondk;
 
-           double xForce = -bondMag*( x[i] - x[j] )*( ijDist - bondLength)/ijDist;
-           double yForce = -bondMag*( y[i] - y[j] )*( ijDist - bondLength)/ijDist;
-           double zForce = -bondMag*( z[i] - z[j] )*( ijDist - bondLength)/ijDist;
+           double xForceB = -bondMag*( x[i] - x[j] )*( ijDist - bondLength)/ijDist;
+           double yForceB = -bondMag*( y[i] - y[j] )*( ijDist - bondLength)/ijDist;
+           double zForceB = -bondMag*( z[i] - z[j] )*( ijDist - bondLength)/ijDist;
            //std::cout << " bond " << k << "eq. length: " << bondLength << " current length  " << ijDist << "bond constant " << bondMag << "\n";
            //std::cout << x[i] << " to " << x[j] <<     "," <<     y[i] << " to " << y[j] << "," <<z[i] << " to " << z[j] <<           "\n";
            //std::cout << "forces on atom "<< i <<  xForce << "," << yForce << "," << zForce << "\n";
 
           
-           xUpdates[i] += updateScaleSize*xForce;
-           yUpdates[i] += updateScaleSize*yForce;
-           zUpdates[i] += updateScaleSize*zForce;
+           xUpdates[i] += xForceB;
+           yUpdates[i] += yForceB;
+           zUpdates[i] += zForceB;
 
-           xUpdates[j] -= updateScaleSize*xForce;
-           yUpdates[j] -= updateScaleSize*yForce;
-           zUpdates[j] -= updateScaleSize*zForce;
+           xUpdates[j] -= xForceB;
+           yUpdates[j] -= yForceB;
+           zUpdates[j] -= zForceB;
            
 
        }
@@ -1037,17 +1336,17 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
                  //double wcaForceMag  = wcaMag * 12.0/pow(resDist*resDist,7);
                  double wcaMag = 4 * wcaEpsilon * pow(wcaSigma,6);
                  double wcaForceMag = wcaMag * 6.0 / pow(resDist*resDist,4);
-                 double xForce = (x[i] - x[j]) *wcaForceMag;
-                 double yForce = (y[i] - y[j]) *wcaForceMag;
-                 double zForce = (z[i] - z[j]) *wcaForceMag;
+                 double xForceLJ = (x[i] - x[j]) *wcaForceMag;
+                 double yForceLJ = (y[i] - y[j]) *wcaForceMag;
+                 double zForceLJ = (z[i] - z[j]) *wcaForceMag;
 
  
-                 xUpdates[i] += updateScaleSize*xForce;
-                 yUpdates[i] += updateScaleSize*yForce;
-                 zUpdates[i] += updateScaleSize*zForce;
-                 xUpdates[j] -= updateScaleSize*xForce;
-                 yUpdates[j] -= updateScaleSize*yForce;
-                 zUpdates[j] -= updateScaleSize*zForce;
+                 xUpdates[i] += xForceLJ;
+                 yUpdates[i] += yForceLJ;
+                 zUpdates[i] += zForceLJ;
+                 xUpdates[j] -= xForceLJ;
+                 yUpdates[j] -= yForceLJ;
+                 zUpdates[j] -= zForceLJ;
 
             }
          }
@@ -1067,9 +1366,9 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
 
    //phase 5: apply updates
    //bool addNoise = true;
-   if(addNoise == true and s > numSteps){
-    addNoise = false; //disable the noise once we reach the final stage
-   }
+   //if(addNoise == true and s > numSteps){
+   // addNoise = false; //disable the noise once we reach the final stage
+   //}
 
    for(int i = 0; i< size; ++i){
         //std::cout << s<< " " << i << "applying updates " << xUpdates[i]<<","<<yUpdates[i]<<","<<zUpdates[i]<< "\n";
@@ -1078,15 +1377,15 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
              if(doCentralPull == true){
               double centralDist = sqrt( x[i]*x[i] + y[i]*y[i] + z[i]*z[i] ) ;
               if(centralDist > 1e-5){ 
-               xUpdates[i] -= updateScaleSize*initialZGradient*x[i]/centralDist;
-               yUpdates[i] -= updateScaleSize*initialZGradient*y[i]/centralDist;
-               zUpdates[i] -= updateScaleSize*initialZGradient*z[i]/centralDist;
+               xUpdates[i] -= initialZGradient*x[i]/centralDist;
+               yUpdates[i] -= initialZGradient*y[i]/centralDist;
+               zUpdates[i] -= initialZGradient*z[i]/centralDist;
               }
 
 
               }
               else{
-             zUpdates[i] -= updateScaleSize* initialZGradient; //apply a nominal force of 1 kbT/nm in the negative z direction
+             zUpdates[i] -= initialZGradient; //apply a nominal force of 1 kbT/nm in the negative z direction
              }
 
             }
@@ -1095,10 +1394,14 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
         
         //bool addNoise = true;
          //add thermal noise
-        if(addNoise==true){
-        xUpdates[i] += noiseMagnitude*unitNormalDist(randomEngine);
-        yUpdates[i] += noiseMagnitude*unitNormalDist(randomEngine);
-        zUpdates[i] += noiseMagnitude*unitNormalDist(randomEngine);
+        double xNoiseNP1=0;
+        double yNoiseNP1=0;
+        double zNoiseNP1=0;
+
+        if(addNoise==true && s < numPullSteps ){
+        xNoiseNP1 = noiseMagnitude*unitNormalDist(randomEngine);
+        yNoiseNP1 = noiseMagnitude*unitNormalDist(randomEngine);
+        zNoiseNP1 = noiseMagnitude*unitNormalDist(randomEngine);
 
         
         }
@@ -1112,9 +1415,65 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
              std::cout  << "\n"; 
             }
         } */
-        x[i] += std::min( std::max(-maxDisplacement, xUpdates[i]), maxDisplacement)  ;
-        y[i] += std::min( std::max(-maxDisplacement, yUpdates[i]), maxDisplacement);
-        z[i] += std::min( std::max(-maxDisplacement, zUpdates[i]), maxDisplacement); 
+
+       //GJF algorithm for  velocity verlet
+
+
+
+        //if(i == indexAtom){
+        //std::cout << s << "before x: " << x[i] << " " << vx[i] <<" " <<  xForce[i] << "\n";
+        //std::cout << s << "y: " << y[i] << " " << vy[i] << yForce[i] << "\n";
+        //std::cout << s << "z: " << z[i] << " " << vz[i] << " " <<  zForce[i] << "\n";
+        //std::cout << gjfA << "\n";
+        //std::cout <<"vel size: " <<  gjfB << " " << gjfB * dtVal * vx[i] << "\n";
+        //std::cout << xNoiseNP1 << "\n";
+        //std::cout << "noise contribution to position: " << gjfB * dtVal/(2*gjfMass) *xNoiseNP1 << "\n"; 
+        //}
+
+       /*if(s>0){
+        x[i] = x[i] + gjfB*dtVal * vx[i] + (gjfB*dtVal*dtVal/(2*gjfMass))*xForce[i] + (gjfB * dtVal/(2*gjfMass) )*xNoiseNP1;
+        vx[i] = gjfA * vx[i] + dtVal/(2*gjfMass)*(gjfA * xForce[i] + xUpdates[i]) + gjfB/gjfMass * xNoiseNP1 ; 
+        //xForce[i] = xUpdates[i];   
+
+
+        y[i] = y[i] + gjfB*dtVal * vy[i] + (gjfB*dtVal*dtVal/(2*gjfMass))*yForce[i] + (gjfB * dtVal/(2*gjfMass)) *yNoiseNP1;
+        vy[i] = gjfA * vy[i] + dtVal/(2*gjfMass)*(gjfA * yForce[i] + yUpdates[i]) + gjfB/gjfMass * yNoiseNP1 ;
+        //yForce[i] = yUpdates[i];
+
+
+        z[i] = z[i] + gjfB*dtVal * vz[i] + (gjfB*dtVal*dtVal/(2*gjfMass))*zForce[i] + (gjfB * dtVal/(2*gjfMass)) *zNoiseNP1;
+        vz[i] = gjfA * vz[i] + dtVal/(2*gjfMass)*(gjfA * zForce[i] + zUpdates[i]) + gjfB/gjfMass * zNoiseNP1 ;
+        }
+        xForce[i] = xUpdates[i];
+        yForce[i] = yUpdates[i];
+        zForce[i] = zUpdates[i];
+
+
+        if(i == indexAtom){
+        //std::cout << s << "x: " << x[i] << " " << vx[i] <<" " <<  xForce[i] << "\n";
+        //std::cout << s << "y: " << y[i] << " " << vy[i] << yForce[i] << "\n";
+        //std::cout << s << "z: " << z[i] << " " << vz[i] << " " <<  zForce[i] << "\n";
+
+
+        }
+
+        */
+
+
+        //basic old method - note that the scaling is no longer correct
+        x[i] += std::min( std::max(-maxDisplacement, updateScaleSize*xUpdates[i] + xNoiseNP1), maxDisplacement)  ;
+        y[i] += std::min( std::max(-maxDisplacement, updateScaleSize*yUpdates[i] + yNoiseNP1), maxDisplacement);
+        z[i] += std::min( std::max(-maxDisplacement, updateScaleSize*zUpdates[i] + zNoiseNP1), maxDisplacement); 
+
+        if(i == indexAtom){
+        //std::cout << s << "x: " << x[i] <<  "\n";
+        //std::cout << s << "y: " << y[i] << "\n";
+        //std::cout << s << "z: " << z[i] << " E: " <<  GetEnergy(x, y,z, 0,  dr, config.m_sumNPPotentials,  numNPs, size,  pdb,np, potentials, radius,npType) <<"\n" ;
+
+
+        }
+
+
 
          /*
         if(i==indexAtom){
@@ -1127,7 +1486,7 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     
 
    //if we're in the final stage, compute average positions
-     if(s > numSteps +10){
+     if(s > numSteps -numFinalAverageSteps){
       for(int i =0; i<size; ++i){
         xFin[i] += x[i];
         yFin[i] += y[i];
@@ -1154,9 +1513,12 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     //std::cout <<"pdb done, exiting \n";
     //std::cout <<  x0init<<","<<y0init<<","<<z0init<<"\n";
     //exit(1);
+    //writePDB("test_post_md_preaverage", "pdbouttest", size,  pdb, x, y, z);
 
     //replace coordinates by the average over the last set of steps to reduce thermal fluctuations
-    if(numAverageStepsDone > 0){
+    
+    bool replaceAverage = false;
+    if(numAverageStepsDone > 0 && replaceAverage==true){
            for(int i =0; i<size; ++i){
                x[i] = xFin[i]/numAverageStepsDone;
                y[i] = yFin[i]/numAverageStepsDone;
@@ -1169,6 +1531,12 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     }
    //end the stepping - final post-processing
    //finally shift the protein back to its original z location
+
+    //std::cout << "Post relaxation: Initial energy: " << initRigidEnergy <<  "  Rigid optimisation: " << postRigidEnergy << " MD updated to " << GetEnergy(x, y,z, 0,  dr, config.m_sumNPPotentials,  numNPs, size,  pdb,np, potentials, radius,npType) << "\n";
+
+
+    //writePDB("test_post_md", "pdbouttest", size,  pdb, x, y, z);
+    //exit(1);
 
     double newZCom = 0;
     //std::cout << "after\n";
@@ -2188,6 +2556,10 @@ int main(const int argc, const char* argv[]) {
     Potentials potentials(surfaces, hamakerConstants, zetaPotential, nanoparticleBoundingRadius, config,np);
     for (const auto& pdb : pdbs){
     
+
+    //SpecificPDBPotentials 
+ 
+
     for( auto & omegaAngle : omegaAngleSet){
     SurfaceScan(pdb,potentials,zetaPotential,nanoparticleBoundingRadius,nanoparticleOuterBoundingRadius,config,omegaAngle,np);
     }

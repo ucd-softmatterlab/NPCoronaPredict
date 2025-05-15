@@ -70,6 +70,7 @@ public: // Key - vaules
   double m_potNoiseMag = 0.0;
   double m_bondCutoffNM = 0.8; // 0.551; //default value for the bond cutoff length for relaxation
    int m_relaxSteps = 400;
+   int m_rigidSteps = 20000;
    double m_relaxZPull = 0.0; //gradient of the potential used to pull during the initial relaxation, positive values = pulling to - z
 
 public:
@@ -282,17 +283,29 @@ public:
             }
             else if( keys[i] == "bond-cutoff"){
              m_bondCutoffNM = std::max(0.0, AsDouble(values[i]) );
-             std::cout << "Bond cutoff for relaxation set to " << m_bondCutoffNM << "\n";
+              if(  m_relaxPDB == true){
+                std::cout << "Bond cutoff for relaxation set to " << m_bondCutoffNM << "\n";
+                }
             }
             else if( keys[i] == "relax-steps"){
             m_relaxSteps = std::max(0, AsInt(values[i]) );
-           std::cout << "Using " << m_relaxSteps << " steps to relax structure \n";
+             if( m_relaxPDB == true){
+              std::cout << "Using " << m_relaxSteps << " steps to relax structure \n";
+              }
            }
            else if (keys[i] == "relax-gradient"){
             m_relaxZPull = AsDouble(values[i]) ;
-            std::cout << "Potential gradient (-force) for relaxation set to " << m_relaxZPull << "\n";
+              if( m_relaxPDB == true ){
+              std::cout << "Potential gradient (-force) for relaxation set to " << m_relaxZPull << "\n";
+              }
            }
-
+          else if (keys[i] == "rigid-dynamics-steps"){
+        
+         m_rigidSteps  = AsDouble(values[i]) ;
+          if( m_relaxPDB == true){
+                 std::cout << "Using " << m_rigidSteps << " for rigid dynamics \n";
+             } 
+          }
 
            else if( keys[i] == "disorder-strategy"){
             m_disorderStrat =AsInt(values[i]) ;
