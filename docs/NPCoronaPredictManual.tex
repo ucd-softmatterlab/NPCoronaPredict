@@ -443,7 +443,8 @@ The above general-purpose configuration file should be fine for most cases, but 
 \item save-optimum-pdb : Saves out the lowest-energy orientation of the input structure to a new PDB file, with an offset applied such that the NP centre is at (0,0,0) (new in UA 1.4)
 \item enable-pdb-relax : Enable pre-relaxing the PDB section, see below (new in UA 1.4)
 \item bond-cutoff : sets a value for the bond cutoff used in the relaxation routine. Generally smaller values allow for a greater flexibility but may destabilise helices, while larger values create more rigid structures. Defaults to 0.551 nm. 
-\item relax-steps [integer]: gives the number of steps to use in relaxation of the initial PDB before averaging.
+\item rigid-dynamics-steps : Maximum number of steps to use to locally minimise the biomolecule structure during rigid dynamics before the minimisation halts if it has not already converged.
+\item relax-steps [integer]: gives the number of MD steps to use in relaxation of the initial PDB, including pulling, evolution and averaging phases.
 \item relax-gradient [float]: gradient of the z-potential (units kbT/nm) used in relaxation for the initial phase before free evolution. High values will distort the input structure more but potentially find more strongly binding conformations
 \end{itemize}
 \subsection{Bead flexibility  \label{section:beadflex} }
@@ -470,7 +471,10 @@ Many proteins, however, consist of multiple domains or contain flexible loops, s
 
 To overcome this, enabling the config option ``enable-pdb-relax'' implements a quick relaxation of the structure of the biomolecule before computing the binding energy. This allows for more coarse adjustments to the overall structure.
 
-We assume each bead exists in a potential given by the sum of its interaction potential with all NP beads and an interaction potential with the rest of the biomolecule. This interaction potential is divided into short-range bonded interactions and a long-range nonbonded term. 
+This relaxation procedure occurs in two phases. The first phase implements a rigid-body calculation in which the structure of the biomolecule is kept fixed, but the COM and orientation allowed to vary to find a local minimum of the NP-biomolecule potential. This local minimisation halts once the energy of the biomolecule stops decreasing or when the maximum number of steps has been reached and ensures that the biomolecule is not attempting to bind in a non-equilibrium position. Physically, this phase represents the initial approach of the biomolecule to the surface of the NP, which we assume occurs on a timescale much greater than internal motion or rearrangement of domains. No thermal motion is included during this stage. For reasons of numerical stability during this stage, four lightweight virtual non-interacting particles are added to the structure. These do not interact with the NP and exist only to make sure the moment of inertia is non-zero for each axis, i.e. to break potential planar or linear symmetries. 
+
+
+The second phase removes the rigid body restriction and allows each bead to move individually, to better adapt the structure of the biomolecule to the surface of the NP. We assume each bead exists in a potential given by the sum of its interaction potential with all NP beads and an interaction potential with the rest of the biomolecule. This interaction potential is divided into short-range bonded interactions and a long-range nonbonded term. 
 Any beads with initial separations less than a cutoff value (by default, $0.8$ nm)  are treated as harmonically bonded, regardless of their position in the input PDB file, in order to preserve initial structure of domains. This bonded interaction is given a bond constant such that the RMS fluctuations for a bond of length $l$ are of order $l/20$ nm unless the equilibrium distance is under $0.4$ nm, which is assigned an RMS of $0.005$ nm to preserve the backbone.  All nonbonded beads interact through a $1/r^6$  potential with $\sigma = R_i + R_j$, where $R_i$ is the vdW radius of that bead taken from the configuration file and a long-range cutoff of $1.4$ nm. 
 This is a very crude approximation to the true interaction potential but is chosen to ensure local structure (e.g. helixes)  is preserved while preventing beads from overlapping and keeping loops relatively flexible. 
 
@@ -481,10 +485,10 @@ x(t+\delta t) = x(t) - \delta t  D/(k_B T) \frac{d}{dx} U(x,y,z) + \sqrt{2 D \de
 \end{equation}
 where $x = x,y,z$ is each Cartesian axis, and the potential $U(x,y,z)$ is the sum of all bonded, nonbonded, and bead-NP interactions, and $\xi(t)$ is zero-mean white noise with standard deviation $1$. 
 In the current version, all beads are assigned the same effective diffusion constant $D = 1e5$ in the reduced units used, $k_B T = 1.0$ for consistency with the units of potential, and the timestep is set to $\delta t = 1e-5$, which we find ensures stability of the simulation.
-The random noise is employed to smooth out small fluctuations in the bead-NP potential which can lead to trapping in local minima and to allow for a greater range of potentially more strongly-binding states to be reached, especially if bonds involved are far from the NP. 
+The random noise is employed to smooth out small fluctuations in the bead-NP potential which can lead to trapping in local minima and to allow for a greater range of potentially more strongly-binding states to be reached, especially if bonds involved are far from the NP. This noise is switched off towards the end of the simulation to allow beads to relax towards their equilibrium positions for use in the adsorption energy calculation.
 
-During the $25\%$ of the relaxation steps chosen by the parameter relax-steps, an additional force directed to the centre of the NP is applied to pull the biomolecule more firmly onto the NP. The gradient of this potential is set by the relax-gradient option - more strongly positive values pull more firmly.
-Following the relaxation, an averaging period of $100$ steps is used to produce new equilibrium positions for each bead.
+During the $25\%$ of the relaxation steps chosen by the parameter relax-steps, an additional force directed either in the -z direction or  to the centre of the NP is applied (if enabled) to pull the biomolecule more firmly onto the NP. The gradient of this potential is set by the relax-gradient option - more strongly positive values pull more firmly.
+The last $10\%$ of the steps is used to produce new equilibrium positions for each bead if this option is manually enabled in the code, by default it is not.
 Choosing the number of steps to use for relaxation is currently left to the user, under the current parameters we generally find this should be on the order of $1000$ to allow for a measureable effect. 
 
 This applies a small overhead to each orientation but significantly reduces the impact of the diffuse loops typically produced by AlphaFold and allows multiple domains to contact the NP surface. If bead flexibility is also enabled then this is applied to the relaxed structure to further optimise the binding profile.
