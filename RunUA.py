@@ -213,7 +213,8 @@ def writeConfigFile(configOutputLoc):
         outputConfigFile.write("flex-sdev=3\n")
         outputConfigFile.write("flex-resolution="+str(flexRes)+"\n")
     if relaxOn == True:
-        outputConfigFile.write("num-random-samples = 4\n")
+        outputConfigFile.write("num-random-samples = 16\n")
+        outputConfigFile.write("enable-pdb-relax\n")
         outputConfigFile.write("enable-local-boltz\n")
         outputConfigFile.write("relax-steps="+str(relaxSteps)+"\n")
         outputConfigFile.write("relax-gradient=0.0\n")

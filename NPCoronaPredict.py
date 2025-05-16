@@ -5,8 +5,8 @@
 
 
 #This notebook is designed to simplify the procedure for setting up and running a set of CoronaKMC simulations
-#Because both the UnitedAtom and CoronaKMC steps can take a significant amount of time, these are not run directly
-#Instead it prints out the commands you should run for CoronaKMC 
+#Because both the UnitedAtom and CoronaKMC steps can take a significant amount of time, it is recommended to run this in e.g. a secreen session
+#Alternatively, use the --autorun 0 option to instead  print out the commands you should run  
 #For help please ask Ian Rouse, ian.rouse@ucd.ie
 
 
@@ -61,7 +61,7 @@ parser.add_argument("-B", "--boltzmode",type=int,default=0, help="If >0 enables 
 parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 0 overrides the default shape for a given material to the specified shape number")
 parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 parser.add_argument("--steady", action="store_true", help="Attempt to get the steady-state corona")
-
+parser.add_argument("--relax", action="store_true", help="Use protein relaxation and flexibility in UA")
 
 args = parser.parse_args()
 
@@ -334,6 +334,8 @@ if predefNP == True:
 if overrideShape == True:
     UACommandString += " -S " + str(npShape)
 
+if args.relax == True:
+    UACommandString += " --relaxsteps 1000 --flexres 0.05"
 
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
@@ -348,6 +350,10 @@ kmcTimeDelta = str(0.0001)
 if args.steady == True:
     kmcTimeDelta = str(0.1)
     appendSteady =  " --steady"
+
+
+
+
 KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta "+kmcTimeDelta+" -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)+" -n 10"+appendSteady
 
 if isCylinder == True:
