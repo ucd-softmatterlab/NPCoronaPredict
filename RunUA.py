@@ -144,7 +144,7 @@ beadRadii = []
 useDefaultBeadSet = 0
 
 allPMFFolders = []
-
+allHamakerFiles = []
 
 def SearchNPDirectory(path):
     files = os.listdir(path)
@@ -173,22 +173,45 @@ def getNPPMFs( npFilePath):
             #print("registering", pmfDir)
     return list(set(npMaterials))
 
+def getNPHamakers( npFilePath):
+    npMaterials = []
+    npFileIn = open(npFilePath,"r")
+    for line in npFileIn:
+        #print(line)
+        if line[0]=="#":
+            continue
+        lineTerms = line.split(",")
+        pmfDir = lineTerms[8]
+        #print(pmfDir)
+        if pmfDir not in npMaterials:
+            npMaterials.append(pmfDir)
+            #print("registering", pmfDir)
+    return list(set(npMaterials))
+
+
 if isNPFile == True:
-    #scan over NP file and get all the PMF folders to include
+    allHamakerFiles =[]
+    #scan over NP file and get all the PMF folders to include, including resetting some of the default parameters to try to keep things functioning
     if args.nps[-3:] == ".np":
         print("checking NP file")
         allMaterialPMFs = getNPPMFs( args.nps )
         allPMFFolders = allPMFFolders + allMaterialPMFs
+        allHamakerFiles = allHamakerFiles + getNPHamakers(args.nps)
     else:
         allNPFiles = SearchNPDirectory( args.nps ) 
         for npFile in allNPFiles:
             allMaterialPMFs  = getNPPMFs( npFile )
-            allPMFFolders = list(set(   allPMFFolders + allMaterialPMFs) ) 
+            allPMFFolders = list(set(   allPMFFolders + allMaterialPMFs) )
+            allHamakerFiles = list(set( allHamakerFiles + getNPHamakers(npFile) )) 
+    #pmfFolder, hamakerFile, shape,pmfLJCutoff = materialSet[ firstMaterial ]
+    pmfFolder = allPMFFolders[0]
+    hamakerFile = allHamakerFiles[0] 
+    print("setting defaults to ", pmfFolder, hamakerFile )
 else:
     allPMFFolders.append(pmfFolder) 
-
+    
 print(allPMFFolders)
-
+#quit()
 
 for line in beadSetFile:
     if line[0]=="#":
