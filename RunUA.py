@@ -81,6 +81,8 @@ elif args.nps != "":
     checkMaterial = firstMaterial
     pmfFolder, hamakerFile, shape,pmfLJCutoff = materialSet[ firstMaterial ]
 
+
+if args.nps != "":
     isNPFile = True
 
 if canRun == 0:
