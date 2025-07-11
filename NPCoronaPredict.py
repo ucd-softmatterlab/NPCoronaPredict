@@ -118,7 +118,7 @@ if args.npfile != "":
     predefNP = True
     #npName = args.npfile[:-3]
     npName = (args.npfile.split("/")[-1])[:-3]
-    NPMaterial = "anatase101"
+    NPMaterial = "none"
 else:
     print("NP file will be auto generated")
     if NPMaterial == "":
