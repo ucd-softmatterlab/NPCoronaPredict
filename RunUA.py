@@ -70,6 +70,7 @@ if args.relaxsteps > 0:
 canRun = 0
 checkMaterial =""
 
+isNPFile = False
 if args.material in materialSet:
     pmfFolder,hamakerFile,shape,pmfLJCutoff = materialSet[ args.material]
     canRun = 1
@@ -79,6 +80,9 @@ elif args.nps != "":
     canRun = 1
     checkMaterial = firstMaterial
     pmfFolder, hamakerFile, shape,pmfLJCutoff = materialSet[ firstMaterial ]
+
+    isNPFile = True
+
 if canRun == 0:
     print("An error has occured, cancelling run. Please check material name again.")
     print("Input material: ", args.material)
@@ -138,6 +142,54 @@ beadNames = []
 beadCharges = []
 beadRadii = []
 useDefaultBeadSet = 0
+
+allPMFFolders = []
+
+
+def SearchNPDirectory(path):
+    files = os.listdir(path)
+    pdbs  = []
+    for handle in files:
+        abspath = os.path.join(path, handle)
+        if os.path.isdir(abspath):
+            pdbs += SearchDirectory(abspath)
+        elif abspath[-3:] == ".np":
+            pdbs.append(abspath)
+    return pdbs
+
+
+def getNPPMFs( npFilePath):
+    npMaterials = []
+    npFileIn = open(npFilePath,"r")
+    for line in npFileIn:
+        #print(line)
+        if line[0]=="#":
+            continue
+        lineTerms = line.split(",")
+        pmfDir = lineTerms[9]
+        #print(pmfDir)
+        if pmfDir not in npMaterials:
+            npMaterials.append(pmfDir)
+            #print("registering", pmfDir)
+    return list(set(npMaterials))
+
+if isNPFile == True:
+    #scan over NP file and get all the PMF folders to include
+    if args.nps[-3:] == ".np":
+        print("checking NP file")
+        allMaterialPMFs = getNPPMFs( args.nps )
+        allPMFFolders = allPMFFolders + allMaterialPMFs
+    else:
+        allNPFiles = SearchNPDirectory( args.nps ) 
+        for npFile in allNPFiles:
+            allMaterialPMFs  = getNPPMFs( npFile )
+            allPMFFolders = list(set(   allPMFFolders + allMaterialPMFs) ) 
+else:
+    allPMFFolders.append(pmfFolder) 
+
+print(allPMFFolders)
+
+
 for line in beadSetFile:
     if line[0]=="#":
         continue
@@ -147,13 +199,19 @@ for line in beadSetFile:
         continue
     #test if bead exists for this material
     beadName = lineTerms[0]
-    if not os.path.exists( pmfFolder+"/"+ beadName +".dat" ):
-        print("Bead type ", lineTerms[0], " could not be located for the selected material")
-        print("This will be omitted from the UA input file and may cause issues with ligands or non-AA beads")
+    materialNotFound = False
+    for pmfFolderCheck in allPMFFolders:
+        if not os.path.exists( pmfFolderCheck+"/"+ beadName +".dat" ):
+            print("Bead type ", lineTerms[0], " could not be located for the selected material", pmfFolderCheck)
+            print("This will be omitted from the UA input file and may cause issues with ligands or non-AA beads")
+            materialNotFound = True
+    if materialNotFound == True:
         continue
-    beadNames.append(lineTerms[0])
-    beadCharges.append(lineTerms[1])
-    beadRadii.append(lineTerms[2])
+    else:
+        #print("bead defined for all materials")
+        beadNames.append(lineTerms[0])
+        beadCharges.append(lineTerms[1])
+        beadRadii.append(lineTerms[2])
 
 
 if len(beadNames) == 0:
