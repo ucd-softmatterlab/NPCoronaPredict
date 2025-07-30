@@ -62,7 +62,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.4.1"); 
+    static std::string uaVersionID("1.5.0"); 
     return uaVersionID;
 }
 
@@ -715,7 +715,12 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
     int numPullSteps =  int(numSteps/2);
     numFinalAverageSteps = std::max(5, int(numSteps/10) ); 
    
-
+    //fewer than 5 relaxation steps is interpreted as meaning "actually just do rigid dynamics"
+    if(config.m_relaxSteps <= 5){
+    numSteps = 0;
+    numPullSteps = 0;
+    numFinalAverageSteps = 0;
+    }
     //int numPullSteps = std::min(10,  int( ceil(numSteps/10)) );
     double dr = 0.001; //step size for numerical gradients - we use central differencing so it ends up being half of this in either direction
     
@@ -2431,7 +2436,7 @@ int main(const int argc, const char* argv[]) {
     //}
 
 
-    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  ,   ligandMap.m_ligandAALookup, config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound, config.m_readLigands, config.m_bondCutoffNM);
+    PDBs              pdbs(targetList.m_paths, config.AminoAcidIdMap()  ,   ligandMap.m_ligandAALookup, config.m_backboneReplaceSet, config.m_disorderStrat , config.m_disorderMinBound, config.m_disorderMaxBound, config.m_readLigands, config.m_bondCutoffNM, config.m_enableBackbone, config.m_backboneTag, config.m_backboneScale);
 
 
 

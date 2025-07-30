@@ -1,5 +1,6 @@
 #Summary of PMFP chemicals, computed properties, and extended set bead ID (excluding AA residue codes) 
 #ID,UACode,SMILES,formal charge [e],radius [nm], Hamaker[kT],mass[Da], comment 
+NULLCHEM,NXX,X,0,0.2074999999999993,112.40613383051176,81.068,dummy non-interacting molecule
 ALASCA-JS,X00,C,0.0,0.17820021045312,44.244170265338745,16.042999999999996,alanine side chain
 ARGSCA-JS,X01,CCCNC(N)=[NH2+],1,0.4374999999999999,4.075848405021987,102.16099999999999,arg side chain
 ASNSCA-JS,X02,CC(N)=O,0,0.24499999999999933,40.692093358273276,59.068, asn side chain

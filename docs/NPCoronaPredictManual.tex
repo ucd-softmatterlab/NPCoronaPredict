@@ -494,6 +494,14 @@ Choosing the number of steps to use for relaxation is currently left to the user
 This applies a small overhead to each orientation but significantly reduces the impact of the diffuse loops typically produced by AlphaFold and allows multiple domains to contact the NP surface. If bead flexibility is also enabled then this is applied to the relaxed structure to further optimise the binding profile.
 
 
+\subsection{Protein backbone (new in UA 1.5)}
+In the standard mode of operation, UA places a single bead for each identified fragment at the CA position, which for the majority of PMF sets provided corresponds to placing a side-chain analogue at this position except for the special cases of GLY and PRO, for which the PMFs generally correspond to full AAs (with the exception of Au and Ag FCC surfaces, for which GLY is represented by ALA-SCA and PRO by cyclopropane). Although efficient, this leads to inconsistencies in the binding properties of certain proteins -- for example, glycine-rich proteins adsorb more strongly than others, and poly-alanine will likely not adsorb at all.
+To overcome this effect, the ``backbone-mode'' setting can be enabled. In this mode, for all entries recognised as amino acids two beads are now placed: a protein backbone bead at the CA position, and the side-chain analogue at the CB position. 
+By default, the backbone bead is taken to be the special PBB bead, which generally has PMFs identical to glycine but zero Hamaker interaction to avoid over-counting. The user may specify a different bead to employ as the backbone by modifying the backbone-tag config file option, and scale this interaction by a constant factor by backbone-scale.
+For some materials, such as the Au/Ag cases mentioned above, the user may which to override which AAs are subject to this splitting, for example to account for alternative charge states or to ensure GLY and PRO are represented correctly. This can be done using the replace-sca-set option in a config file and providing a list of AAs which should be represented by a backbone PMF at the CA position and an SCA bead at the CB position.  
+
+
+
 \section{Input data - Hamaker files}
 The Hamaker file for a given material has the following format,
 \begin{lstlisting}

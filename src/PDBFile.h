@@ -26,33 +26,44 @@ public:
     const std::vector<std::string>   m_resTag; 
     const std::vector<bond> m_bondSet;
     const std::vector<std::vector<int>> m_nbExclusions;
-
+    const std::vector<int>      m_beadType;
 
 
     PDB(const std::vector<double>& x, const std::vector<double>& y, const std::vector<double>& z,
     const std::vector<int>& id, const double length, const std::string& name, const std::vector<double>& occupancy, const std::vector<double>& rmsd, 
-        const std::vector<std::string>& resTag, const std::vector<bond> bondSet, const std::vector<std::vector<int>> nbExclusions)
-        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_occupancy(occupancy), m_rmsd(rmsd), m_resTag(resTag)  , m_bondSet(bondSet), m_nbExclusions(nbExclusions) 
+        const std::vector<std::string>& resTag, const std::vector<bond> bondSet, const std::vector<std::vector<int>> nbExclusions, const std::vector<int> beadType)
+        : m_x(x), m_y(y), m_z(z), m_id(id), m_length(length), m_name(name), m_occupancy(occupancy), m_rmsd(rmsd), m_resTag(resTag)  , m_bondSet(bondSet), m_nbExclusions(nbExclusions) , m_beadType(beadType) 
     {}
 };
 
-PDB ReadPDBFile(const std::string&, const std::unordered_map<std::string, std::size_t>&,     const std::unordered_map<std::string,std::string>&,     const int , const double, const double ,const bool  , const double );
+PDB ReadPDBFile(const std::string&, const std::unordered_map<std::string, std::size_t>&,     const std::unordered_map<std::string,std::string>&,  const std::vector<std::string>&,   const int , const double, const double ,const bool  , const double, const bool, const std::string,const double  );
 
 class PDBs : public std::vector<PDB> {
 public:
     PDBs(const std::vector<std::string>& filenames,
         const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap, 
-        const std::unordered_map<std::string, std::string>& ligandMap,
+        const std::unordered_map<std::string, std::string>& ligandMap,const std::vector<std::string>& aaTags,
 
-const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0, const bool readLigands = false, const double bondCutoff=0.551) {
+const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0, const bool readLigands = false, const double bondCutoff=0.551, const bool backboneOn = false, const std::string backboneTag="GLY", const double backboneScaleFactor = 0.6666) {
         this->reserve(filenames.size());
         for (const auto& filename : filenames) {
-            this->push_back(ReadPDBFile(filename, aminoAcidIdMap, ligandMap, inputDisorderStrat, disorderMin, disorderMax, readLigands, bondCutoff));
+            this->push_back(ReadPDBFile(filename, aminoAcidIdMap, ligandMap,aaTags, inputDisorderStrat, disorderMin, disorderMax, readLigands, bondCutoff, backboneOn, backboneTag, backboneScaleFactor));
         }
     }
 };
 
-PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap,   const std::unordered_map<std::string,std::string>& ligandMap,   const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0, const bool readLigands=false, const double bondCutoff=0.551) {
+bool isAA(std::string& tag,const  std::vector<std::string>& aaTags){
+
+    //const std::vector<std::string> aaTags{"ALA", "ARG", "ASN", "ASP", "CYS", "GLU", "GLN",  "HIS", "ILE", "LEU", "LYS", "MET", "PHE",  "SER", "THR", "TRP", "TYR", "VAL", "HIE","HID","HIP","GAN"};
+    if( std::find( aaTags.begin(), aaTags.end(), tag) == aaTags.end() ){
+        return false;
+    }
+    else{
+        return true;
+    }
+}
+
+PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::string, std::size_t>& aminoAcidIdMap,   const std::unordered_map<std::string,std::string>& ligandMap,  const std::vector<std::string>& aaTags,    const int inputDisorderStrat = 0, const double disorderMin = -5.0, const double disorderMax = 50.0, const bool readLigands=false, const double bondCutoff=0.551, const bool backboneOn = false, const std::string backboneTag="GLY", const double backboneScaleFactor = 0.6666 ) {
     std::ifstream handle(filename.c_str());
     if (!handle.is_open()) {
         std::cerr << "Error: Could not find pdb file '" << filename << "'\n";
@@ -72,32 +83,62 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
     std::vector<double> bfactor;
     std::vector<double> rmsd;
     std::vector<std::string> resTag; 
+    std::vector<int>    beadType; //0 = CA, 1 =CB, 2 = Ligand 
 
     std::vector<bond> bondSet;
     std::vector< std::vector<int>  > nbExclusions;
     //double bondCutoff = config.m_bondCutoffNM;
 
-
+    //bool backboneOn = true;
+    //double backboneScaleFactor = 2.0/3.0; //scale backbone bead occupancies by this value to account  for replicated atoms
     bool bIsAlphaFold = false;
     while (std::getline(handle, line)) {
         bool foundAtom = false;
         bool atomIsLigand = false;
+        bool atomIsBackboneGly = false;
+        int currentBeadType = 0;
 
         if( line.find("ALPHAFOLD") != std::string::npos){
         //std::cout <<"ALPHAFOLD detected, assuming this is an AlphaFold structure \n";
         bIsAlphaFold = true;
         }
 
+        //expected behaviour: a CA bead places that residue BUT if backbone is enabled AND the residue returns as a splittable AA, actually put a protein-backbone bead here
+
         if( line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CA" ){
         foundAtom = true;
         tag = line.substr(17, 3);
         StringFormat::Strip(tag);
+        if( isAA(tag,aaTags) && backboneOn == true  ) { // note that by default isAA(GLY, aaTags) returns false to make sure we don't override actual GLY, as does isAA(PRO,aaTags) 
+        //std::cout <<"placing backbone " << line << "\n";
+        atomIsBackboneGly = true; //set that we're overriding this atom to be a backbone bead (defaults to glycine)
+        tag = backboneTag ; //override to whatever out backbone atom type is - normally glycine - as the protein backbone if we have this mode enabled
+        }
+
+        //StringFormat::Strip(tag);
 
         }
+
+        //if we're in backbone mode, put the remainder of the AA here
+        if( line.substr(0, 4) == "ATOM" && line.substr(13, 2) == "CB" && backboneOn == true ){
+        //foundAtom = true;
+        tag = line.substr(17, 3);
+        StringFormat::Strip(tag);
+            if( isAA(tag,aaTags)  ){ 
+             //std::cout << "placing residue " << line << "\n";
+             foundAtom = true;
+             currentBeadType = 1;
+             //atomIsBackboneGly = true;
+             }
+
+        }
+
+
+
         if( line.substr(0,6) == "HETATM" && readLigands == true){
         foundAtom = true;
         atomIsLigand = true;
-
+        
         //attempt to parse line as a potential ligand
                 std::string ligandID = line.substr(17,3);
                 std::string ligandAtomID = line.substr(12,4) ;
@@ -110,7 +151,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
               if(trialTag != ""){ 
               tag = trialTag;
               //std::cout << "Parsing " << ligandID << "-" << ligandAtomID << " as " << tag << "\n";
-
+              currentBeadType = 2;
               }
               else{
               foundAtom = false;
@@ -129,7 +170,11 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 //std::cout << 0.1 * std::stod(line.substr(30, 8)) << "," << 0.1 * std::stod(line.substr(38, 8)) << "," << 0.1 * std::stod(line.substr(46, 8))<<"\n";
                 //std::cout << line << "\n";
                 //std::cout << line.substr(56,4) << "\n";
-                occupancy.emplace_back(  std::stod(line.substr(54,6)));
+                double occupancyVal =  std::stod(line.substr(54,6));
+                if( atomIsBackboneGly == true){ 
+                    occupancyVal = occupancyVal * backboneScaleFactor;
+                }
+                occupancy.emplace_back(  occupancyVal   );
                 bfactor.emplace_back( std::stod(line.substr(60,6)));
                 //tag = line.substr(16, 4); // When using lipids
                 double rmsdVal = 0;
@@ -141,7 +186,11 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
                 }
                 rmsd.emplace_back(rmsdVal);
                 resTag.emplace_back( tag) ;
+                beadType.emplace_back( currentBeadType);
                 //std::cout << "read AA with bfactor" <<  std::stod(line.substr(60,6)) << " to  rmsd " << rmsdVal << "\n"; 
+                //
+                    
+
                 id.emplace_back(aminoAcidIdMap.at(tag));
             }
             catch (const std::invalid_argument& ia) {
@@ -290,7 +339,7 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
 
 
 
-    return PDB(x, y, z, id, length, name,occupancy,rmsd,resTag, bondSet, nbExclusions);
+    return PDB(x, y, z, id, length, name,occupancy,rmsd,resTag, bondSet, nbExclusions, beadType);
 }
 
 
@@ -305,7 +354,12 @@ void writePDB(std::string name, std::string directory, const int size, const PDB
     for(int i =0; i<size; ++i){
      handle << "ATOM  "; 
      handle <<  std::right << std::setw(5) <<  i ; 
+     if( pdb.m_beadType[i] == 1 ){
+     handle << std::left << "  CB" ; //place SCAs at the CB location for consistency 
+     }
+     else{
      handle << std::left << "  CA" ;
+     }
      handle << "  ";
      //handle << "X";
      handle << pdb.m_resTag[i];

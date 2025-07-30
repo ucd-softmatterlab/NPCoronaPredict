@@ -48,7 +48,7 @@ parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 
 parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 parser.add_argument("-f","--flexres", type=float, default = -0.01, help="Resolution for flexible beads if > 0.005, else disabled")
 parser.add_argument("--relaxsteps", type=int, default = 0, help="Number of relaxation steps")
-
+parser.add_argument("--backbone", type=str, default = "", help="Bead type to use as the backbone (and enable backbone)")
 args = parser.parse_args()
 
 
@@ -296,7 +296,7 @@ def writeConfigFile(configOutputLoc):
         outputConfigFile.write("flex-sdev=3\n")
         outputConfigFile.write("flex-resolution="+str(flexRes)+"\n")
     if relaxOn == True:
-        outputConfigFile.write("num-random-samples = 16\n")
+        outputConfigFile.write("num-random-samples = 4\n")
         outputConfigFile.write("enable-pdb-relax\n")
         outputConfigFile.write("enable-local-boltz\n")
         outputConfigFile.write("relax-steps="+str(relaxSteps)+"\n")
@@ -306,6 +306,25 @@ def writeConfigFile(configOutputLoc):
 
     if enableBoltz > 0:
         outputConfigFile.write("enable-local-boltz \n")
+
+
+    fullAAMaterials = ["gold-fullAA"]
+    if args.backbone != "" and args.material not in fullAAMaterials:
+        finalBackbone = args.backbone
+
+        for pmfFolderCheck in allPMFFolders:
+            if not os.path.exists( pmfFolderCheck+"/"+ finalBackbone +".dat" ):
+                print("Warning: PMF not found for selected backbone: ", finalBackbone, " in material ", pmfFolderCheck )
+        outputConfigFile.write("enable-backbone \n")
+        outputConfigFile.write("backbone-tag = "+finalBackbone+"\n")
+        outputConfigFile.write("backbone-scale = 1.0\n")
+        
+        glyProMaterials =[ "Au100", "Au110", "Au111", "Ag100", "Ag110","Ag111" ] #set of materials for which glycine and proline are not full AAs and so should therefore be split
+        if args.material in glyProMaterials:
+            print("The selected material uses split-PRO, adjusting set of SCAs")
+            outputConfigFile.write("replace-sca-set = [ALA, ARG, ASN, ASP, CYS, GLU, GLN,  HIS, ILE, LEU, LYS, MET, PHE,  SER, THR, TRP, TYR, VAL, HIE,HID,HIP,GAN, PRO, CYM] \n")
+    if args.material in fullAAMaterials:
+        print("The selected material uses PMFs corresponding to full AAs, ignoring the backbone modifier")
     if useDefaultBeadSet == 1:
         outputConfigFile.write("amino-acids         = [ ALA, ARG, ASN, ASP, CYS, GLN, GLU, GLY, HIS, ILE, LEU, LYS, MET, PHE, PRO, SER, THR, TRP, TYR, VAL] \n")
         outputConfigFile.write("amino-acid-charges  = [ 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.5, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ] \n")

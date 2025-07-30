@@ -72,6 +72,12 @@ public: // Key - vaules
    int m_relaxSteps = 400;
    int m_rigidSteps = 20000;
    double m_relaxZPull = 0.0; //gradient of the potential used to pull during the initial relaxation, positive values = pulling to - z
+    //parameters enabling backbone-mode
+    bool        m_enableBackbone        = false;
+    std::string m_backboneTag           = "PBB";
+    double      m_backboneScale         = 1.0; //scaling factor for backbone potentials 
+    //default residues to split into backbone and SCA components 
+    std::vector<std::string>    m_backboneReplaceSet        = {"ALA", "ARG", "ASN", "ASP", "CYS", "GLU", "GLN",  "HIS", "ILE", "LEU", "LYS", "MET", "PHE",  "SER", "THR", "TRP", "TYR", "VAL", "HIE","HID","HIP","GAN"};
 
 public:
     void UpdateSwitches(const std::vector<std::string>& switches) {
@@ -101,7 +107,10 @@ public:
             m_saveOptimumPDB = true;
            }
 
-
+            else if(switches[i] == "enable-backbone"){
+            m_enableBackbone = true; 
+            std::cout << "Enabling backbone \n" ; 
+            }
             else if(switches[i] == "confirm-override-angle"){
             std::cout << "Warning: Using angular resolutions other than 5 degrees is not supported by the NPCoronaPredict pipeline. Higher resolutions do not correspond to realistic conformations and the resulting energies must be interpreted with extreme caution.  \n";
             m_confirmOverrideAngle = true;
@@ -150,6 +159,11 @@ public:
                 m_npTargets = AsStringList(values[i]); 
                 m_multiNP = 1;
             }
+
+            else if(keys[i] == "replace-sca-set"){
+               m_backboneReplaceSet = AsStringList(values[i]) ;
+            }
+
             else if (keys[i] == "pmf-directory") {
                 m_pmfDirectory = values[i];
             }
@@ -332,6 +346,18 @@ public:
             else if(keys[i] == "potential-noise-magnitude"){
             m_potNoiseMag = AsDouble(values[i]);
             }
+            else if(keys[i] == "backbone-scale"){
+            m_backboneScale = AsDouble(values[i]);
+            std::cout << "Backbone beads will be scaled by " << m_backboneScale << "\n";
+            }
+            else if(keys[i] == "backbone-tag"){
+            std::string bbTag = values[i];
+            StringFormat::Strip(bbTag);
+            std::cout << "Backbone will be modelled using " << bbTag << "\n";
+            m_backboneTag = bbTag;
+            }
+
+
             else if (keys[i] == "np-type") {
                 std::cout << "npType " << values[i] << "\n";
                 int trialVal =  AsInt(values[i]);
