@@ -1,0 +1,21 @@
+#Example of a rule file for propka'ing proteins using PreprocessProteins.py .
+#To leave the bead unchanged even if propka says it should be in a different charge state just set the "new" tag to the standard ID
+#Standard ID, Name for deprotonated state, Name for protonated state
+ALA, ALA, ALA
+ARG, ARN, ARG
+ASN, ASN, ASN
+ASP, ASP, AAN
+CYS, CYM, CYS
+GLN, GLN, GLN
+GLU, GLU, GAN
+HIS, HIE, HIP
+ILE, ILE, ILE
+LEU, LEU, LEU
+LYS, LYN, LYS
+MET, MET, MET
+PHE, PHE, PHE
+SER, SER, SER
+THR, THR, THR
+TRP, TRP, TRQ
+TYR, TYM, TYR
+VAL, VAL, VAL

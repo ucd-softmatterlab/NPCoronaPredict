@@ -64,20 +64,28 @@ io = PDBIO()
 sup = Superimposer()
 
 
-argparser = argparse.ArgumentParser(description="Parameters for GenerateSurfacePotentials")
+argparser = argparse.ArgumentParser(description="Parameters for PreprocessProteins")
 argparser.add_argument("-p","--ph", type=float,default=7,help="Target pH")
-argparser.add_argument("-P","--propka", type=int,default=1,help="If non-zero run propka")
-argparser.add_argument("-r","--rotate", type=int, default=1,help="Rotate proteins to canonical form if non-zero (default yes)")
+
+#argparser.add_argument("-P","--propka", type=int,default=1,help="If non-zero run propka")
+#argparser.add_argument("-r","--rotate", type=int, default=1,help="Rotate proteins to canonical form if non-zero (default yes)")
+argparser.add_argument("-P", "--propka", action="store_true", help="Enable running PROPKA")
+argparser.add_argument("-r", "--rotate", action="store_true", help="Rotate proteins to canonical form")
+
+
 argparser.add_argument("-f","--folder", type=str, default="all_proteins",help="Target protein folder for conversion")
 argparser.add_argument("-o","--outputfolder",type=str,default="",help="Output folder, if left blank will be auto-generated")
-argparser.add_argument("-i","--interpolation",type=int,default=1,help="If non-zero residues are interpolated, if zero set to most likely form")
+#argparser.add_argument("-i","--interpolation",type=int,default=1,help="If non-zero residues are interpolated, if zero set to most likely form")
+argparser.add_argument("-L","--likelyonly", action="store_true", help="Force residues to only take the most likely form")
+
 argparser.add_argument("--hid", type=float,default = 0.2, help="Fraction of HID relative to HIE")
+argparser.add_argument("--aaset", help="path to a .csv file containing standard/protonated/deprotonated bead names to override default", default="" )
 args = argparser.parse_args()
 
 
 makeCanonical = True
 canonicalString = "-canonical"
-if args.rotate == 0:
+if args.rotate == False:
     makeCanonical = False
     canonicalString = ""
 
@@ -90,7 +98,7 @@ else:
     
     
 runPropka = True
-if args.propka == 0:
+if args.propka == False:
     runPropka = False
     
 os.makedirs(outputFolder,exist_ok=True)
@@ -100,7 +108,7 @@ os.makedirs(outputFolder+"/propkaoutput",exist_ok=True)
 #the input potentials according to this weight. This results in larger files but smoother behaviour, especially for pH \approx pKa
 
 residueInterpolation = 1
-if args.interpolation == 0:
+if args.likelyonly == True:
     residueInterpolation = 0
 
 hidFraction = args.hid #HIE (epsilon-protonated) is favoured over HID (delta-protonated) by a ratio of 4:1 in solution
@@ -155,7 +163,30 @@ aaDataExtra =  [
 ["VAL", "VAL", "VAL"]
 ]
 
-aaData = aaDataExtra
+if args.aaset == "":
+    print("Using default AA states: GLU/GAN protonation and HIS -> HIE/HID/HIP only")
+elif args.aaset == "extended":
+    print("Using extended AA states: GLU/GAN, HIS -> HIE/HID/HIP, ASP/AAN, CYS/CYM, TRP/TRQ, TYR/TYM")
+    aaData = aaDataExtra
+else:
+    trialFile = args.aaset
+    aaData = []
+    if os.path.exists(trialFile):
+        fileIn = open(trialFile, "r")
+        for line in fileIn:
+            if line[0] == "#":
+                continue
+            lineTerms = line.strip().split(",")
+            aaData.append( [lineTerms[0].strip() , lineTerms[1].strip(), lineTerms[2].strip() ] )
+        fileIn.close()
+        print("Finished reading custom definition from ", trialFile)
+    else:
+        print("Could not find custom AA definition, quitting")
+        quit()
+
+print(aaData)
+#quit()
+
 aaDataIndexDict = {}
 for i in range(len(aaData)):
     aaDataIndexDict[aaData[i][0]] = i
