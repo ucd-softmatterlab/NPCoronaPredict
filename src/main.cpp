@@ -62,7 +62,7 @@ std::normal_distribution<double> unitNormalDist(0.0, 1.0);
 //When you increment a number, all the following numbers should be reset to zero. E.g. If we're at 1.2.3 and a bug fix is applied, move to 1.2.4 , if we then add new functionality, 1.3.0, then a new version entirely, 2.0.0 
 
 std::string getUAVersion(){
-    static std::string uaVersionID("1.5.0"); 
+    static std::string uaVersionID("1.5.1"); 
     return uaVersionID;
 }
 
@@ -1274,7 +1274,7 @@ inline void RelaxPDB (const int size, double *x, double *y, double *z, const Con
            double ijDist =  sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) ); 
            double bondLength = pdb.m_bondSet[k].length; 
            double bondMag = pdb.m_bondSet[k].bondk;
-
+           ijDist = std::max( 0.001, ijDist) ; 
            double xForceB = -bondMag*( x[i] - x[j] )*( ijDist - bondLength)/ijDist;
            double yForceB = -bondMag*( y[i] - y[j] )*( ijDist - bondLength)/ijDist;
            double zForceB = -bondMag*( z[i] - z[j] )*( ijDist - bondLength)/ijDist;

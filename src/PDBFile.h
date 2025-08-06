@@ -310,9 +310,9 @@ PDB ReadPDBFile(const std::string& filename, const std::unordered_map<std::strin
 
             double resDist = sqrt( pow(x[i]-x[j],2 )+pow(y[i]-y[j],2 )+pow(z[i]-z[j],2 ) );
             if(   resDist < bondCutoff){
-
+              
                 //
-               //std::cout << "adding bond with length " << resDist << "\n" ;
+               //std::cout << i << "-" << j << "adding bond with length " << resDist << "\n" ;
                 double bondRMS = 0.02; //default values
                 double bondK = 1.0/pow(bondRMS,2);  //100.0/pow(resDist,2)
 
