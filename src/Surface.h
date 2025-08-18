@@ -36,7 +36,24 @@ public:
        		return 0.0;
         }
        	else if (distance < m_start) {
-       		return (*this)[0];
+                double distanceUnderflow = m_start - distance;
+                
+                double gradEst = (   (*this)[2] - (*this)[0] )/(2*m_dr);                
+                
+                //linear blocking
+                //gradEst = std::min( gradEst, -100.0 );
+                //gradEst = 0; 
+                //double distUFPower = std::pow( distanceUnderflow, 4);  
+       		//return (*this)[0] - distanceUnderflow*gradEst ;
+                gradEst = std::min( gradEst, -100.0 );
+                //repulsive r^-6 (roughly r^-12 integrated over 6 times)
+                double aCoeff = (*this)[0] + m_start*gradEst/6.0 ;
+                double bCoeff = -1 * gradEst * std::pow(m_start,7)/6.0 ; 
+                double r = std::max( distance, 0.01 );
+                //std::cout << distance << " " << m_start << " " << gradEst << " " << (*this)[0] << " coeffs:" << aCoeff << " " << bCoeff << ": "<<  aCoeff + bCoeff/(std::pow(r,6) ) << "\n";
+                return aCoeff + bCoeff/(std::pow(r,6) );
+                //double distUFPower = std::pow( distanceUnderflow, 6);
+
         }
         
         // Linear interpolation of the energy
