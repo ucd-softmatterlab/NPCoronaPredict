@@ -21,6 +21,7 @@ public: // Switches
     bool        m_readLigands = false;
     bool        m_relaxPDB = false;
     bool        m_saveOptimumPDB = false;
+    bool        m_pullIsCentral = true;
 public: // Key - vaules
     std::vector<std::string>    m_pdbTargets        = {};
     std::vector<std::string>    m_npTargets         = {};
@@ -37,6 +38,7 @@ public: // Key - vaules
     std::string m_hamakerFile           = "hamaker.dat";
     std::string m_outputDirectory       = "";
     std::string m_ligandFile            = "";
+    int         m_maxThreads            = -1;
     int         m_simulationSteps       = 10000;
     int         m_potentialSize         = 2000;
     int         m_multiNP               = 0;
@@ -71,7 +73,7 @@ public: // Key - vaules
   double m_bondCutoffNM = 0.8; // 0.551; //default value for the bond cutoff length for relaxation
    int m_relaxSteps = 400;
    int m_rigidSteps = 20000;
-   double m_relaxZPull = 0.0; //gradient of the potential used to pull during the initial relaxation, positive values = pulling to - z
+   double m_relaxZPull = 0.0; //gradient of the potential used to pull during the initial relaxation, positive values = pulling to the centre of the NP (default) or to the -z direction (if overriden)
     //parameters enabling backbone-mode
     bool        m_enableBackbone        = false;
     std::string m_backboneTag           = "PBB";
@@ -131,6 +133,9 @@ public:
         for (std::size_t i = 0; i < keys.size(); ++i) {
             if (keys[i] == "config-file") {
                 m_configFile = values[i];
+            }
+            else if (keys[i] == "max-threads"){
+               m_maxThreads = AsInt(values[i]) ;
             }
             else if (keys[i] == "nanoparticle-radius") {
                 m_nanoparticleRadii = AsDoubleList(values[i]);
@@ -310,7 +315,7 @@ public:
            else if (keys[i] == "relax-gradient"){
             m_relaxZPull = AsDouble(values[i]) ;
               if( m_relaxPDB == true ){
-              std::cout << "Potential gradient (-force) for relaxation set to " << m_relaxZPull << "\n";
+              std::cout << "Potential gradient (-force) for relaxation set to " << m_relaxZPull << " , max displacement " <<  m_relaxZPull*1e-6  <<  " per timestep \n";
               }
            }
           else if (keys[i] == "rigid-dynamics-steps"){

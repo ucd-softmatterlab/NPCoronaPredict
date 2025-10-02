@@ -233,6 +233,10 @@ def outputState():
     uniqueProteinCoverage = np.zeros(len(uniqueProteins))
     lastUpdateRounded = round(lastUpdate/updateInterval) * updateInterval
 
+    #if kmcOutputSteps > kmcOutputFrequency:
+    #    kmcOutputSteps = 0
+    #    writeKMCFile(coronaSaveDir+"/"+outputTag+"_"+str(lastUpdateRounded)+".kmc" )
+
     outString = str(lastUpdateRounded)
     outStringCoverage = str(lastUpdateRounded)
     print(lastUpdate,end=' ' )
@@ -296,7 +300,8 @@ def outputState():
     runningFileCoverage.write(outStringCoverage)
     resList.append(resEntry)
     sys.stdout.flush()
-
+    runningFile.flush()
+    runningFileCoverage.flush()
 
     #print( proteinData[:,0] * proteinData[:,2] * proteinBindingSites ) 
     #print(proteinCollisionEvents)
@@ -366,7 +371,7 @@ parser.add_argument('-b','--boundary',help="Boundary type: 0 = vacuum, 1 = perio
 parser.add_argument('-D','--displace',help="Allow incoming protein to displace bound protein, nonzero = yes", default = 0, type = int)
 parser.add_argument('-A','--accelerate',help="Experimental feature for quasiequilibriation scaling, nonzero = yes", default = 0, type = int)
 parser.add_argument('-S','--steady', help="Fix the adsorption rate to a constant and adjust desorption rate for same steady-state behaviour", action="store_true")
-
+parser.add_argument("--steadykd", help="If steady-state mode is activated, rescale kd to constant instead of ka", action="store_true" )
 
 
 doMovie = False
@@ -413,8 +418,10 @@ if args.steady==True:
     restoredOldRates= False
     restoreOldRateConstantTime = 50000 #then restore the standard rate constants (experimental)
 
+print("setting update parameters")
 updateInterval = args.timedelta
-    
+kmcOutputFrequency = 100 #save out a .kmc file every frequency timesteps
+kmcOutputSteps = 0 
 
 #if args.steady==True:
 #    updateInterval = 0.1
@@ -618,6 +625,8 @@ if forceSteadyState == True:
     #kaAdjustFactor = collisionRateConst/( proteinData[:,0] )
     print("ka adjust: ", kaAdjustFactor)
     rescaleAdsorption = True
+    if args.steadykd == True:
+        rescaleAdsorption = False 
     if rescaleAdsorption == True:
         #print("Scaled rates: ", proteinData[:,2] * proteinData[:,0] * proteinBindingSites )
         #rescale KA to produce approx. equivalent collision rates for all species
@@ -834,7 +843,7 @@ for i in range(len(precoatState)):
 if proteinInput == "":
     outputTag = "hsahdlfib"
 else:
-    outputTag = proteinInput.split("/")[-1]
+    outputTag = (proteinInput.split("/")[-1])[:-4] #strip off the .csv tag
 
 if meanFieldApprox == 1:
     mfTag = "mf"
@@ -869,6 +878,24 @@ if coarseGrainAtEnd != 0:
     print("DeltaG")
 else:
     print("")
+
+
+
+
+def writeKMCFile(outputpath):
+    print("saving KMC file to ", outputpath)
+    kmcFileOut=open(outputpath,"w")
+    kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
+    for i in range(len(stateArray)):
+        proteinID = stateArray[i,0].astype(int)
+        proteinName = proteinNamesAll[proteinID]
+        proteinDataLine = proteinData[proteinID]
+        #print(proteinID,proteinName,proteinDataLine, stateArray[i])
+        outputSet = [ proteinName, 0, proteinDataLine[1], proteinDataLine[2], proteinDataLine[3],proteinDataLine[4], proteinDataLine[5] ,stateArray[i,1], stateArray[i,2], stateArray[i,3]]
+        outputLine = ",".join( [ str(a) for a in outputSet])
+        kmcFileOut.write(outputLine+"\n")
+    kmcFileOut.close()
+
 
 localRateRescale = np.ones_like(proteinData[:,0])
 disabledDisplace = False
@@ -1052,7 +1079,11 @@ while t < endTime:
         if t > lastUpdate:
             outputState()
             lastUpdate += updateInterval
-        print 
+            if kmcOutputSteps > kmcOutputFrequency:
+                kmcOutputSteps = 0
+                writeKMCFile(coronaSaveDir+"/"+outputTag+"_"+str(lastUpdateRounded)+"_"+args.fileid+ ".kmc" )
+
+        #print 
         
     #we then (if required) print out the state at the specified update time before making the most recent change, since this change by definition takes place after this update time.
     t += deltat
@@ -1362,7 +1393,7 @@ print( "Number adsorbed: " , len(stateArray))
 print( outputTranspose.shape )
 
 
-coordFileOut = open(coronaSaveDir+"/"+outputTag+"_finalcoords_"+str(npRadius)+"_s"+str(doShuffle)+".txt", "w")
+coordFileOut = open(coronaSaveDir+"/"+outputTag+"_finalcoords_"+str(npRadius)+"_s"+str(doShuffle)+  "_"+args.fileid+ ".txt", "w")
 coordFileOut.write("#Protein type, x, y, z, NP \n")
 for i in range(len(stateArray)):
     coordData = outputTranspose[i] 
@@ -1379,16 +1410,9 @@ coordFileOut.close()
 #state:
 #ID, C1, C2, NP
 
-kmcFileOut=open(coronaSaveDir+"/"+outputTag+"_"+str(npRadius)+".kmc","w")
-kmcFileOut.write("#Name,Conc,Size,KOn,Koff,EAds,Area,C1,C2,NP\n")
-for i in range(len(stateArray)):
-    proteinID = stateArray[i,0].astype(int)
-    proteinName = proteinNamesAll[proteinID]
-    proteinDataLine = proteinData[proteinID]
-    #print(proteinID,proteinName,proteinDataLine, stateArray[i])
-    outputSet = [ proteinName, 0, proteinDataLine[1], proteinDataLine[2], proteinDataLine[3],proteinDataLine[4], proteinDataLine[5] ,stateArray[i,1], stateArray[i,2], stateArray[i,3]]
-    outputLine = ",".join( [ str(a) for a in outputSet])
-    kmcFileOut.write(outputLine+"\n")
-kmcFileOut.close()
+writeKMCFile(coronaSaveDir+"/"+outputTag+"_"+args.fileid+  "_final.kmc" )
+
+
+
 runningFile.close()
 runningFileCoverage.close()

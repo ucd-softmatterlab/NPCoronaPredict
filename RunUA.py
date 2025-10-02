@@ -101,7 +101,7 @@ if args.hamaker == 0:
     enableHamaker = False
 
 enableBoltz = 0
-if args.boltzmode > 0:
+if args.boltzmode > 0 or relaxOn:
     enableBoltz = 1
 
 jitterMag = 0
@@ -304,7 +304,7 @@ def writeConfigFile(configOutputLoc):
     if args.ligand_file != "":
         outputConfigFile.write("ligand-file = "+args.ligand_file+"\n")
 
-    if enableBoltz > 0:
+    if enableBoltz > 0 and relaxOn == False:
         outputConfigFile.write("enable-local-boltz \n")
 
 

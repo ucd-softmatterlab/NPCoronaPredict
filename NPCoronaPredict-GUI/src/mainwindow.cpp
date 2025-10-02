@@ -631,7 +631,7 @@ void MainWindow::on_runUAButton_clicked()
     commandArgs << "-S";
     commandArgs << QString::number(1 + this->findChild<QComboBox *>("npTargetShapeOverride")->currentIndex());
 
-
+    commandArgs << "--relaxsteps 50";
     if(localBoltzMode == true){
         commandArgs << "-B";
         commandArgs << "1";
@@ -671,8 +671,8 @@ void MainWindow::on_runUAButton_clicked()
         
         commandArgs << "-o";
         commandArgs << targetPDB; //targetPDB was overloaded with otherproteins file if this mode is requested
-        commandArgs << "--steady" ;
-
+        commandArgs << "--rateeq" ;
+        commandArgs << "--relax"; 
         if(ligandOverride != ""){
             commandArgs << "-L";
             commandArgs << ligandOverride;

@@ -62,6 +62,7 @@ parser.add_argument("-S", "--shapeoverride", type=int, default=-1 , help="If  > 
 parser.add_argument("-L","--ligand-file", type=str, default = "", help = "Path to a UA ligand override file, leave blank to skip")
 parser.add_argument("--steady", action="store_true", help="Attempt to get the steady-state corona")
 parser.add_argument("--relax", action="store_true", help="Use protein relaxation and flexibility in UA")
+parser.add_argument("--rateeq", action="store_true", help="Use the rate-equation solver instead of CoronaKMC")
 
 args = parser.parse_args()
 
@@ -335,7 +336,7 @@ if overrideShape == True:
     UACommandString += " -S " + str(npShape)
 
 if args.relax == True:
-    UACommandString += " --relaxsteps 1000 --flexres 0.05"
+    UACommandString += " --relaxsteps 50 --flexres 0.05"
 
 print(UACommandString)
 kmcFileLocation = BaseStorageFolder+"/"+ProjectName+"/coronakmcinput.csv"
@@ -356,6 +357,12 @@ if args.steady == True:
 
 KMCCommandString = "python3 CoronaKMC.py -r "+str(round(NPRadius))+" -f 0 -p "+kmcFileLocation+" -t "+str(CoronaSimTime)+" --timedelta "+kmcTimeDelta+" -P "+ProjectName+" --demo "+str(args.demonstration)+" -b "+str(boundaryType)+" -D "+str(args.displace)+" -A "+str(args.accelerate)+" -n 10"+appendSteady
 
+
+if args.rateeq == True:
+    print("Using CoronaRateSolver.py instead of CoronaKMC")
+    KMCCommandString = "python3 CoronaRateSolver.py -r "+str(round(NPRadius))+" -p "+kmcFileLocation+ " -o "+"CoronaPredictionProjects/"+ProjectName+"/coronaratesolver_output"+" -t 52 --endtimeunit weeks"
+    
+
 if isCylinder == True:
     print("Adding cylinder argument")
     BCPCommandString = BCPCommandString+" -s 2"
@@ -365,6 +372,8 @@ elif isPlane == True:
     BCPCommandString = BCPCommandString+" -s 3"
     KMCCommandString = KMCCommandString+" -s 3"
     
+
+
 
 print(BCPCommandString)
 print(KMCCommandString)

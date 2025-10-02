@@ -14,14 +14,16 @@
 \usepackage{graphicx}
 \graphicspath{figs} 
 \begin{document}
-\title{NPCoronaPredict (UnitedAtom and CoronaKMC) user guide}
+\title{NPCoronaPredict (UnitedAtom and CoronaKMC/CoronaRateSolver) user guide}
 
 \maketitle 
 
 \tableofcontents
 
 \chapter{Introduction}
-This document is designed to provide an overview of how to run the NPCoronaPredict pipeline, consisting of the UnitedAtom and CoronaKMC packages, for the prediction of nanoparticle (NP) to protein adsorption energies and the composition of the corona for an NP immersed in a particular environment. It is assumed that you have access to the publications describing the theory behind these tools and so this document will focus more on practical details about running the software packages.
+This document is designed to provide an overview of how to run the NPCoronaPredict pipeline for the prediction of the adsorbate corona surroundng a nanoparticle in a mixture of potential adsorbates.
+
+The pipeline consists of the UnitedAtom and CoronaKMC/CoronaRateSolver packages, for the prediction of nanoparticle (NP) to protein adsorption energies and the composition of the corona for an NP immersed in a particular environment. It is assumed that you have access to the publications describing the theory behind these tools and so this document will focus more on practical details about running the software packages.
 
 Throughout, we use the convention that the substrate is a ``nanoparticle'' and the adsorbates are ``proteins'' to fit with the initial usage of UnitedAtom, where a ``protein'' is an assembly of ``amino acids'' (AA). In general, the protein can be any molecule which can be modelled as a set of adsorbate beads (AB).
 
@@ -46,7 +48,7 @@ make clean; make
 \end{lstlisting}
 which will require a C++ compiler and the Boost libraries to be installed.
 
-The current version of CoronaKMC is implemented in Python 3 and is the CoronaKMC.py script. An older version (CoronaKMC-P2.py) is provided for Python 2.7 users but is no longer maintained and is lacking a significant amount of functionality compared to more recent versions. 
+The current version of CoronaKMC is implemented in Python 3 and is the CoronaKMC.py script. An older version (CoronaKMC-P2.py) is provided for Python 2.7 users but is no longer maintained and is lacking a significant amount of functionality compared to more recent versions.  Likewise, CoronaRateSolver is implemented in Python 3 and has no 2.7 equivalent.
  
 Some optional GUI tools are included, NPDesigner and NPCoronaPredict-GUI. To install these, install QT:
 \begin{lstlisting}
@@ -193,7 +195,7 @@ python3 NPCoronaPredict.py -r 10 -z 0 -m graphene -p corona_predict_demo -t 0.01
 \end{lstlisting}
 This will call UnitedAtom, BuildCoronaParams and finally CoronaKMC to predict the corona abundances of P02768 on your NP (here, graphene of radius 10 nm, as a simple if unrealistic demonstration), letting the simulation run for 0.01 seconds and saving all the output to the folder corona\textunderscore predict\textunderscore demo.  
 Try changing the material, timespan for corona predictions, or adding more proteins to demo\textunderscore medium.csv. When it's done, check the resulting output folder - this will contain data about the evolution of the corona and its final contents.
-The above command only requests 0.01 seconds of corona simulation - this is a very short amount of time and nowhere near enough for the corona to reach equilibrium. Try increasing this! You can also try appending --steady to the command string and this will ask CoronaKMC to try to estimate the final state - this might be more useful for comparison to experiment.
+The above command only requests 0.01 seconds of corona simulation - this is a very short amount of time and nowhere near enough for the corona to reach equilibrium. Try increasing this! You can also try appending --steady to the command string and this will ask CoronaKMC to try to estimate the final state - this might be more useful for comparison to experiment. Alternatively, add the parameter ``--rateeq'' to the above command, which will instruct NPCoronaPredict to call the CoronaRateSolver tool instead of CoronaKMC.
 
 
 
@@ -203,7 +205,7 @@ Alternatively, if you want to keep using the GUI, this can be done in NPCoronaPr
 Run Check Structures and then click "Save" to save out your medium file.
  Then on the Run tab, check ``Advanced Mode'' then click ``Medium file'' to find the medium file you just made. 
 From the drop-down above this go from ``Prepare only'' to ``Prepare + UA + BCP + KMC''. After that, you can define your NP as before. Then click the Run button and wait a little.
-The GUI is set so that it will automatically request the steady-state - this is because dynamical evolution can take quite a long time to converge and we assumed if you're using the GUI you just want to know final contents.
+The GUI is set so that it will automatically request CoronaRateSolver instead of CoronaKMC - this is because CoronaKMC can take a very long time to converge. It also automatically enables basic protein relaxation.
 
 
 
@@ -229,13 +231,14 @@ The behaviour of NPCoronaPredict can be fine-tuned using more command-line optio
 \item  -j JITTER, --jitter JITTER                        S. dev. of random noise to apply to each AB position per-axis [nm]
 \item  -B BOLTZMODE, --boltzmode BOLTZMODE                        If >0 enables Boltzmann local averaging in UA
 \item  -S SHAPEOVERRIDE, --shapeoverride SHAPEOVERRIDE                        If > 0 overrides the default shape for a given material to the specified shape number
-\item  --steady              Attempt to get the steady-state corona
+\item  --steady              Attempt to get the steady-state corona in CoronaKMC
+\item --rateeq               Use CoronaRateSolver instead of CoronaKMC
 \end{itemize}
 
-At a minimum, you need to set a radius, material, project name and a set of proteins. If you're trying to match an experiment then enabling --steady is also a good idea, as CoronaKMC can take a long time to equilibriate when it's simulating full dynamics.
+At a minimum, you need to set a radius, material, project name and a set of proteins. If you're trying to match an experiment then enabling --steady is also a good idea, as CoronaKMC can take a long time to equilibriate when it's simulating full dynamics, or use the --rateeq option to instead run CoronaRateSolver.
 
 
-If you want to override this behaviour even more, or for more complex cases, it's recommended you run UnitedAtom, BuildCoronaParams and CoronaKMC separately. You can use the suggested command strings as a base to make changes by running NPCoronaPredict with the -a 0 option.
+If you want to override this behaviour even more, or for more complex cases, it's recommended you run UnitedAtom, BuildCoronaParams and CoronaKMC/CoronaRateSolver separately. You can use the suggested command strings as a base to make changes by running NPCoronaPredict with the -a 0 option.
 
 \section{NPCoronaPredict-GUI}
 An even higher-level interface is available from the NPCoronaPredict-GUI tool. This requires a qt5 installation to build but provides even easier access to the commands for NPCoronaPredict, plus some visualisation tools.
@@ -254,7 +257,7 @@ Jitter magnitude and local Boltzmann averaging can be enabled to allow more rigo
 
 In unadvanced mode, you can also define a folder to store output. It's recommended you make a new one regularly to avoid accumulating too many proteins in there, as UA will run for all proteins in this folder.
 
-The Run UA/Cancel Run buttons start and stop calculations respectively. Note that in advanced mode ``Run UA'' will also start CoronaKMC.
+The Run UA/Cancel Run buttons start and stop calculations respectively. Note that in advanced mode ``Run UA'' will also start CoronaKMC/CoronaRateSolver.
 \subsection{View UA Results}
 This tab is used to view UA output files. Load .uam and Load .pdb buttons are used to select input. Colour by distance will shade each residue according to their distance to the NP surface at the time of clicking and does not automatically update. Clicking the heatmap sets the protein view to that orientation.
 Colour by energy attempts to show an overall view of the UA heatmap wrapped onto the protein and is a little slow.
@@ -265,7 +268,7 @@ The next column provides the current adsorption energy and COM to COM distance f
 Eads simple and Boltz are provided for reference.
 Show charges highlights charged residues with a blue or red outline depending on charge. 
 \subsection{Molecule List Editor}
-This tab is a simple interface for designing medium input files for use with CoronaKMC and collection of structures.
+This tab is a simple interface for designing medium input files for use with CoronaKMC/CoronaRateSolver and collection of structures.
 Right clicking on the main view allows adding or removing a molcule. New/Load/Save are standard file operations for the set of defined molecules.
 Any protein with a corresponding structure in all\textunderscore proteins is highlighted in green. Proteins highlighted in red do not have a known structure.
 If you click Check Structures, proteins with a prefix of ``PDB-'' are searched for in the Protein Databank, while proteins with a prefix of ``AFDB-'' are searched for in the AlphaFold Database.
@@ -1106,7 +1109,58 @@ By default $c_0$ is set to an empirically found value of $1000.0$. This value do
 \section{Tips and tricks}
 If you're trying to get a match to experimental, match the absolute experimental concentrations as best as you can -- it can be shown that an overall dilution factor changes the steady-state corona composition and high concentrations tend to lead to an increase in more weakly binding proteins (see Rouse and Lobaskin, Biophys J, 2021 for details).  And use steady-state mode to skip the metastable dynamic corona.
  
- 
+\section{CoronaRateSolver}
+Given the long runtimes for CoronaKMC for large NPs or where the adsorption is strong, it is not always feasible to reach an experimental timescale within a reasonable amount of time. Conversely, the steady-state options may produce a state which is not sampled on the experimental timeframe.
+To overcome these limitations, the rate equations for corona evolution can instead be solved numerically. The CoronaRateSolver.py script provides a simple numerical solver based on the RK4 method to achieve this. It is designed as a drop-in replacement for CoronaKMC and can be used as a direct replacement by setting the --rateeq flag when calling NPCoronaPredict, or as a standalone script.
+
+CoronaRateSolver produces the average surface coverage instead of tracking the adsorption of individual proteins. This means the runtime becomes independent of the size of the NP and number of adsorbed proteins. Furthermore, the algorithm used to evolve the corona is designed to allow high time resolution during the initial stages of corona evolution, followed by longer timesteps during the later periods, allowing hours to days of simulated corona evolution within a few hours of computational time for thousands of potential adsorbates. The tradeoff, however, it does not provide insight into the typical number fluctuations or provide structures of the corona.
+
+In addition to the standard Python libraries, CoronaRateSolver also requires the Numba package and an OMM threading library. 
+
+CoronaRateSolver.py takes the following set of arguments:
+\begin{itemize}
+\item -f, --filename : Name for the output files. If left blank this auto-generates
+\item -p, --proteins : Input protein set generated via BuildCoronaParams.py
+\item -s, --shape    : Shape parameter, 1 = sphere , 2 =cylinder, 3 = cube. Note that --s sphere or -s 1 both produce a sphere, likewise for cylinders or cubes.
+\item -r, --radius   : NP radius (or cube half-length)
+\item -t, --time     : End time for the simulation in hours (unless --endtimeunit is specified)
+\item --endtimeunit  : One of:  s, h, days, weeks to set the unit for time above.
+\item -o, --outputfolder : Location to store results
+\item --merge : Merge together orientations with similar values of EAds and radius. 
+\item --jump : Jump-start: use the mean field model until total surface coverage is equal to 0.1, then switch to the more exact model.
+\end{itemize}
+
+\section{Theory}
+CoronaRateSolver  solves the coupled set of rate equations given by,
+\begin{equation}
+\frac{ d s_i}{dt} = k_{a,i} [C_i] P_i(\mathbf{S}) - k_{d,i} s_i
+\end{equation}
+where $k_{a,i}, k_{d,i}$ are per-site adsorption and desorption rates, $s_i$ is the fractional surface coverage of species $i$, $[C_i]$ is the bulk concentration of $i$,  and $\mathbf{S} = \sum_j s_j$ is the total surface coverage. The function $P_i(\mathbf{S})$ defines the probability that an incoming protein will find sufficient room to bind to the surface and takes different forms for spherical and cylindrical NPs [Rouse, BiophysJ].
+
+In practice, we instead solve the set of equations $d s_i / d \mathbf{S}$ by a change of variables,
+
+\begin{equation}
+\frac{ d s_i}{d \mathbf{S} } =\frac{  k_{a,i} [C_i] P_i(\mathbf{S}) - k_{d,i} s_i }{  \sum_j  k_{a,j} [C_j] P_j(\mathbf{S}) - k_{d,j} s_j  }
+\end{equation}
+This has the following advantages. Firstly, $\mathbf{S}$ is bounded on the interval $[0,1]$, instead of the bounds of $t = [0,\infty)$ . Secondly, the gradient for each species is bounded above by $1$ and, in most cases, will be bounded below by $-1$. Thirdly, and most importantly, we may now numerically integrate the equations with respect to the total surface coverage by an amount $\delta S$, then advance time by
+\begin{equation}
+\delta t = \delta S \frac{d t}{d S} = \delta S \left(  \sum_j \frac{d s_i}{dt}  \right)^{-1}
+\end{equation}
+Consequently, during the initial phase where gradients are high due to rapid adsorption, $\delta t$ advances by small amounts such that the initial evolution is recorded at high resolution. During the long-term evolution, all gradients are low and so $\delta t$ advances by a larger amount. The value of $\delta S$ is initially set to $0.0001$ and is decreased as the simulation progresses if necessary to ensure that $dS/dt > 0$ at all times. 
+For an adsorbate which is nearly eliminated from the corona, increasingly small timesteps are required to ensure $s_i$ remains non-negative. Thus, if an adsorbates partial coverage falls below $1e-6$ and is decreasing further, we instead assume $P_i(S)$ is independent of this adsorbate, and approximate the evolution using an analytical expression using the average value of $P_i(S)$ generated during the timestep for other adsorbates.
+
+
+For spherical NPs, $P_i{S}$ can be computed efficiently by two separate loops over all $N$ adsorbates, thus scaling as $\mathcal{O(N)}$.
+For cylindrical NPs, however, $P_i$ has a more complex form and requires a nested loop over all $N$ adsorbates, with $\mathcal{O(N^2)}$ scaling for the numerically exact implementation. We note that for typical UA output for a cylinder, each protein contributes on the order $5000$ potential adsorbates and thus this becomes prohibitively expensive. Instead, we make use of the fact that the corona insertion function depends only on $R_j,s_j$ for each protein.
+We may therefore define a ``shadow corona'' consisting of a set of adsorbate $R_k=0.1, 0.2 .... R_{max}$, where $R_{max}$ is the largest adsorbate radius. For each of these adsorbates, we compute an effective coverage
+\begin{equation}
+s_k = \sum_j s_j I(R_k, R_j)
+\end{equation}
+ where $I(R_k, R_j)$ is an indicator function equal to $1$ if $R_j$ is close to $R_k$ and zero otherwise. In general, the set of shadow adsorbates is on the order of a few hundred, allowing a much faster computation of insertion probabilites which are then assigned to the real adsorbates.
+
+
+
+
 \appendix
 \chapter{Rotations, random rotations, and sphere points}
  It is very very highly recommend that you at least read the wikipedia page on rotation matrices ( https:\slash \slash en.wikipedia.org\slash wiki\slash Rotation\textunderscore matrix ) to get a feel for some of the issues with rotation in 3D, which can be quite counterintuitive. Some common problems are:
