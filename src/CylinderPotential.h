@@ -198,7 +198,7 @@ if(d > re){
 res = 2*HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength);
 
 
-if(res < -500){
+if(res < -50000){
 std::cout << "large value in calculation of cylinder in case 1 at: " << d << " " << res << " "  << " " << re << " " <<  d - re <<"\n";
 }
  
