@@ -214,8 +214,13 @@ double zc = 0;
 double deltazc = zcMax/100.0;
 while(zc < zcMax-deltazc){
 //std::cout << zc << " " << zcMax - deltazc << "\n";
-res += HamakerAtomDiskUnit( RC, d, re,   zc+deltazc/2.0 )*deltazc;
- 
+double trialRes = HamakerAtomDiskUnit( RC, d, re,   zc+deltazc/2.0 )*deltazc;
+ if( std::isinf(res) ){
+res = 1e10; 
+}
+
+res += trialRes;
+
 zc+=deltazc;
 
 

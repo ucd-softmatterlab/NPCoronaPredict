@@ -3266,9 +3266,10 @@ main (const int argc, const char *argv[])
               handle << npTypeOutString;
               handle << npBeadOutString;
               handle.close ();
+              config.m_npTargets.emplace_back (npOutLoc);
             }
         }
-      config.m_npTargets.emplace_back (npFileDir);
+      //config.m_npTargets.emplace_back (npFileDir);
     }
   //
   NPTargetList npTargetList (config.m_npTargets);
