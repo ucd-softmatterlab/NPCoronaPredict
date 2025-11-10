@@ -260,7 +260,8 @@ if(std::isnan(res)){
 std::cout << "found nan at " << d << " " << RC << "\n";
 }
 if(std::isinf(res)){
-std::cout << "found inf at " << d << " " << RC << "\n";
+//std::cout << "found inf at " << d << " " << RC << "\n";
+res = 1e10;
 }
 //std::cout << d << " "  << re << " " << res << "\n";
 
