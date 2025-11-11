@@ -199,7 +199,7 @@ res = 2*HamakerAtomCylinderUnitSegmentIntegrandNE(RC, d, cylinderHalfLength);
 
 
 if(res < -50000){
-std::cout << "large value in calculation of cylinder in case 1 at: " << d << " " << res << " "  << " " << re << " " <<  d - re <<"\n";
+//std::cout << "large value in calculation of cylinder in case 1 at: " << d << " " << res << " "  << " " << re << " " <<  d - re <<"\n";
 }
  
 }

@@ -481,8 +481,8 @@ IntegrateCylinder (const int size, const double dz, const double init_energy, co
         }
       if (std::isinf (energy[i]))
         {
-          std::cout << "Cylinder integration: found inf at " << i << " "
-                    << "\n";
+         // std::cout << "Cylinder integration: found inf at " << i << " "         << "\n";
+         
         }
 
       area += static_cast<long double> (ssd[i] * dz) * std::exp (static_cast<long double> (-1.0 * (energy[i] - init_energy)));

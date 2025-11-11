@@ -83,7 +83,13 @@ public:
                 correction =  (  HamakerAtomCylinderUnit(radius,distCeilVal,0.000000011) - HamakerAtomCylinderUnit(radius,distCeilVal,cutoff)  )/ ( HamakerAtomCylinderUnit(1000,distCeilVal,0.000000011) - HamakerAtomCylinderUnit(1000,distCeilVal,cutoff) );
                }
               else{
+
+                 if(distance < 0.05){
+                 correction = 1.0; //this close to the surface its more numerically stable to just assume zero correction
+                 }
+                 else{
                 correction = (  HamakerAtomCylinderUnit(radius,distance,0.000000011) - HamakerAtomCylinderUnit(radius,distance,cutoff)  )/ (  HamakerAtomCylinderUnit(1000,distance,0.000000011) - HamakerAtomCylinderUnit(1000,distance,cutoff) );
+                 }
               }
             }
             else if(correctionType == 3){ //cube. we assume that the exclusion distance is less than the half-length of the cube and because it's a flat surface there's no correction needed.
