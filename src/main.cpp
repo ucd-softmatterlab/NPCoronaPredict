@@ -2202,6 +2202,15 @@ getContactMap (double phi, double theta, const int size, const Config &config, c
   if (config.m_relaxPDB == true)
     {
       RelaxPDB (size, x, y, z, config, potentials, pdb, np, radius, npType, false);
+      double zcom = 0.0;
+      for( int i = 0; i < size; ++ i){
+       zcom += z[i];
+       }
+       zcom= zcom/size;
+       for( int i = 0; i< size; ++i){
+        z[i] = z[i] - zcom + ccdAtMin ;//final adjustment to account for bead flexibility
+       }
+
     }
   else
     {
